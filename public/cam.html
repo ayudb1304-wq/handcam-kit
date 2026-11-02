@@ -118,9 +118,7 @@ const relay = connectRelay({
   },
 });
 
-// Ask the desk for a scene if we arrived late: Phase 0 just loads the template directly.
-fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: 'parking lot' }) })
-  .then(r => r.json()).then(({ scene }) => { if (!sceneGroup) setScene(scene); });
+// The set comes from the desk: it sends `scene` whenever it builds one and whenever this phone joins.
 
 // --- recording (Phase 2 fills in buffering, IndexedDB, take upload) --------
 let recording = false, recStart = 0;

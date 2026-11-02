@@ -12,7 +12,7 @@ Server relays, desk shows QR, phone tilts a camera. No recording yet.
 
 ---
 
-## Phase 1 — Scene from a sentence · `todo`
+## Phase 1 — Scene from a sentence · `done` (passed on iPhone 14 via cloudflared, 2026-11-02)
 
 - `POST /api/scene` calls Claude (when key present) with `server/scene-prompt.md`; validates against schema; falls back to templates.
 - Desk renders objects (plane/box/cylinder/sphere/stickfigure) in overview; sends `scene` to phone; phone renders same.

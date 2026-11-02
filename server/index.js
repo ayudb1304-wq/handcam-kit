@@ -1,15 +1,18 @@
-// HandCam relay. Phase 0: static files + dumb WebSocket relay + QR info.
-// Phase 1 adds POST /api/scene (LLM with template fallback). See docs/ARCHITECTURE.md.
+// HandCam relay: static files + dumb WebSocket relay + QR info + POST /api/scene. See docs/ARCHITECTURE.md.
 import express from 'express';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
 import { networkInterfaces } from 'node:os';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { readFile, readdir } from 'node:fs/promises';
 import { MSG, ROLES, makeRoomCode } from '../public/shared/protocol.js';
+import { buildScene, DEFAULT_MODEL } from './scene.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+// Optional .env in the project root (gitignored) for ANTHROPIC_API_KEY etc. Needs Node ≥ 20.12; otherwise use `export`.
+const ENV_FILE = join(__dirname, '..', '.env');
+if (existsSync(ENV_FILE)) process.loadEnvFile ? process.loadEnvFile(ENV_FILE) : console.warn('.env found but this Node is too old to load it; export the variables instead');
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_URL = process.env.PUBLIC_URL || '';
 
@@ -29,24 +32,10 @@ app.get('/api/info', (req, res) => {
   });
 });
 
-// Phase 1 fills this in. Phase 0 returns a template so the pages have something to render.
+// Scene from a sentence: Claude if ANTHROPIC_API_KEY is set, else (or on failure) a keyword-matched template.
 app.post('/api/scene', async (req, res) => {
-  const { prompt = '' } = req.body || {};
-  const scene = await templateScene(prompt);
-  res.json({ scene, source: 'template' });
+  res.json(await buildScene(req.body?.prompt));
 });
-
-async function templateScene(prompt) {
-  const dir = join(__dirname, 'templates');
-  const files = (await readdir(dir)).filter(f => f.endsWith('.json'));
-  const p = prompt.toLowerCase();
-  // crude keyword match; Phase 1 replaces with a scored matcher + tests
-  const pick = files.find(f => p.includes(f.replace('.json', '').split('-')[0])) || 'parking-lot.json';
-  const scene = JSON.parse(await readFile(join(dir, pick), 'utf8'));
-  scene.prompt = prompt;
-  scene.id = `scene-${Date.now()}`;
-  return scene;
-}
 
 // ---- WebSocket relay -------------------------------------------------------
 const server = createServer(app);
@@ -95,5 +84,6 @@ function lanIp() {
 
 server.listen(PORT, () => {
   console.log(`HandCam relay  →  http://localhost:${PORT}/desk   (LAN: http://${lanIp()}:${PORT})`);
+  console.log(process.env.ANTHROPIC_API_KEY ? `scenes: Claude (${process.env.ANTHROPIC_MODEL || DEFAULT_MODEL})` : 'scenes: templates only (set ANTHROPIC_API_KEY for AI blockouts)');
   console.log(`room ${DEFAULT_ROOM}${PUBLIC_URL ? `   public: ${PUBLIC_URL}` : '   (set PUBLIC_URL to your https tunnel for phone testing)'}`);
 });

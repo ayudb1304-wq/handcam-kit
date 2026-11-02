@@ -1,6 +1,6 @@
-// Scene JSON -> THREE.Group. Phase 0: plane/box/cylinder/sphere + a placeholder stick figure.
-// Phase 1 moves the stick figure to shared/stickfigure.js with real poses.
+// Scene JSON -> THREE.Group. Used by both desk.html and cam.html so they always show the same set.
 import * as THREE from './three.js';
+import { buildStickFigure } from './stickfigure.js';
 
 export function renderScene(scene) {
   const g = new THREE.Group();
@@ -54,24 +54,11 @@ function buildObject(o) {
       return place(new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat(o.color)), o);
     }
     case 'stickfigure':
-      return place(placeholderFigure(o.height || 1.75, o.color || '#e0a040'), o);
+      return place(buildStickFigure(o), o);
     default:
       console.warn('unknown object type', o.type);
       return null;
   }
-}
-
-// Phase 0 placeholder: a capsule-ish person. Replaced by shared/stickfigure.js in Phase 1.
-function placeholderFigure(h, color) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, h * 0.6, 12), mat(color));
-  body.position.y = h * 0.6 / 2 + h * 0.25;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(h * 0.08, 12, 10), mat(color));
-  head.position.y = h * 0.92;
-  const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, h * 0.25, 8), mat(color));
-  legs.position.y = h * 0.125;
-  g.add(body, head, legs);
-  return g;
 }
 
 export function addDefaultLights(scene3) {

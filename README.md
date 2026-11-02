@@ -32,6 +32,14 @@ npm install
 npm run dev
 ```
 
+Optional, for AI-built sets: copy your Anthropic API key, then run this once in the project folder. It writes the key from your clipboard into `.env`, which is gitignored and never committed:
+
+```bash
+printf 'ANTHROPIC_API_KEY=%s\n' "$(pbpaste)" > .env
+```
+
+Without a key, the app uses three built-in sets (parking lot, room, street corner).
+
 Open `http://localhost:3000/desk` on your laptop. It shows a QR code.
 Your phone needs **HTTPS** to read the gyro (iOS rule). Easiest path, in a second terminal:
 

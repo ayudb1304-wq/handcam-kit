@@ -45,3 +45,21 @@ Add to this file whenever a choice would look strange to a newcomer.
 ## 10. Words
 We say: set, shoot, take, re‑anchor, export, blockout.
 We don't say: keyframe, F‑curve, armature, viewport, transform, NLA, rig.
+
+## 11. Cars are one box, not a box plus four wheels
+**Context.** SPEC says "cars are boxes with wheels", but the scene format has no grouping. Five loose objects per car means dragging the car in Phase 3 leaves its wheels behind.
+**Decision.** A car is one labelled box (1.8 × 1.4 × 4.5 m). Revisit only if the scene format gets groups.
+
+## 12. Claude call: raw fetch, structured output, Sonnet, low effort
+**Context.** No new deps allowed, and the user is waiting on the build button (SPEC: ~5 s).
+**Decision.** `server/scene.js` calls the Messages API with `fetch`, model `claude-sonnet-5-5` (override with `ANTHROPIC_MODEL`), effort `low` (~5 s). The schema is pasted into the system prompt; we do **not** use the API's `json_schema` structured output. Measured on the Phase 1 prompt: with structured output Claude returned 1–3 objects (just ground planes); without it, 12 objects. The result is checked by `server/validate-scene.js`, which also enforces what the schema can't (unique ids, size length per type); fields that don't apply to a type (e.g. `pose` on a box) are dropped first rather than failing the scene. Any failure (refusal, timeout, bad JSON, invalid scene) falls back to a template; the reason goes back as `note` and shows as a tooltip on the desk label.
+
+## 13. The phone gets its set only from the desk
+The Phase 0 phone page fetched a parking-lot template on its own, which flashed the wrong set before the desk's arrived. Removed: the desk sends `scene` on every build and whenever the phone joins. Phone-only mode (Phase 5) will add a prompt box to the phone instead.
+
+## 14. API key from env or a local `.env`
+`server/index.js` loads `.env` (gitignored) with Node's built-in `process.loadEnvFile` if the file exists. No dotenv dependency. On Node < 20.12 use `export ANTHROPIC_API_KEY=…`.
+
+## 15. Not on Vercel (yet)
+**Context.** Vercel Functions do support WebSockets, but with no instance affinity: the desk and phone can land on different instances, so the in-memory room map in the relay silently fails to pair them. Connections also close at the function's max duration (300 s on Hobby).
+**Decision.** Test over the cloudflared tunnel. Pick the Phase 5 host knowing this: Vercel needs an external store (e.g. Redis) for rooms plus client reconnect, which breaks §7 "relay is dumb" and the no-new-deps rule; a single always-on Node host (Fly/Railway/Render) runs the relay unchanged. Either way `/api/scene` needs protecting before a public URL exists, or anyone with the link spends the API key.

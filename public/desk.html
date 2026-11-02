@@ -133,15 +133,21 @@ const relay = connectRelay({
 });
 
 // --- build scene from prompt ----------------------------------------------
-document.getElementById('build').onclick = async () => {
+const buildBtn = document.getElementById('build'), srcEl = document.getElementById('src');
+buildBtn.onclick = async () => {
   const prompt = document.getElementById('prompt').value.trim() || 'parking lot';
-  document.getElementById('src').textContent = 'building…';
-  const { scene, source } = await (await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) })).json();
-  setScene(scene);
-  document.getElementById('src').textContent = `blockout · ${source}`;
-  relay.send({ t: MSG.SCENE, scene });
+  buildBtn.disabled = true; srcEl.textContent = 'building…'; srcEl.title = '';
+  try {
+    const { scene, source, note } = await (await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) })).json();
+    setScene(scene);
+    srcEl.textContent = `blockout · ${source === 'llm' ? 'ai' : 'template'}`;
+    srcEl.title = note || '';
+    relay.send({ t: MSG.SCENE, scene });
+  } catch (e) {
+    srcEl.textContent = 'could not build, try again';
+  } finally { buildBtn.disabled = false; }
 };
-document.getElementById('build').click();
+buildBtn.click();
 
 // --- takes (Phase 2) -------------------------------------------------------
 function addTake(take) {
