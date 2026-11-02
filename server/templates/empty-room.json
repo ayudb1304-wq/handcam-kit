@@ -1,0 +1,13 @@
+{
+  "units": "m",
+  "spawn": { "p": [0, 1.6, 3], "yaw": 0 },
+  "objects": [
+    { "id": "floor", "type": "plane", "size": [6, 5], "color": "#8b7a63" },
+    { "id": "wall-n", "type": "box", "p": [0, 1.35, -2.5], "size": [6, 2.7, 0.15], "color": "#d9d4c7" },
+    { "id": "wall-w", "type": "box", "p": [-3, 1.35, 0], "size": [0.15, 2.7, 5], "color": "#d9d4c7" },
+    { "id": "wall-e", "type": "box", "p": [3, 1.35, 0], "size": [0.15, 2.7, 5], "color": "#d9d4c7" },
+    { "id": "table", "type": "box", "p": [0, 0.72, -0.5], "size": [1.4, 0.05, 0.8], "color": "#6b4e2e", "label": "table" },
+    { "id": "chair", "type": "box", "p": [0, 0.45, 0.4], "size": [0.45, 0.9, 0.45], "color": "#444444", "label": "chair" },
+    { "id": "person", "type": "stickfigure", "p": [0, 0, 0.4], "rot": [0, 3.14159, 0], "height": 1.7, "pose": "sitting", "color": "#e0a040" }
+  ]
+}

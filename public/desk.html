@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HandCam · desk</title>
+<style>
+  :root { color-scheme: dark; --bg:#0e1014; --panel:#161920; --line:#262b35; --fg:#e8eaee; --mute:#8a90a0; --acc:#6ea8ff; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, sans-serif; }
+  #app { display:grid; grid-template-columns: 300px 1fr 280px; height:100%; }
+  aside, section { min-width:0; }
+  aside { background:var(--panel); border-right:1px solid var(--line); padding:16px; display:flex; flex-direction:column; gap:14px; overflow:auto; }
+  aside.right { border-right:0; border-left:1px solid var(--line); }
+  h1 { font-size:15px; margin:0; letter-spacing:.3px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); margin:8px 0 4px; }
+  textarea { width:100%; box-sizing:border-box; background:#0b0d11; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; resize:vertical; min-height:72px; }
+  button { font:inherit; background:var(--acc); color:#06122a; border:0; border-radius:8px; padding:9px 12px; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
+  #qr { background:#fff; padding:10px; border-radius:10px; width:fit-content; }
+  #qr canvas, #qr img { display:block; }
+  .mute { color:var(--mute); font-size:12px; }
+  code { background:#0b0d11; padding:1px 5px; border-radius:4px; font-size:12px; }
+  #view { display:block; width:100%; height:100%; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .warn { background:#3a2a10; border:1px solid #6b4d14; color:#ffd58a; padding:8px 10px; border-radius:8px; font-size:12px; }
+  #takes li { list-style:none; padding:8px; border:1px solid var(--line); border-radius:8px; margin:0 0 6px; }
+  #takes { padding:0; margin:0; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <h1>HandCam</h1>
+    <div>
+      <h2>Describe the set</h2>
+      <textarea id="prompt" placeholder="parking lot at night, one car, a guy wedged between two parked cars"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="build">Build blockout</button>
+        <span class="mute" id="src"></span>
+      </div>
+    </div>
+    <div>
+      <h2>Connect your phone</h2>
+      <div id="qr"></div>
+      <p class="mute" id="link"></p>
+      <div id="httpsWarn" class="warn" hidden>Phone motion needs <b>https</b>. Run <code>npm run tunnel</code>, then restart with <code>PUBLIC_URL=https://… npm run dev</code>.</div>
+    </div>
+    <div>
+      <h2>Status</h2>
+      <div class="row"><span id="status" class="mute">no phone yet</span></div>
+      <label class="row mute" style="margin-top:6px"><input type="checkbox" id="filter" checked> smooth live gizmo (display only)</label>
+    </div>
+  </aside>
+
+  <section><canvas id="view"></canvas></section>
+
+  <aside class="right">
+    <h2>Takes</h2>
+    <ul id="takes"><li class="mute">Tap ● on the phone to shoot. Takes appear here. (Phase 2)</li></ul>
+  </aside>
+</div>
+
+<script type="module">
+import * as THREE from './shared/three.js';
+import { OrbitControls } from './shared/three.js';
+import { MSG, connectRelay } from './shared/protocol.js';
+import { renderScene, addDefaultLights } from './shared/scene-render.js';
+
+// --- info + QR -------------------------------------------------------------
+const info = await (await fetch('/api/info')).json();
+const base = info.publicUrl || info.lanUrl;
+const camUrl = `${base.replace(/\/$/, '')}/cam?room=${info.room}`;
+document.getElementById('link').innerHTML = `Room <b>${info.room}</b> · <a href="${camUrl}" style="color:var(--acc)">${camUrl}</a>`;
+document.getElementById('httpsWarn').hidden = camUrl.startsWith('https');
+// QR via a tiny image API-free approach: use the qrcode lib from CDN.
+const { default: QRCode } = await import('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm');
+const qrCanvas = document.createElement('canvas');
+await QRCode.toCanvas(qrCanvas, camUrl, { width: 180, margin: 0 });
+document.getElementById('qr').append(qrCanvas);
+
+// --- three.js overview -----------------------------------------------------
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene3 = new THREE.Scene();
+scene3.background = new THREE.Color(0x0e1014);
+addDefaultLights(scene3);
+scene3.add(new THREE.GridHelper(40, 40, 0x334, 0x223));
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
+camera.position.set(10, 9, 14);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 1, 0);
+
+// Phone gizmo: a camera frustum that follows live pose.
+const gizmo = new THREE.Group();
+const frustum = new THREE.CameraHelper(new THREE.PerspectiveCamera(60, 16 / 9, 0.2, 1.5));
+gizmo.add(frustum);
+const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12), new THREE.MeshBasicMaterial({ color: 0xff4444 }));
+gizmo.add(dot);
+scene3.add(gizmo);
+
+let sceneGroup = null, currentScene = null;
+function setScene(scene) {
+  currentScene = scene;
+  if (sceneGroup) scene3.remove(sceneGroup);
+  sceneGroup = renderScene(scene);
+  scene3.add(sceneGroup);
+}
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  renderer.setSize(r.width, r.height, false);
+  camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+// --- relay -----------------------------------------------------------------
+const statusEl = document.getElementById('status');
+const targetQ = new THREE.Quaternion(), targetP = new THREE.Vector3(0, 1.6, 6);
+const relay = connectRelay({
+  role: 'desk', room: info.room,
+  onStatus: s => statusEl.textContent = s,
+  onMessage: (m) => {
+    if (m.t === MSG.PEER) { statusEl.textContent = m.joined ? 'phone connected' : 'phone left'; if (m.joined && currentScene) relay.send({ t: MSG.SCENE, scene: currentScene }); }
+    if (m.t === MSG.POSE) { targetQ.set(...m.q); targetP.set(...m.p); dot.material.color.set(m.rec ? 0xff2222 : 0x44ff88); }
+    if (m.t === MSG.TAKE) addTake(m.take);
+  },
+});
+
+// --- build scene from prompt ----------------------------------------------
+document.getElementById('build').onclick = async () => {
+  const prompt = document.getElementById('prompt').value.trim() || 'parking lot';
+  document.getElementById('src').textContent = 'building…';
+  const { scene, source } = await (await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) })).json();
+  setScene(scene);
+  document.getElementById('src').textContent = `blockout · ${source}`;
+  relay.send({ t: MSG.SCENE, scene });
+};
+document.getElementById('build').click();
+
+// --- takes (Phase 2) -------------------------------------------------------
+function addTake(take) {
+  const ul = document.getElementById('takes');
+  if (ul.firstElementChild?.classList.contains('mute')) ul.innerHTML = '';
+  const li = document.createElement('li');
+  const dur = take.samples?.length ? (take.samples.at(-1).ts / 1000).toFixed(1) : '?';
+  li.textContent = `${take.id} · ${dur}s · ${take.samples?.length ?? 0} samples`;
+  ul.prepend(li);
+}
+
+// --- loop: display-only smoothing of the gizmo (NOT applied to data) ------
+const filterOn = document.getElementById('filter');
+function frame() {
+  // Phase 2 replaces this crude slerp with shared/one-euro.js. Either way: display only.
+  if (filterOn.checked) { gizmo.quaternion.slerp(targetQ, 0.5); gizmo.position.lerp(targetP, 0.5); }
+  else { gizmo.quaternion.copy(targetQ); gizmo.position.copy(targetP); }
+  controls.update();
+  renderer.render(scene3, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

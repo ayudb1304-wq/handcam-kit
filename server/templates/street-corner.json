@@ -1,0 +1,15 @@
+{
+  "units": "m",
+  "spawn": { "p": [2, 1.6, 8], "yaw": 0 },
+  "objects": [
+    { "id": "ground", "type": "plane", "size": [60, 60], "color": "#3a3a3a" },
+    { "id": "sidewalk", "type": "box", "p": [-6, 0.075, 0], "size": [4, 0.15, 60], "color": "#8a8a84" },
+    { "id": "bldg-a", "type": "box", "p": [-12, 6, -5], "size": [8, 12, 20], "color": "#7b6a5a", "label": "building" },
+    { "id": "bldg-b", "type": "box", "p": [-12, 4, 14], "size": [8, 8, 12], "color": "#5a6a7b", "label": "building" },
+    { "id": "pole", "type": "cylinder", "p": [-4.5, 3, 2], "size": [0.12, 6], "color": "#777777", "label": "traffic light" },
+    { "id": "light", "type": "box", "p": [-4.5, 5.2, 2], "size": [0.3, 0.9, 0.3], "color": "#222222" },
+    { "id": "car", "type": "box", "p": [0, 0.7, -4], "rot": [0, 0.05, 0], "size": [1.8, 1.4, 4.5], "color": "#a03030", "label": "car" },
+    { "id": "ped-1", "type": "stickfigure", "p": [-5.5, 0.15, 4], "rot": [0, 1.2, 0], "height": 1.8, "pose": "standing", "color": "#e0a040" },
+    { "id": "ped-2", "type": "stickfigure", "p": [-6.5, 0.15, 6], "rot": [0, -0.4, 0], "height": 1.65, "pose": "standing", "color": "#40a0e0" }
+  ]
+}
