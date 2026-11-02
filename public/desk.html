@@ -73,7 +73,7 @@ import { MSG, connectRelay } from './shared/protocol.js';
 import { renderScene, addDefaultLights } from './shared/scene-render.js';
 
 // --- info + QR -------------------------------------------------------------
-const info = await (await fetch('/api/info')).json();
+const info = await (await fetch(`/api/info${location.search}`)).json(); // /desk?room=XXXX picks the room
 const base = info.publicUrl || info.lanUrl;
 const camUrl = `${base.replace(/\/$/, '')}/cam?room=${info.room}`;
 document.getElementById('link').innerHTML = `Room <b>${info.room}</b> · <a href="${camUrl}" style="color:var(--acc)">${camUrl}</a>`;
@@ -99,7 +99,13 @@ controls.target.set(0, 1, 0);
 
 // Phone gizmo: a camera frustum that follows live pose.
 const gizmo = new THREE.Group();
-const frustum = new THREE.CameraHelper(new THREE.PerspectiveCamera(60, 16 / 9, 0.2, 1.5));
+// Starts as a portrait phone; reshaped from each pose's fov/aspect so it outlines exactly what the phone shows.
+const phoneCam = new THREE.PerspectiveCamera(60, 9 / 16, 0.2, 1.5);
+const frustum = new THREE.CameraHelper(phoneCam);
+function matchPhoneView(fov, aspect) {
+  if (!(fov > 0 && aspect > 0) || (fov === phoneCam.fov && aspect === phoneCam.aspect)) return;
+  phoneCam.fov = fov; phoneCam.aspect = aspect; phoneCam.updateProjectionMatrix(); frustum.update();
+}
 gizmo.add(frustum);
 const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12), new THREE.MeshBasicMaterial({ color: 0xff4444 }));
 gizmo.add(dot);
@@ -127,7 +133,7 @@ const relay = connectRelay({
   onStatus: s => statusEl.textContent = s,
   onMessage: (m) => {
     if (m.t === MSG.PEER) { statusEl.textContent = m.joined ? 'phone connected' : 'phone left'; if (m.joined && currentScene) relay.send({ t: MSG.SCENE, scene: currentScene }); }
-    if (m.t === MSG.POSE) { targetQ.set(...m.q); targetP.set(...m.p); dot.material.color.set(m.rec ? 0xff2222 : 0x44ff88); }
+    if (m.t === MSG.POSE) { targetQ.set(...m.q); targetP.set(...m.p); matchPhoneView(m.fov, m.aspect); dot.material.color.set(m.rec ? 0xff2222 : 0x44ff88); }
     if (m.t === MSG.TAKE) addTake(m.take);
   },
 });

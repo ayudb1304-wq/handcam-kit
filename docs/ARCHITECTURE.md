@@ -33,7 +33,8 @@ Three pieces, one repo, one `npm run dev`.
 ## 3. Desk page (`public/desk.html`)
 
 - Prompt box → `/api/scene` → renders the blockout in an overview (OrbitControls) and sends `scene` to the room.
-- Draws a small frustum gizmo that follows the live `pose`.
+- Draws a small frustum gizmo that follows the live `pose`, shaped by the phone's `fov`/`aspect`.
+- `/desk?room=XXXX` reuses a room code (default: the server's room).
 - Drag‑to‑move objects in the overview (Phase 3). Each edit re‑sends `scene`.
 - Take list: receives `take` messages, stores in IndexedDB, scrub bar replays the take by driving the gizmo.
 - Export (Phase 4): JSON, Blender `.py`, and viewport‑captured MP4 via `MediaRecorder` on the POV canvas.
@@ -47,7 +48,7 @@ All messages are JSON with a `t` field.
 | `hello` | any → relay | `{ role: 'cam'|'desk', room }` |
 | `peer` | relay → any | `{ role, joined: true/false }` |
 | `scene` | desk → cam | `{ scene }` (full scene JSON, not a diff) |
-| `pose` | cam → desk | `{ ts, q:[x,y,z,w], p:[x,y,z], rec: bool }` |
+| `pose` | cam → desk | `{ ts, q:[x,y,z,w], p:[x,y,z], rec: bool, fov, aspect }` (fov/aspect = the phone's view, so the desk frustum matches what the phone shows; not stored in takes) |
 | `rec` | desk → cam | `{ state: 'start'|'stop' }` (desk can also trigger recording) |
 | `take` | cam → desk | `{ take }` (see format below) |
 | `anchor` | cam → desk | `{}` informational |

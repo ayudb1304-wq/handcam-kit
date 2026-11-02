@@ -5,7 +5,7 @@ export const MSG = Object.freeze({
   HELLO: 'hello',   // any -> relay   { role, room }
   PEER: 'peer',     // relay -> any   { role, joined }
   SCENE: 'scene',   // desk -> cam    { scene }
-  POSE: 'pose',     // cam -> desk    { ts, q:[x,y,z,w], p:[x,y,z], rec }
+  POSE: 'pose',     // cam -> desk    { ts, q:[x,y,z,w], p:[x,y,z], rec, fov, aspect }  fov = vertical degrees, aspect = w/h of the phone view
   REC: 'rec',       // desk -> cam    { state:'start'|'stop' }
   TAKE: 'take',     // cam -> desk    { take }
   ANCHOR: 'anchor', // cam -> desk    {}

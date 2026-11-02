@@ -142,7 +142,7 @@ function frame(t) {
   renderer.render(scene3, camera);
   if (haveOrientation && t - lastSend >= 1000 / 60) {
     lastSend = t;
-    relay.send({ t: MSG.POSE, ts: recording ? t - recStart : t, q: [q.x, q.y, q.z, q.w], p: camera.position.toArray(), rec: recording });
+    relay.send({ t: MSG.POSE, ts: recording ? t - recStart : t, q: [q.x, q.y, q.z, q.w], p: camera.position.toArray(), rec: recording, fov: camera.fov, aspect: camera.aspect });
   }
   requestAnimationFrame(frame);
 }
