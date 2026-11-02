@@ -73,6 +73,17 @@ The Phase 0 phone page fetched a parking-lot template on its own, which flashed 
 - **Desk playback shows samples exactly, no blending between them** (last sample at or before the playhead). The inset renders the take's own camera with its recorded fov/aspect.
 - **A take that finishes while the desk is disconnected stays only on the phone** (IndexedDB). Resending is left for Phase 5's reconnect work.
 
-## 17. Actors may move; the camera still may not
+## 17. The set may move; the camera still may not
 **Context.** Planning a shot often means following someone. A static set can't rehearse that.
-**Decision.** Phase 3b lets stick figures walk/turn/change pose via a short list of actions written from a sentence. This does not break §1: the rule is about the *camera*, which stays 100 % hand-recorded. To keep the "no keyframes" promise, actions have no times you can drag: each starts when the previous ends, at a real-world speed. Actor motion is recomputed from (scene, take ts) by one shared function, so takes stay raw camera data only.
+**Decision.** Phase 3b lets objects in the set move (people walk, cars drive, riders are carried, and the camera may *ride along* with one) via a short list of actions written from a sentence. This does not break §1: the rule is about the *camera*, which stays 100 % hand-recorded; riding along only changes what the hand's motion is relative to. To keep the "no keyframes" promise, actions have no times you can drag: each starts when the previous ends, at a real-world speed. Actor motion is recomputed from (scene, take ts) by one shared function, so takes stay raw camera data only.
+
+## 18. Rigs limit the camera while shooting; they are not smoothing
+**Context.** People want steadier shots, and the obvious answer (a smoothing slider on the take) breaks §1.
+**Decision.** Rigs (handheld, gimbal, tripod, dolly; Phase 4b) constrain which axes the phone may move *at capture time*, exactly like putting a real camera on a real rig. The samples are still the raw, unfiltered result of what the hand did within that limit. Want a different feel? Pick a rig and re-shoot.
+
+## 19. Frame shape and lens are chosen before shooting and recorded with the take
+**Context.** AI video tools want 16:9 or 9:16; the phone screen is ~0.46. Exporting a different shape than the operator saw changes the composition after the fact.
+**Decision.** The frame (16:9 / 9:16 / 2.39) is picked on the phone before ●, shown while shooting, and stored with the take. Focal length is recorded per sample, so a zoom is a hand-performed move like any other (Phase 4).
+
+## 20. Competitive position (Nov 2026)
+Closest competitor is Higgsfield (3D Jutsu: prompt → 3D scene with characters, preset/drawn camera paths, render to AI video; phone camera control only inside Blender). Our edge: the camera is genuinely hand-shot with raw data kept, no 3D software at all, phone-only possible, open exports, works without any vendor. Plan changes that follow from this are in PLAN.md (3b, 4, 4b, 5, 5b, 6, 7); details in `docs/COMPETITORS.md`.

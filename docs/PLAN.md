@@ -2,6 +2,8 @@
 
 Each phase ends with an **acceptance test you run with your own iPhone**. Do not start the next phase until it passes. Status: `todo | doing | done`.
 
+Order: 0 → 1 → 2 → 3 → 3b → 4 → 4b → 5 → 5b → 6 → 7. Why the later phases look the way they do: `docs/COMPETITORS.md`.
+
 ---
 
 ## Phase 0 — Scaffold runs · `done` (shipped in this kit)
@@ -45,46 +47,92 @@ Server relays, desk shows QR, phone tilts a camera. No recording yet.
 
 ---
 
-## Phase 3b — Actors move · `todo`
+## Phase 3b — Things move · `todo`
 
-People in the set can walk, turn and change pose during a take, so you can plan "follow him to the car" shots. The **camera** is still never authored; this only moves the actors.
+People walk, cars drive, someone rides in the car, and the camera can ride along, so you can plan "follow him to the car" and "frame the driver through the windscreen" shots. The **camera** is still never authored: your hand records it; this phase only moves the set (DECISIONS §17).
 
-- Scene format: a stick figure can have `moves`, an ordered list of simple actions, e.g. `{ "do": "walk", "to": [x, z], "speed": 1.4 }`, `{ "do": "turn", "yaw": 1.57 }`, `{ "do": "pose", "pose": "sitting" }`, `{ "do": "wait", "s": 2 }`. Each starts when the previous one ends. No timeline, no keyframes, no curves: actions are described in words and Claude writes them (Phase 3's edit box: "the guy walks to the red car, then sits down").
-- Clock: actors stand at their start position until ● is pressed; the take's own `ts` is the actors' clock, so the motion is a pure function of (scene, ts). Takes store nothing new; replay and export recompute it from the scene the take was shot in.
-- Phone: actors play live while recording; a **Rehearse** button plays the actions once without recording, then resets.
-- Desk: actors move during live view of a recording and during take playback, in sync with the scrub bar.
-- Walk looks like walking: a simple procedural leg/arm swing tied to distance covered (not a mocap clip). Constant speed, straight lines between points, turning to face the direction of travel.
-- Validator + scene-prompt updated; template scenes stay static.
+- **Moves on any object.** Optional `moves` on any object: an ordered list of simple actions, each starting when the previous ends: `{ "do": "go", "to": [x, z], "speed": 1.4 }` (walk/drive in a straight line, turning to face the way it travels), `{ "do": "turn", "yaw": 1.57 }`, `{ "do": "pose", "pose": "sitting" }` (stick figures only), `{ "do": "wait", "s": 2 }`. Several `go` steps make a curve. No timeline, no keyframes, no draggable times: Claude writes the actions from words ("the car drives to the corner at 30 km/h, then stops").
+- **Riding.** Optional `on: "<object id>"`: the object is carried by another, using its offset at rest (a driver in a car, a passenger on a bus). One level deep is enough.
+- **Ride-along camera.** On the phone, *Ride with…* picks a moving object. Your hand and the joysticks then move the camera relative to it while it travels. The take still stores the final world position per sample, so replay and export need nothing special.
+- **Clock.** Everything waits at its start until ● is pressed; the take's `ts` is the set's clock. Motion is a pure function of (scene, ts) in one shared module, so takes stay camera-only and the desk/exporter recompute the set.
+- **Rehearse** on the phone plays the set's motion once without recording, then resets.
+- **Desk** shows set motion live during a recording and during take playback, in sync with the scrub bar.
+- Walking stick figures swing legs/arms by distance covered; vehicles just glide (no wheels, no physics).
+- Claude lays out longer roads/paths when the prompt involves travel. Templates stay static.
 
-**Accept:** Type "the guy walks to the red car, then crouches". Press ● on the phone: he starts walking from his spot at a normal pace, reaches the car, crouches. Follow him with the phone. On the laptop, scrub the take: he walks in exact sync with the camera move. Shoot again: he starts over from the beginning. Rehearse plays the same thing without creating a take.
+**Accept:** Type "a guy drives a car down the street past two parked cars". Choose *Ride with: car*, press ●, frame the driver through the windscreen while the street slides past; stop. On the laptop, scrub: car, driver and camera move in exact sync. Then type "the guy walks to the red car, then crouches", press ●, follow him on foot; he starts over on every take. Rehearse plays without creating a take.
 
 ---
 
-## Phase 4 — Export · `todo`
+## Phase 4 — Frame, lens and export · `todo`
 
+Two parts: shoot in the shape and lens the final video needs, then export it in forms AI video tools and Blender take directly.
+
+**Frame and lens (phone)**
+- Choose the output frame before shooting: **16:9, 9:16, 2.39:1** (default 16:9). The phone shows exactly that frame (bars outside it); the desk frustum and inset match.
+- **Zoom slider** labelled in full-frame lens sizes (16–135 mm, default 24 mm). The value is recorded **per sample** like position and rotation: a zoom is performed by hand, never added later.
+- Take format gains `frame` (aspect) and per-sample focal length; ARCHITECTURE.md updated.
+
+**Export (desk)**
+- **Video reference for AI video**: renders the take's camera view of the grey set (no outlines/labels), at the take's frame, in sizes the major models accept (1920×1080 / 1080×1920 / 1920×804), 24 or 30 fps, as `.mp4` (`.webm` fallback). Also a **first-frame PNG** for image-to-video, and a short **ready-to-paste prompt** describing the move and set ("handheld, slow push-in toward a man between two cars at night…").
 - **JSON**: take + scene in one file.
-- **Blender**: `exporters/blender_import.py`, builds scene primitives, creates a camera with a keyframe per sample (converted axes), sets scene FPS to 60 and frame range. Actors with `moves` (Phase 3b) are baked into the same frames from the same shared motion function, so they stay in sync with the camera. The desk's *Blender* button downloads a zip: `take.json`, `scene.json`, `import.py`, `README.txt` with the one command to run.
+- **Blender**: `exporters/blender_import.py` builds scene primitives, creates a camera with a key per sample (converted axes) including focal length, sets FPS and frame range. Set motion from Phase 3b is baked from the same shared function. The desk's *Blender* button downloads a zip: `take.json`, `scene.json`, `import.py`, `README.txt` with the one command to run.
 - **Smoothing on export only**: slider 0–1 maps to 1€ `mincutoff` from 1.0 Hz (raw) down to 0.05 Hz. Default 0. Raw samples untouched in the file.
-- **Video reference**: `MediaRecorder` on the POV canvas during playback → `.webm` (Safari: `.mp4` if available). 1080p, 30 fps.
 
-**Accept:** Run the printed Blender command on a fresh Blender 4.x. Press play. The camera moves exactly like the phone did, Z‑up, correct handedness (pan right in reality = pan right in Blender). Export the same take at smoothing 0.8 and confirm the raw JSON is byte‑identical to the 0.0 export's `take.json`.
-
----
-
-## Phase 5 — Stranger test · `todo`
-
-- Empty‑state copy, onboarding hints on both pages (max three sentences each).
-- Error states: no HTTPS (explain, link to tunnel), motion permission denied, phone disconnected (reconnect with backoff, resume room).
-- Phone‑only mode: `/cam` without a room shows the prompt box too.
-- Deploy to a URL (Vercel for static + a small WS host, or one Fly/Railway box). Update README.
-
-**Accept:** Hand the URL to someone who has never seen it. They finish SPEC flow steps 1–6 in under 5 minutes with no help. Record what confused them into `DECISIONS.md`.
+**Accept:** Shoot a 16:9 take with a zoom from 24 to 50 mm. The phone showed a 16:9 frame; the exported MP4 matches what you framed, frame for frame, including the zoom. Upload the MP4 (and first-frame PNG) to Seedance or Kling as a motion reference; the generated shot follows your move. Run the printed Blender command on a fresh Blender 4.x and press play: same move, Z-up, pan right stays pan right, the lens changes on the same frames. Export at smoothing 0.8 and confirm `take.json` is byte-identical to the 0.0 export's.
 
 ---
 
-## Phase 6 — True walking (optional, later) · `todo`
+## Phase 4b — Rigs and take review · `todo`
 
-- Thin Swift app: `WKWebView` loading `/cam` + ARKit session posting `p` and `q` into the page via `window.webkit.messageHandlers`. Same JS, real 6DoF.
-- Also: Android Chrome WebXR path in the browser (no app), feature‑detected.
+Steadier shots without smoothing, and the tools directors use to pick the take.
 
-**Accept:** Walk 5 m across a room; the camera moves 5 m in the scene without touching the joystick.
+- **Rigs** on the phone: **Handheld** (everything free, default), **Gimbal** (roll held level), **Tripod** (position locked; pan, tilt, zoom only), **Dolly** (position moves only along the line you're facing when ● is pressed). A rig is a limit applied *while shooting*, like a real rig, and saved with the take (`rig`). The recorded samples are still exactly what the camera did. It is not smoothing (DECISIONS §18).
+- **Star** a take (the "circled take"); starred first in the list. Rename takes.
+- **Compare** two takes side by side on the desk, scrubbing together.
+- **Ghost**: while shooting, optionally show the previous take's camera as a faint outline on the desk and a faint path on the phone, to beat or match it.
+
+**Accept:** Shoot the same push-in handheld, on gimbal and on tripod. Gimbal take: horizon never rolls but tilt/pan wobble remains. Tripod take: position never changes. Star the best one; compare it with the handheld take side by side; the ghost of the last take is visible while shooting the next.
+
+---
+
+## Phase 5 — Stranger test, phone-only, deploy · `todo`
+
+- **Phone-only mode is a headline feature**, not a fallback: `/cam` without a room shows the prompt box, builds the set, shoots, lists takes and exports, all on the phone. No laptop, no 3D software. (Every competitor needs a desktop or Blender; see COMPETITORS.md.)
+- Empty-state copy, onboarding hints on both pages (max three sentences each).
+- Error states: no HTTPS (explain, link to tunnel), motion permission denied, phone/desk disconnected (reconnect with backoff, rejoin the room, resend takes the desk never got).
+- Deploy to a URL. Constraints from DECISIONS §15: one always-on host for the WebSocket relay (or an external room store), and `/api/scene` protected (rate limit + per-browser quota or a passcode) before the URL is public. Update README.
+
+**Accept:** Hand the URL to someone who has never seen it, phone only. They describe a set, shoot a take and export the video in under 5 minutes with no help. Then repeat with phone + laptop (SPEC flow steps 1–6). Record what confused them in `DECISIONS.md`.
+
+---
+
+## Phase 5b — Shots and sequences · `todo`
+
+Plan a whole scene, not just one move.
+
+- A set can hold several **shots**: each is a take (or empty slot) with a name and an order ("1 wide", "2 push-in", "3 OTS").
+- **Sequence view** on the desk: shots play back to back, cut at chosen in/out points within each take (trimming, not editing the move), forming an animatic.
+- Export the sequence as one video reference plus one JSON, and to Blender as one camera per shot with markers to cut between them.
+
+**Accept:** Shoot three takes in one set, assign them to shots 1–3, trim each, play the sequence: it cuts between your three hand-shot moves in order. The exported video plays the same cut.
+
+---
+
+## Phase 6 — True walking · `todo`
+
+Raised from "optional": every hand-held competitor has positional tracking (VirtuCamera, Jetset, VRL Cam, Unreal VCam), so it matters more than first planned.
+
+- Thin Swift app: `WKWebView` loading `/cam` + ARKit session posting `p` and `q` into the page via `window.webkit.messageHandlers`. Same JS, real 6DoF. Joystick and walk scale (1×/3×/10×) still apply on top.
+- Also: Android Chrome WebXR path in the browser (no app), feature-detected.
+
+**Accept:** Walk 5 m across a room; the camera moves 5 m in the scene without touching the joystick. At 10× scale, the same walk moves 50 m.
+
+---
+
+## Phase 7 — Send to an AI video service (optional) · `todo`
+
+- From the export panel, optionally send the video reference + first frame + prompt (+ the user's own reference images) to a video model service, e.g. Higgsfield / Seedance or Kling, and show the result next to the take.
+- Strictly optional: plain file export (Phase 4) stays the default, nothing requires an account with any vendor, and the app works the same without it.
+
+**Accept:** One click from a starred take produces a generated video that follows the hand-shot move; with the integration switched off, nothing else in the app changes.

@@ -10,6 +10,7 @@ This folder is a **kit for Claude Code**, not a finished app. It contains:
 | `docs/PLAN.md` | Six build phases, each with an acceptance test you can run with your own phone |
 | `docs/PROMPTS.md` | Copy‑paste prompts to give Claude Code, one per phase |
 | `docs/DECISIONS.md` | Why gyro‑first, why no smoothing, why iPhone can't walk in Safari, etc. |
+| `docs/COMPETITORS.md` | Who else does this, what they have, and what HandCam adds to be better |
 | `server/`, `public/`, `exporters/` | A **running** starter scaffold so Phase 0 is already done |
 
 ## How to use it

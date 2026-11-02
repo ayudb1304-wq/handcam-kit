@@ -56,45 +56,78 @@ Implement Phase 3 from docs/PLAN.md: select/drag/rotate/delete objects in the de
 
 ---
 
-## Phase 3b — Actors move
+## Phase 3b — Things move
 
 ```
 Implement Phase 3b from docs/PLAN.md.
 
-Constraints from CLAUDE.md still hold: the camera path is never authored or eased. This phase moves actors only, and only through actions described in words; no timeline or keyframe UI.
+Constraints from CLAUDE.md still hold: the camera path is never authored or eased. This phase moves objects in the set only, through actions described in words; no timeline or keyframe UI.
 
-1. Extend public/shared/scene-schema.json and server/validate-scene.js: optional `moves` on stickfigure, actions walk/turn/pose/wait as in PLAN.md. Keep it small.
-2. public/shared/actors.js: a pure function actorStateAt(object, ms) → { p, yaw, pose, stride } used by the phone, the desk and (later) the exporter. Unit-test it in server/*.test.js (walk arrival time, turn, chained actions, past-the-end).
-3. stickfigure.js: walking leg/arm swing driven by `stride` (distance-based), plus blending between poses on a "pose" action.
-4. cam.html: actors start at ● and follow the take clock; Rehearse button plays once without recording.
-5. desk.html: actors follow the live recording and take playback/scrub.
-6. server/scene-prompt.md: teach Claude the actions with an example; edit mode adds moves without touching anything else.
+1. Extend public/shared/scene-schema.json and server/validate-scene.js: optional `moves` on any object (go/turn/pose/wait as in PLAN.md) and optional `on` (carried by another object, one level). Keep it small.
+2. public/shared/motion.js: a pure function stateAt(scene, ms) → per-object { p, yaw, pose, stride } used by the phone, the desk and the exporter. Unit-test it in server/*.test.js (arrival time at speed, turn, chained actions, past-the-end, a rider following its carrier).
+3. stickfigure.js: walking leg/arm swing driven by `stride`, and blending between poses on a "pose" action.
+4. cam.html: set motion starts at ● and follows the take clock; Rehearse plays once without recording; "Ride with…" makes hand + joysticks relative to the chosen object while takes still store world positions.
+5. desk.html: set motion follows the live recording and take playback/scrub.
+6. server/scene-prompt.md: teach Claude moves, riding and longer roads for travel, with an example; edit mode adds moves without touching anything else.
 
 Then tell me how to run the acceptance test.
 ```
 
 ---
 
-## Phase 4 — Export
+## Phase 4 — Frame, lens and export
 
 ```
 Implement Phase 4 from docs/PLAN.md.
 
-1. exporters/blender_import.py — pure bpy, Blender 4.x. Usage in the file header:
+1. Phone: frame picker (16:9 default, 9:16, 2.39:1) shown as bars while shooting; zoom slider in full-frame mm (16–135, default 24) recorded per sample. Update the take format in ARCHITECTURE.md (frame, per-sample focal length) and DECISIONS.md if anything surprises you.
+2. exporters/blender_import.py — pure bpy, Blender 4.x. Usage in the file header:
    blender --background --python exporters/blender_import.py -- take.json scene.json out.blend
-   Build scene primitives (mirror shared/scene-render.js including the stick figure), create camera "HandCam", insert location+rotation_quaternion keyframes per sample at 60 fps using ts, set frame range, save out.blend. Implement three_to_blender() exactly as described in ARCHITECTURE.md and add a self-test at the bottom that round-trips a known pan-right rotation.
-2. Desk "Export" with three buttons: JSON, Blender (zip via a tiny no-dep zip writer in public/shared/zip.js using stored/uncompressed entries), Video reference (MediaRecorder on an offscreen 1920×1080 POV render of the take).
-3. Smoothing slider 0–1 in the export panel, default 0, applied to a COPY of the samples at export time via one-euro.js; raw take.json is always written unchanged alongside.
+   Build scene primitives (mirror shared/scene-render.js including the stick figure and set motion from shared/motion.js), create camera "HandCam", insert location + rotation_quaternion + lens keys per sample using ts, set fps and frame range, save out.blend. Keep three_to_blender() as the only axis conversion and keep its self-test.
+3. Desk "Export": Video reference (offscreen render of the take's camera at the take's frame, 1920 on the long side, 24/30 fps, mp4 or webm fallback, no outlines), first-frame PNG, a ready-to-paste motion prompt, JSON, and Blender (zip via a tiny no-dep stored-entries zip writer in public/shared/zip.js).
+4. Smoothing slider 0–1 in the export panel, default 0, applied to a COPY of the samples via one-euro.js; raw take.json is always written unchanged alongside.
 
-Tell me the exact Blender command to run and what to look for.
+Tell me the exact Blender command, how to try the MP4 as a motion reference in Seedance or Kling, and what to look for.
 ```
 
 ---
 
-## Phase 5 — Stranger test
+## Phase 4b — Rigs and take review
 
 ```
-Implement Phase 5 from docs/PLAN.md. Write the on-screen copy for someone who has only used a phone camera app. Add reconnect with exponential backoff that rejoins the same room. Add phone-only mode. Then give me a deployment recipe for a single small host that serves static files and WebSockets (your pick, justify it in DECISIONS.md), and update README.md.
+Implement Phase 4b from docs/PLAN.md. Rigs (handheld, gimbal, tripod, dolly) are limits applied while shooting and saved with the take; samples stay raw (DECISIONS §18). Add star, rename, side-by-side compare with a shared scrub bar, and the ghost of the previous take on desk and phone. Keep the phone page readable top to bottom.
+```
+
+---
+
+## Phase 5 — Stranger test, phone-only, deploy
+
+```
+Implement Phase 5 from docs/PLAN.md. Phone-only mode is a headline feature: describe, shoot, review and export on the phone alone. Write the on-screen copy for someone who has only used a phone camera app. Add reconnect with exponential backoff that rejoins the same room and resends takes the desk never received. Protect /api/scene before anything is public (DECISIONS §15). Then give me a deployment recipe for a single small host that serves static files and WebSockets (your pick, justify it in DECISIONS.md), and update README.md.
+```
+
+---
+
+## Phase 5b — Shots and sequences
+
+```
+Implement Phase 5b from docs/PLAN.md: named, ordered shots per set, in/out trimming (not editing the move), a sequence view that plays shots back to back, and sequence export (one video, one JSON, Blender with one camera per shot and markers).
+```
+
+---
+
+## Phase 6 — True walking
+
+```
+Implement Phase 6 from docs/PLAN.md: a thin Swift app (WKWebView + ARKit) that feeds p and q into the existing /cam page, plus feature-detected Android WebXR. The JS page must keep working unchanged in plain Safari. Tell me how to install it on my iPhone 14 from Xcode.
+```
+
+---
+
+## Phase 7 — Send to an AI video service (optional)
+
+```
+Implement Phase 7 from docs/PLAN.md as a strictly optional integration: from a take's export panel, send video reference + first frame + prompt (+ my reference images) to the chosen video service and show the result next to the take. Nothing else in the app may depend on it.
 ```
 
 ---
