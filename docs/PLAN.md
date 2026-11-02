@@ -23,7 +23,7 @@ Server relays, desk shows QR, phone tilts a camera. No recording yet.
 
 ---
 
-## Phase 2 — Shoot a take · `todo`
+## Phase 2 — Shoot a take · `done` (passed on iPhone 14 via cloudflared, 2026-11-03)
 
 - Joystick (left thumb: walk/strafe, right thumb: up/down) integrates position at 1.4 m/s, capped. Speed scale setting (1× life‑size, 3×, 10×).
 - Re‑anchor button.

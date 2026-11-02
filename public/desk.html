@@ -15,6 +15,7 @@
   h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); margin:8px 0 4px; }
   textarea { width:100%; box-sizing:border-box; background:#0b0d11; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; resize:vertical; min-height:72px; }
   button { font:inherit; background:var(--acc); color:#06122a; border:0; border-radius:8px; padding:9px 12px; font-weight:600; cursor:pointer; }
+  button { white-space:nowrap; }
   button.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
   #qr { background:#fff; padding:10px; border-radius:10px; width:fit-content; }
   #qr canvas, #qr img { display:block; }
@@ -23,8 +24,17 @@
   #view { display:block; width:100%; height:100%; }
   .row { display:flex; gap:8px; align-items:center; }
   .warn { background:#3a2a10; border:1px solid #6b4d14; color:#ffd58a; padding:8px 10px; border-radius:8px; font-size:12px; }
-  #takes li { list-style:none; padding:8px; border:1px solid var(--line); border-radius:8px; margin:0 0 6px; }
+  [hidden] { display:none !important; }
+  #takes li { list-style:none; padding:8px; border:1px solid var(--line); border-radius:8px; margin:0 0 6px; cursor:pointer; font-variant-numeric:tabular-nums; }
+  #takes li.sel { border-color:var(--acc); background:#1b2333; }
+  #takes li.mute { cursor:default; }
   #takes { padding:0; margin:0; }
+  #player { display:flex; flex-direction:column; gap:8px; border:1px solid var(--line); border-radius:8px; padding:10px; }
+  #player input[type=range] { width:100%; }
+  #time { font-variant-numeric:tabular-nums; }
+  section { position:relative; }
+  #inset { position:absolute; border:2px solid var(--acc); border-radius:4px; pointer-events:none; }
+  #inset span { position:absolute; top:-22px; left:0; font-size:11px; color:var(--acc); white-space:nowrap; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -58,11 +68,16 @@
     </div>
   </aside>
 
-  <section><canvas id="view"></canvas></section>
+  <section><canvas id="view"></canvas><div id="inset" hidden><span>take · camera view</span></div></section>
 
   <aside class="right">
     <h2>Takes</h2>
-    <ul id="takes"><li class="mute">Tap ● on the phone to shoot. Takes appear here. (Phase 2)</li></ul>
+    <div id="player" hidden>
+      <input type="range" id="scrub" min="0" max="1" step="1" value="0" aria-label="Scrub take">
+      <div class="row"><button id="play">▶ Play</button><span id="time" class="mute"></span></div>
+      <div class="row"><span class="mute">Space plays / pauses.</span><button id="live" class="ghost" style="margin-left:auto">Back to live</button></div>
+    </div>
+    <ul id="takes"><li class="mute">Tap ● on the phone to shoot. Takes appear here.</li></ul>
   </aside>
 </div>
 
@@ -71,6 +86,8 @@ import * as THREE from './shared/three.js';
 import { OrbitControls } from './shared/three.js';
 import { MSG, connectRelay } from './shared/protocol.js';
 import { renderScene, addDefaultLights } from './shared/scene-render.js';
+import { OneEuroQuat } from './shared/one-euro.js';
+import { putTake, allTakes, putScene, getScene } from './shared/store.js';
 
 // --- info + QR -------------------------------------------------------------
 const info = await (await fetch(`/api/info${location.search}`)).json(); // /desk?room=XXXX picks the room
@@ -78,7 +95,6 @@ const base = info.publicUrl || info.lanUrl;
 const camUrl = `${base.replace(/\/$/, '')}/cam?room=${info.room}`;
 document.getElementById('link').innerHTML = `Room <b>${info.room}</b> · <a href="${camUrl}" style="color:var(--acc)">${camUrl}</a>`;
 document.getElementById('httpsWarn').hidden = camUrl.startsWith('https');
-// QR via a tiny image API-free approach: use the qrcode lib from CDN.
 const { default: QRCode } = await import('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm');
 const qrCanvas = document.createElement('canvas');
 await QRCode.toCanvas(qrCanvas, camUrl, { width: 180, margin: 0 });
@@ -97,26 +113,32 @@ camera.position.set(10, 9, 14);
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 1, 0);
 
-// Phone gizmo: a camera frustum that follows live pose.
-const gizmo = new THREE.Group();
-// Starts as a portrait phone; reshaped from each pose's fov/aspect so it outlines exactly what the phone shows.
-const phoneCam = new THREE.PerspectiveCamera(60, 9 / 16, 0.2, 1.5);
-const frustum = new THREE.CameraHelper(phoneCam);
-function matchPhoneView(fov, aspect) {
-  if (!(fov > 0 && aspect > 0) || (fov === phoneCam.fov && aspect === phoneCam.aspect)) return;
-  phoneCam.fov = fov; phoneCam.aspect = aspect; phoneCam.updateProjectionMatrix(); frustum.update();
+/** A frustum outline for a phone camera. view() reshapes it to the phone's real fov/aspect. */
+function makeGizmo(color) {
+  const cam = new THREE.PerspectiveCamera(60, 9 / 16, 0.2, 1.5);
+  const helper = new THREE.CameraHelper(cam);
+  helper.setColors(...Array(5).fill(new THREE.Color(color)));
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12), new THREE.MeshBasicMaterial({ color }));
+  const group = new THREE.Group();
+  group.add(helper, dot);
+  scene3.add(group);
+  return { group, dot, view(fov, aspect) {
+    if (!(fov > 0 && aspect > 0) || (fov === cam.fov && aspect === cam.aspect)) return;
+    cam.fov = fov; cam.aspect = aspect; cam.updateProjectionMatrix(); helper.update();
+  } };
 }
-gizmo.add(frustum);
-const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12), new THREE.MeshBasicMaterial({ color: 0xff4444 }));
-gizmo.add(dot);
-scene3.add(gizmo);
+const live = makeGizmo(0xffaa44);   // follows the phone right now
+const replay = makeGizmo(0x6ea8ff); // follows the selected take
+replay.group.visible = false;
+live.group.position.set(0, 1.6, 6);
+const replayCam = new THREE.PerspectiveCamera(60, 9 / 16, 0.05, 200); // renders the inset "what the take saw"
 
-let sceneGroup = null, currentScene = null;
-function setScene(scene) {
-  currentScene = scene;
+let sceneGroup = null, liveScene = null, shownSceneId = null;
+function showScene(scene) {
   if (sceneGroup) scene3.remove(sceneGroup);
   sceneGroup = renderScene(scene);
   scene3.add(sceneGroup);
+  shownSceneId = scene.id;
 }
 function resize() {
   const r = canvas.parentElement.getBoundingClientRect();
@@ -125,16 +147,31 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 
+// --- live pose: 1€ filter on the DISPLAY only ------------------------------
+// Takes are recorded raw on the phone; this only calms what the gizmo shows. Position isn't filtered:
+// it comes from the joystick, which has no sensor noise.
+const filterOn = document.getElementById('filter');
+const liveFilter = new OneEuroQuat({ mincutoff: 1.0, beta: 0.01 });
+filterOn.onchange = () => liveFilter.reset();
+const poseQ = new THREE.Quaternion();
+function onPose(m) {
+  poseQ.fromArray(m.q);
+  if (filterOn.checked) liveFilter.filter(poseQ, m.ts, live.group.quaternion);
+  else live.group.quaternion.copy(poseQ);
+  live.group.position.fromArray(m.p);
+  live.view(m.fov, m.aspect);
+  live.dot.material.color.set(m.rec ? 0xff2222 : 0x44ff88);
+}
+
 // --- relay -----------------------------------------------------------------
 const statusEl = document.getElementById('status');
-const targetQ = new THREE.Quaternion(), targetP = new THREE.Vector3(0, 1.6, 6);
 const relay = connectRelay({
   role: 'desk', room: info.room,
   onStatus: s => statusEl.textContent = s,
   onMessage: (m) => {
-    if (m.t === MSG.PEER) { statusEl.textContent = m.joined ? 'phone connected' : 'phone left'; if (m.joined && currentScene) relay.send({ t: MSG.SCENE, scene: currentScene }); }
-    if (m.t === MSG.POSE) { targetQ.set(...m.q); targetP.set(...m.p); matchPhoneView(m.fov, m.aspect); dot.material.color.set(m.rec ? 0xff2222 : 0x44ff88); }
-    if (m.t === MSG.TAKE) addTake(m.take);
+    if (m.t === MSG.PEER) { statusEl.textContent = m.joined ? 'phone connected' : 'phone left'; if (m.joined && liveScene) relay.send({ t: MSG.SCENE, scene: liveScene }); }
+    if (m.t === MSG.POSE) onPose(m);
+    if (m.t === MSG.TAKE) receiveTake(m.take);
   },
 });
 
@@ -145,37 +182,118 @@ buildBtn.onclick = async () => {
   buildBtn.disabled = true; srcEl.textContent = 'building…'; srcEl.title = '';
   try {
     const { scene, source, note } = await (await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) })).json();
-    setScene(scene);
+    liveScene = scene;
+    selectTake(null);
+    showScene(scene);
     srcEl.textContent = `blockout · ${source === 'llm' ? 'ai' : 'template'}`;
     srcEl.title = note || '';
     relay.send({ t: MSG.SCENE, scene });
+    putScene(scene).catch(() => {}); // so takes shot in this set can be replayed in it later
   } catch (e) {
     srcEl.textContent = 'could not build, try again';
   } finally { buildBtn.disabled = false; }
 };
 buildBtn.click();
 
-// --- takes (Phase 2) -------------------------------------------------------
-function addTake(take) {
-  const ul = document.getElementById('takes');
-  if (ul.firstElementChild?.classList.contains('mute')) ul.innerHTML = '';
-  const li = document.createElement('li');
-  const dur = take.samples?.length ? (take.samples.at(-1).ts / 1000).toFixed(1) : '?';
-  li.textContent = `${take.id} · ${dur}s · ${take.samples?.length ?? 0} samples`;
-  ul.prepend(li);
-}
+// --- takes: list, select, scrub, play ---------------------------------------
+const takesEl = document.getElementById('takes'), player = document.getElementById('player');
+const scrub = document.getElementById('scrub'), playBtn = document.getElementById('play'), timeEl = document.getElementById('time');
+const takes = new Map(); // id -> take
+let current = null, playhead = 0, playing = false;
+const duration = (take) => take.samples.at(-1)?.ts ?? 0;
+const secs = (ms) => (ms / 1000).toFixed(1);
 
-// --- loop: display-only smoothing of the gizmo (NOT applied to data) ------
-const filterOn = document.getElementById('filter');
-function frame() {
-  // Phase 2 replaces this crude slerp with shared/one-euro.js. Either way: display only.
-  if (filterOn.checked) { gizmo.quaternion.slerp(targetQ, 0.5); gizmo.position.lerp(targetP, 0.5); }
-  else { gizmo.quaternion.copy(targetQ); gizmo.position.copy(targetP); }
+function takeLabel(take) {
+  const shotAt = new Date(take.id.slice(0, 19).replace(/T(\d\d)-(\d\d)-(\d\d)/, 'T$1:$2:$3') + 'Z');
+  const when = isNaN(shotAt) ? take.id : shotAt.toLocaleTimeString();
+  return `${when} · ${secs(duration(take))} s · ${take.samples.length} samples`;
+}
+function renderList() {
+  takesEl.innerHTML = '';
+  if (!takes.size) { takesEl.innerHTML = '<li class="mute">Tap ● on the phone to shoot. Takes appear here.</li>'; return; }
+  for (const take of [...takes.values()].sort((a, b) => b.id.localeCompare(a.id))) {
+    const li = document.createElement('li');
+    li.textContent = takeLabel(take);
+    li.title = take.id;
+    li.classList.toggle('sel', take === current);
+    li.onclick = () => selectTake(take);
+    takesEl.append(li);
+  }
+}
+function receiveTake(take) {
+  if (!take?.id || !Array.isArray(take.samples) || !take.samples.length) return;
+  takes.set(take.id, take);
+  putTake(take).catch((e) => console.warn('could not save take', e));
+  selectTake(take);
+}
+async function selectTake(take) {
+  current = take; playing = false; playhead = 0;
+  player.hidden = !take;
+  replay.group.visible = !!take;
+  renderList();
+  if (!take) { if (liveScene && shownSceneId !== liveScene.id) showScene(liveScene); return; }
+  replay.view(take.view?.fov, take.view?.aspect);
+  replayCam.fov = take.view?.fov || 60; replayCam.aspect = take.view?.aspect || 9 / 16; replayCam.updateProjectionMatrix();
+  scrub.max = Math.max(1, Math.round(duration(take)));
+  // Show the set this take was shot in (desk only; the phone keeps the live set).
+  if (take.sceneId && take.sceneId !== shownSceneId) {
+    const scene = take.sceneId === liveScene?.id ? liveScene : await getScene(take.sceneId).catch(() => null);
+    if (scene && current === take) showScene(scene);
+  }
+}
+/** Index of the last sample at or before ms. Samples are shown exactly as recorded: no blending. */
+function sampleAt(samples, ms) {
+  let lo = 0, hi = samples.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (samples[mid].ts <= ms) lo = mid; else hi = mid - 1; }
+  return samples[lo];
+}
+function togglePlay() {
+  if (!current) return;
+  if (!playing && playhead >= duration(current)) playhead = 0;
+  playing = !playing;
+}
+playBtn.onclick = togglePlay;
+scrub.oninput = () => { playing = false; playhead = Number(scrub.value); };
+document.getElementById('live').onclick = () => selectTake(null);
+addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
+  e.preventDefault(); togglePlay();
+});
+for (const take of await allTakes().catch(() => [])) takes.set(take.id, take);
+renderList();
+
+// --- loop ----------------------------------------------------------------
+const insetEl = document.getElementById('inset'), size = new THREE.Vector2();
+let lastT = performance.now();
+function frame(t) {
+  const dt = t - lastT; lastT = t;
+  if (current) {
+    if (playing) { playhead += dt; if (playhead >= duration(current)) { playhead = duration(current); playing = false; } }
+    const s = sampleAt(current.samples, playhead);
+    replay.group.quaternion.fromArray(s.q); replay.group.position.fromArray(s.p);
+    replayCam.quaternion.fromArray(s.q); replayCam.position.fromArray(s.p);
+    scrub.value = playhead;
+    playBtn.textContent = playing ? '❚❚ Pause' : '▶ Play';
+    timeEl.textContent = `${secs(playhead)} / ${secs(duration(current))} s`;
+  }
   controls.update();
+  renderer.setScissorTest(false);
+  renderer.getSize(size);
+  renderer.setViewport(0, 0, size.x, size.y);
   renderer.render(scene3, camera);
+  insetEl.hidden = !current;
+  if (current) { // inset: what the take's camera saw, without the outlines
+    const h = Math.round(size.y * 0.42), w = Math.round(h * replayCam.aspect), x = size.x - w - 16, y = 16;
+    live.group.visible = replay.group.visible = false;
+    renderer.setScissorTest(true);
+    renderer.setScissor(x, y, w, h); renderer.setViewport(x, y, w, h);
+    renderer.render(scene3, replayCam);
+    live.group.visible = replay.group.visible = true;
+    Object.assign(insetEl.style, { left: `${x - 2}px`, top: `${size.y - y - h - 2}px`, width: `${w}px`, height: `${h}px` });
+  }
   requestAnimationFrame(frame);
 }
-frame();
+requestAnimationFrame(frame);
 </script>
 </body>
 </html>

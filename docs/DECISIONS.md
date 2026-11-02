@@ -63,3 +63,12 @@ The Phase 0 phone page fetched a parking-lot template on its own, which flashed 
 ## 15. Not on Vercel (yet)
 **Context.** Vercel Functions do support WebSockets, but with no instance affinity: the desk and phone can land on different instances, so the in-memory room map in the relay silently fails to pair them. Connections also close at the function's max duration (300 s on Hobby).
 **Decision.** Test over the cloudflared tunnel. Pick the Phase 5 host knowing this: Vercel needs an external store (e.g. Redis) for rooms plus client reconnect, which breaks §7 "relay is dumb" and the no-new-deps rule; a single always-on Node host (Fly/Railway/Render) runs the relay unchanged. Either way `/api/scene` needs protecting before a public URL exists, or anyone with the link spends the API key.
+
+## 16. Phase 2 details that look odd
+- **One sample per rendered frame, not per sensor event.** Position comes from the joystick integrated per frame, so a frame is the natural unit; rotation is the latest sensor reading at that frame. The cap is 60 Hz with 4 ms slack (`SAMPLE_MS`), because rAF timestamps jitter around 16.67 ms and a strict `>= 16.67` silently dropped about half the frames.
+- **The phone view is not filtered at all.** The 1€ filter runs only on the desk's live gizmo. The phone screen is what the operator frames with; any lag there would change the hand's behaviour.
+- **The 1€ filter on rotation is a slerp with angular speed in degrees/s** (`shared/one-euro.js`), so `beta = 0.01` has a useful effect. Position is not filtered (joystick, no sensor noise).
+- **Joystick movement ignores tilt.** Walking follows the camera's heading (yaw from a YXZ Euler), so looking down while walking doesn't drive you into the floor. Height has a 0.1 m floor.
+- **Re-anchor happens automatically** on the first motion reading and whenever a new set arrives, so you start facing the set; the button does the same on demand.
+- **Desk playback shows samples exactly, no blending between them** (last sample at or before the playhead). The inset renders the take's own camera with its recorded fov/aspect.
+- **A take that finishes while the desk is disconnected stays only on the phone** (IndexedDB). Resending is left for Phase 5's reconnect work.

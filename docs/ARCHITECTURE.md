@@ -53,7 +53,7 @@ All messages are JSON with a `t` field.
 | `take` | cam → desk | `{ take }` (see format below) |
 | `anchor` | cam → desk | `{}` informational |
 
-Timestamps are `performance.now()` on the phone, ms, monotonic. The desk never trusts its own clock for take timing.
+`pose.ts` is always `performance.now()` on the phone (ms, monotonic), recording or not; only samples inside a take are relative to take start. The desk never trusts its own clock for take timing.
 
 ## Take format (`take.json`)
 
@@ -62,6 +62,7 @@ Timestamps are `performance.now()` on the phone, ms, monotonic. The desk never t
   "id": "2026-11-02T18-04-11Z-a3f9",
   "sceneId": "…",
   "fps_hint": 60,
+  "view": { "fov": 60, "aspect": 0.59 },
   "device": { "ua": "...", "source": "gyro+joystick" },
   "samples": [
     { "ts": 0,      "q": [x,y,z,w], "p": [x,y,z] },
@@ -70,7 +71,8 @@ Timestamps are `performance.now()` on the phone, ms, monotonic. The desk never t
 }
 ```
 
-- `ts` is ms since take start. Irregular spacing is fine and expected.
+- `ts` is ms since take start. Irregular spacing is fine and expected. One sample per rendered frame, capped at 60 Hz.
+- `view` is the phone camera's vertical fov (degrees) and aspect (w/h) while shooting. Exporters use it for the lens.
 - `q` is a unit quaternion in three.js convention (Y up, right‑handed, camera looks down −Z).
 - `p` is meters, Y up.
 - **Samples are raw.** Any smoothing is a property of an *export*, never of the take.
