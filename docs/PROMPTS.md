@@ -56,6 +56,25 @@ Implement Phase 3 from docs/PLAN.md: select/drag/rotate/delete objects in the de
 
 ---
 
+## Phase 3b — Actors move
+
+```
+Implement Phase 3b from docs/PLAN.md.
+
+Constraints from CLAUDE.md still hold: the camera path is never authored or eased. This phase moves actors only, and only through actions described in words; no timeline or keyframe UI.
+
+1. Extend public/shared/scene-schema.json and server/validate-scene.js: optional `moves` on stickfigure, actions walk/turn/pose/wait as in PLAN.md. Keep it small.
+2. public/shared/actors.js: a pure function actorStateAt(object, ms) → { p, yaw, pose, stride } used by the phone, the desk and (later) the exporter. Unit-test it in server/*.test.js (walk arrival time, turn, chained actions, past-the-end).
+3. stickfigure.js: walking leg/arm swing driven by `stride` (distance-based), plus blending between poses on a "pose" action.
+4. cam.html: actors start at ● and follow the take clock; Rehearse button plays once without recording.
+5. desk.html: actors follow the live recording and take playback/scrub.
+6. server/scene-prompt.md: teach Claude the actions with an example; edit mode adds moves without touching anything else.
+
+Then tell me how to run the acceptance test.
+```
+
+---
+
 ## Phase 4 — Export
 
 ```

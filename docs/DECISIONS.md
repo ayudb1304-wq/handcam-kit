@@ -72,3 +72,7 @@ The Phase 0 phone page fetched a parking-lot template on its own, which flashed 
 - **Re-anchor happens automatically** on the first motion reading and whenever a new set arrives, so you start facing the set; the button does the same on demand.
 - **Desk playback shows samples exactly, no blending between them** (last sample at or before the playhead). The inset renders the take's own camera with its recorded fov/aspect.
 - **A take that finishes while the desk is disconnected stays only on the phone** (IndexedDB). Resending is left for Phase 5's reconnect work.
+
+## 17. Actors may move; the camera still may not
+**Context.** Planning a shot often means following someone. A static set can't rehearse that.
+**Decision.** Phase 3b lets stick figures walk/turn/change pose via a short list of actions written from a sentence. This does not break §1: the rule is about the *camera*, which stays 100 % hand-recorded. To keep the "no keyframes" promise, actions have no times you can drag: each starts when the previous ends, at a real-world speed. Actor motion is recomputed from (scene, take ts) by one shared function, so takes stay raw camera data only.

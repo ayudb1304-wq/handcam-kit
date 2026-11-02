@@ -45,10 +45,25 @@ Server relays, desk shows QR, phone tilts a camera. No recording yet.
 
 ---
 
+## Phase 3b — Actors move · `todo`
+
+People in the set can walk, turn and change pose during a take, so you can plan "follow him to the car" shots. The **camera** is still never authored; this only moves the actors.
+
+- Scene format: a stick figure can have `moves`, an ordered list of simple actions, e.g. `{ "do": "walk", "to": [x, z], "speed": 1.4 }`, `{ "do": "turn", "yaw": 1.57 }`, `{ "do": "pose", "pose": "sitting" }`, `{ "do": "wait", "s": 2 }`. Each starts when the previous one ends. No timeline, no keyframes, no curves: actions are described in words and Claude writes them (Phase 3's edit box: "the guy walks to the red car, then sits down").
+- Clock: actors stand at their start position until ● is pressed; the take's own `ts` is the actors' clock, so the motion is a pure function of (scene, ts). Takes store nothing new; replay and export recompute it from the scene the take was shot in.
+- Phone: actors play live while recording; a **Rehearse** button plays the actions once without recording, then resets.
+- Desk: actors move during live view of a recording and during take playback, in sync with the scrub bar.
+- Walk looks like walking: a simple procedural leg/arm swing tied to distance covered (not a mocap clip). Constant speed, straight lines between points, turning to face the direction of travel.
+- Validator + scene-prompt updated; template scenes stay static.
+
+**Accept:** Type "the guy walks to the red car, then crouches". Press ● on the phone: he starts walking from his spot at a normal pace, reaches the car, crouches. Follow him with the phone. On the laptop, scrub the take: he walks in exact sync with the camera move. Shoot again: he starts over from the beginning. Rehearse plays the same thing without creating a take.
+
+---
+
 ## Phase 4 — Export · `todo`
 
 - **JSON**: take + scene in one file.
-- **Blender**: `exporters/blender_import.py`, builds scene primitives, creates a camera with a keyframe per sample (converted axes), sets scene FPS to 60 and frame range. The desk's *Blender* button downloads a zip: `take.json`, `scene.json`, `import.py`, `README.txt` with the one command to run.
+- **Blender**: `exporters/blender_import.py`, builds scene primitives, creates a camera with a keyframe per sample (converted axes), sets scene FPS to 60 and frame range. Actors with `moves` (Phase 3b) are baked into the same frames from the same shared motion function, so they stay in sync with the camera. The desk's *Blender* button downloads a zip: `take.json`, `scene.json`, `import.py`, `README.txt` with the one command to run.
 - **Smoothing on export only**: slider 0–1 maps to 1€ `mincutoff` from 1.0 Hz (raw) down to 0.05 Hz. Default 0. Raw samples untouched in the file.
 - **Video reference**: `MediaRecorder` on the POV canvas during playback → `.webm` (Safari: `.mp4` if available). 1080p, 30 fps.
 
