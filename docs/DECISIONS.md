@@ -87,3 +87,14 @@ The Phase 0 phone page fetched a parking-lot template on its own, which flashed 
 
 ## 20. Competitive position (Nov 2026)
 Closest competitor is Higgsfield (3D Jutsu: prompt → 3D scene with characters, preset/drawn camera paths, render to AI video; phone camera control only inside Blender). Our edge: the camera is genuinely hand-shot with raw data kept, no 3D software at all, phone-only possible, open exports, works without any vendor. Plan changes that follow from this are in PLAN.md (3b, 4, 4b, 5, 5b, 6, 7); details in `docs/COMPETITORS.md`.
+
+## 21. Export video is rendered frame by frame, not screen-recorded
+**Context.** A reference video is only useful if frame *n* shows exactly the camera at time *n*/fps. `MediaRecorder` timestamps frames by the wall clock, so a slow laptop drops or stretches frames.
+**Decision.** `shared/export-video.js` renders each frame on its own canvas (sample at or before the frame time, no blending, same as the desk player), encodes it with WebCodecs `VideoEncoder` (H.264 High) at an exact timestamp, and wraps the stream with **`mp4-muxer` 5.2.2 from jsdelivr**, imported only when Export is pressed. It is the first library loaded on demand outside three.js/qrcode: browsers have no built-in MP4 writer, and a hand-written one would be ~150 lines of box layout to maintain. mp4-muxer is marked "superseded by Mediabunny"; it is frozen, MIT and ~70 KB, which suits us better than Mediabunny's larger, fast-moving API. Desk only, so the phone budget is untouched.
+- **No WebM / MediaRecorder fallback** (PLAN had one). Chrome, Edge and Safari 16.4+ all encode H.264 with WebCodecs; a fallback would bring back the timing problem above. Unsupported browsers get a plain message.
+- **24 fps**, 8 Mbit/s. **1080×1920 or 1920×1080**, picked by how the phone was held. The phone view (~0.46) is not 9:16, so the export keeps whichever fov axis avoids cropping (`exportFov`): it may show a little more at the edges than the phone did, never less. Phase 4's frame picker makes this exact.
+- **The video uses the phone's look** (`povStage`: dark background, fog, same lights), not the desk overview's grid. The reference should be what the operator saw. Other looks (floor grid, flat colours) are recipe experiments, not defaults.
+
+## 22. Why export came before Phases 3 and 3b (Nov 2026)
+Several products now turn a phone move into an AI-video camera move (Higgsfield's Blender plugin, film-space, GREYSET). The open problem, and the thing we aim to be best at, is getting AI video models to actually *follow* the move. That needs many controlled tests (same set, same start image, same prompt, five standard moves, change one thing at a time), and every test needs a grey video. So Phase 4a goes first; Phases 3 and 3b wait. What works goes into a private recipe file, not this repo.
+

@@ -35,6 +35,8 @@
   section { position:relative; }
   #inset { position:absolute; border:2px solid var(--acc); border-radius:4px; pointer-events:none; }
   #inset span { position:absolute; top:-22px; left:0; font-size:11px; color:var(--acc); white-space:nowrap; }
+  #export { border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:6px; }
+  #export a { color:var(--acc); }
 </style>
 <script type="importmap">
 { "imports": {
@@ -76,6 +78,12 @@
       <input type="range" id="scrub" min="0" max="1" step="1" value="0" aria-label="Scrub take">
       <div class="row"><button id="play">▶ Play</button><span id="time" class="mute"></span></div>
       <div class="row"><span class="mute">Space plays / pauses.</span><button id="live" class="ghost" style="margin-left:auto">Back to live</button></div>
+      <div id="export">
+        <div class="row"><button id="exportBtn">Export video</button><span id="exportState" class="mute"></span></div>
+        <span class="mute">A grey video of this take, plus its first frame, to give an AI video tool as the camera move.</span>
+        <span id="exportLen" class="mute"></span>
+        <span id="exportFiles" class="mute" hidden></span>
+      </div>
     </div>
     <ul id="takes"><li class="mute">Tap ● on the phone to shoot. Takes appear here.</li></ul>
   </aside>
@@ -88,6 +96,7 @@ import { MSG, connectRelay } from './shared/protocol.js';
 import { renderScene, addDefaultLights } from './shared/scene-render.js';
 import { OneEuroQuat } from './shared/one-euro.js';
 import { putTake, allTakes, putScene, getScene } from './shared/store.js';
+import { sampleAt } from './shared/frames.js';
 
 // --- info + QR -------------------------------------------------------------
 const info = await (await fetch(`/api/info${location.search}`)).json(); // /desk?room=XXXX picks the room
@@ -235,17 +244,17 @@ async function selectTake(take) {
   replay.view(take.view?.fov, take.view?.aspect);
   replayCam.fov = take.view?.fov || 60; replayCam.aspect = take.view?.aspect || 9 / 16; replayCam.updateProjectionMatrix();
   scrub.max = Math.max(1, Math.round(duration(take)));
+  showLength(take);
   // Show the set this take was shot in (desk only; the phone keeps the live set).
   if (take.sceneId && take.sceneId !== shownSceneId) {
-    const scene = take.sceneId === liveScene?.id ? liveScene : await getScene(take.sceneId).catch(() => null);
+    const scene = await takeScene(take);
     if (scene && current === take) showScene(scene);
   }
 }
-/** Index of the last sample at or before ms. Samples are shown exactly as recorded: no blending. */
-function sampleAt(samples, ms) {
-  let lo = 0, hi = samples.length - 1;
-  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (samples[mid].ts <= ms) lo = mid; else hi = mid - 1; }
-  return samples[lo];
+/** The set a take was shot in: the live one, or one saved on this computer. */
+async function takeScene(take) {
+  if (!take.sceneId || take.sceneId === liveScene?.id) return liveScene;
+  return getScene(take.sceneId).catch(() => null);
 }
 function togglePlay() {
   if (!current) return;
@@ -261,6 +270,44 @@ addEventListener('keydown', (e) => {
 });
 for (const take of await allTakes().catch(() => [])) takes.set(take.id, take);
 renderList();
+
+// --- export: grey reference video + first frame -------------------------------
+const exportBtn = document.getElementById('exportBtn'), exportState = document.getElementById('exportState');
+const exportFiles = document.getElementById('exportFiles');
+let exportUrls = [];
+function showLength(take) { // runs from selectTake, which can fire before this section has run: look the element up
+  const s = duration(take) / 1000;
+  document.getElementById('exportLen').textContent = s < 3 ? `This take is ${secs(s * 1000)} s. Kling needs at least 3 s: shoot a longer one.`
+    : s > 10 ? `This take is ${secs(s * 1000)} s. Some AI video tools only accept 10–15 s; if it's refused, shoot a shorter one.`
+    : '';
+}
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  exportUrls.push(url);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name, textContent: name });
+  a.click();
+  return a;
+}
+exportBtn.onclick = async () => {
+  const take = current;
+  if (!take) return;
+  const scene = await takeScene(take);
+  if (!scene) { exportState.textContent = 'The set this take was shot in isn’t saved on this computer.'; return; }
+  exportBtn.disabled = true; exportFiles.hidden = true;
+  exportState.textContent = 'starting…';
+  try {
+    const { exportTake } = await import('./shared/export-video.js');
+    const out = await exportTake(take, scene, { onProgress: (f) => exportState.textContent = `making video ${Math.round(f * 100)}%` });
+    for (const url of exportUrls) URL.revokeObjectURL(url);
+    exportUrls = [];
+    const name = `handcam-${take.id}`;
+    exportFiles.replaceChildren('Saved to Downloads: ', download(out.mp4, `${name}.mp4`), ' and ', download(out.png, `${name}-first-frame.png`));
+    exportFiles.hidden = false;
+    exportState.textContent = `${out.width}×${out.height} · ${out.fps} fps · ${secs((out.frames - 1) / out.fps * 1000)} s`;
+  } catch (e) {
+    exportState.textContent = e.message;
+  } finally { exportBtn.disabled = false; }
+};
 
 // --- loop ----------------------------------------------------------------
 const insetEl = document.getElementById('inset'), size = new THREE.Vector2();

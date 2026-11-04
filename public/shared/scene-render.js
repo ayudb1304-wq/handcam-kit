@@ -61,6 +61,15 @@ function buildObject(o) {
   }
 }
 
+/** An empty stage with the look of the phone's view. Exported videos use it too, so they match what was framed. */
+export function povStage() {
+  const s = new THREE.Scene();
+  s.background = new THREE.Color(0x0b0d12);
+  s.fog = new THREE.Fog(0x0b0d12, 25, 60);
+  addDefaultLights(s);
+  return s;
+}
+
 export function addDefaultLights(scene3) {
   scene3.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.0));
   const sun = new THREE.DirectionalLight(0xffffff, 1.2);

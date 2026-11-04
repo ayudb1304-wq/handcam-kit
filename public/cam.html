@@ -69,7 +69,7 @@
 import * as THREE from './shared/three.js';
 import { MSG, connectRelay } from './shared/protocol.js';
 import { orientationToQuaternion, requestMotionPermission, screenAngle } from './shared/orientation.js';
-import { renderScene, addDefaultLights } from './shared/scene-render.js';
+import { renderScene, povStage } from './shared/scene-render.js';
 import { makeStick } from './shared/joystick.js';
 import { putTake } from './shared/store.js';
 
@@ -87,10 +87,7 @@ const say = (text, rec = false) => { statusEl.textContent = text; statusEl.class
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-const scene3 = new THREE.Scene();
-scene3.background = new THREE.Color(0x0b0d12);
-scene3.fog = new THREE.Fog(0x0b0d12, 25, 60);
-addDefaultLights(scene3);
+const scene3 = povStage();
 const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 200);
 let sceneGroup = null, sceneId = null, spawn = { p: [0, 1.6, 6], yaw: 0 };
 camera.position.fromArray(spawn.p);

@@ -2,7 +2,7 @@
 
 Each phase ends with an **acceptance test you run with your own iPhone**. Do not start the next phase until it passes. Status: `todo | doing | done`.
 
-Order: 0 → 1 → 2 → 3 → 3b → 4 → 4b → 5 → 5b → 6 → 7. Why the later phases look the way they do: `docs/COMPETITORS.md`.
+Order: 0 → 1 → 2 → **4a** → 3 → 3b → 4 → 4b → 5 → 5b → 6 → 7. Why the later phases look the way they do: `docs/COMPETITORS.md`.
 
 ---
 
@@ -61,6 +61,17 @@ People walk, cars drive, someone rides in the car, and the camera can ride along
 - Claude lays out longer roads/paths when the prompt involves travel. Templates stay static.
 
 **Accept:** Type "a guy drives a car down the street past two parked cars". Choose *Ride with: car*, press ●, frame the driver through the windscreen while the street slides past; stop. On the laptop, scrub: car, driver and camera move in exact sync. Then type "the guy walks to the red car, then crouches", press ●, follow him on foot; he starts over on every take. Rehearse plays without creating a take.
+
+---
+
+## Phase 4a — Export video (pulled forward) · `doing` (built 2026-11-04; waiting for the iPhone test)
+
+Pulled out of Phase 4 so the AI-video tests can start: every recipe test needs a grey video of a take, and nothing else in Phases 3–4 blocks that. Why: DECISIONS §21–22.
+
+- Desk: **Export video** under the take player. Renders the take frame by frame (24 fps), in the phone's look, at 1080×1920 if the phone was upright or 1920×1080 if sideways. Never crops what was framed; may show a little extra at the edges until Phase 4 adds the frame picker.
+- Downloads the MP4 and a PNG of its first frame. Notes when a take is under 3 s (Kling's minimum) or over 10 s.
+
+**Accept:** Shoot a ~6 s take with one fast whip-turn. Export it. The MP4 opens in QuickTime, lasts as long as the take, and the whip lands at the same second it did when you shot it. The PNG matches the video's first frame. Upload both to Seedance or Kling: the files are accepted.
 
 ---
 

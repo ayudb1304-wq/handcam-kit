@@ -37,7 +37,8 @@ Three pieces, one repo, one `npm run dev`.
 - `/desk?room=XXXX` reuses a room code (default: the server's room).
 - Drag‑to‑move objects in the overview (Phase 3). Each edit re‑sends `scene`.
 - Take list: receives `take` messages, stores in IndexedDB, scrub bar replays the take by driving the gizmo.
-- Export (Phase 4): JSON, Blender `.py`, and viewport‑captured MP4 via `MediaRecorder` on the POV canvas.
+- **Export video** (Phase 4a, `shared/export-video.js`): renders the selected take frame by frame on its own canvas in the phone's look (`povStage`), encodes H.264 with WebCodecs and wraps it as MP4 with `mp4-muxer` (CDN, loaded on first export). Downloads `handcam-<take id>.mp4` and `…-first-frame.png`. Frame/time math is in `shared/frames.js` (tested in `server/frames.test.js`).
+- Still to come (Phase 4): JSON and Blender buttons.
 
 ## Wire protocol (`public/shared/protocol.js` is canonical)
 
