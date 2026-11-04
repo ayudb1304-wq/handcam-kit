@@ -1,0 +1,289 @@
+{
+  "units": "m",
+  "spawn": {
+    "p": [
+      0,
+      1.6,
+      6
+    ],
+    "yaw": 0
+  },
+  "objects": [
+    {
+      "id": "ground",
+      "type": "plane",
+      "size": [
+        40,
+        40
+      ],
+      "color": "#1f221d"
+    },
+    {
+      "id": "figure",
+      "type": "stickfigure",
+      "p": [
+        0,
+        0,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        0
+      ],
+      "height": 2.4,
+      "pose": "standing",
+      "color": "#e0a040"
+    },
+    {
+      "id": "dead-tree",
+      "type": "cylinder",
+      "p": [
+        1.2,
+        3.5,
+        -2.2
+      ],
+      "size": [
+        0.6,
+        7
+      ],
+      "color": "#4a3f36",
+      "label": "dead tree"
+    },
+    {
+      "id": "shed",
+      "type": "box",
+      "p": [
+        -5,
+        1.2,
+        0
+      ],
+      "size": [
+        3,
+        2.4,
+        3.5
+      ],
+      "color": "#5c4a38",
+      "label": "old shed"
+    },
+    {
+      "id": "shed-door",
+      "type": "box",
+      "p": [
+        -3.47,
+        1.05,
+        0
+      ],
+      "size": [
+        0.08,
+        2.1,
+        0.9
+      ],
+      "color": "#2a2018",
+      "label": "shed door"
+    },
+    {
+      "id": "car",
+      "type": "box",
+      "p": [
+        5,
+        0.7,
+        -1
+      ],
+      "rot": [
+        0,
+        0.5,
+        0
+      ],
+      "size": [
+        1.8,
+        1.4,
+        4.5
+      ],
+      "color": "#7a4a30",
+      "label": "rusted car"
+    },
+    {
+      "id": "trunk-1",
+      "type": "cylinder",
+      "p": [
+        0,
+        3.5,
+        10
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-2",
+      "type": "cylinder",
+      "p": [
+        5,
+        3.5,
+        8.66
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-3",
+      "type": "cylinder",
+      "p": [
+        8.66,
+        3.5,
+        5
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-4",
+      "type": "cylinder",
+      "p": [
+        10,
+        3.5,
+        0
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-5",
+      "type": "cylinder",
+      "p": [
+        8.66,
+        3.5,
+        -5
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-6",
+      "type": "cylinder",
+      "p": [
+        5,
+        3.5,
+        -8.66
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-7",
+      "type": "cylinder",
+      "p": [
+        0,
+        3.5,
+        -10
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-8",
+      "type": "cylinder",
+      "p": [
+        -5,
+        3.5,
+        -8.66
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-9",
+      "type": "cylinder",
+      "p": [
+        -8.66,
+        3.5,
+        -5
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-10",
+      "type": "cylinder",
+      "p": [
+        -10,
+        3.5,
+        0
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-11",
+      "type": "cylinder",
+      "p": [
+        -8.66,
+        3.5,
+        5
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    },
+    {
+      "id": "trunk-12",
+      "type": "cylinder",
+      "p": [
+        -5,
+        3.5,
+        8.66
+      ],
+      "size": [
+        0.3,
+        7
+      ],
+      "color": "#3b352f",
+      "label": "trunk"
+    }
+  ],
+  "prompt": "A small clearing in a dead forest at night. A tall, thin figure stands perfectly still in the middle of the clearing, about 6 metres from the camera, arms at its sides, facing the camera. Just behind the figure and slightly to its right is a large dead tree with a thick trunk. On the far left of the clearing, about 5 metres from the figure, is an old wooden shed with its door facing the figure. A rusted car sits on the right edge of the clearing, turned slightly away. A ring of bare tree trunks surrounds the whole clearing, spaced a few metres apart. The ground between the camera and the figure is open, with room to walk all the way around the figure.",
+  "id": "scene-1793819537103"
+}

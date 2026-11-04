@@ -15,8 +15,11 @@
 6. Walking (score.py walk_ratio vs the speckled twin): good Seedance runs walked 0.81 to 0.93 of the take's distance, so Seedance slightly under-walks; the failed run 0.13; MiniMax 1.04 (but late).
 7. score.py separates good from bad runs: corr ~0.99 when followed, 0.82 when a move was invented. Usable as an automatic keep/redo check.
 
+8. **App path works (2026-11-05, H1/H4, first hand-shot takes, horror set).** Higgsfield public API `bytedance/seedance-2.5/reference-to-video` with the start image in `image_urls` (not a locked first frame) still followed the move. Whip (H4): 2 of 2 passed, timing +0.04 s, turn corr 0.997–0.998, no swing back, landed on the shed it had to invent. Walk (H1): all 3 walked in at the right moments (walk_corr 0.96–0.996), slightly short (walk_ratio 0.75–0.86), same under-walk as rule 6.
+9. **Hand shake survives** (H4): take wobble 0.32 deg, results 0.38–0.39 deg.
+10. **Scorer false fail on walk-only takes** (H1): with almost no turning (~10 deg drift), turn_corr is noise and the timing search pins at its ±1.5 s limit, so `judge` fails good videos and Make video spends an extra try (≈18 credits). Fix next: skip the turn/timing checks when the take barely turns, and judge timing from walking instead.
+
 ## Not yet known
-- Does the small handheld wobble survive? (T1 move had none.)
-- Hand-shot takes (joystick walk + real hand rotation).
+- Hand-shot shots 2 (walk past), 3 (half circle), 5 (crouch/lower).
 - Grey look vs lighter / grid floor reference.
 - Kling / Genjutsu.
