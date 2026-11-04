@@ -1,0 +1,147 @@
+{
+ "units": "m",
+ "spawn": {
+  "p": [
+   0,
+   1.6,
+   7
+  ],
+  "yaw": 0
+ },
+ "objects": [
+  {
+   "id": "ground",
+   "type": "plane",
+   "size": [
+    40,
+    40
+   ],
+   "color": "#2a2a2e"
+  },
+  {
+   "id": "wall-back",
+   "type": "box",
+   "p": [
+    0,
+    1.5,
+    -8
+   ],
+   "size": [
+    30,
+    3,
+    0.3
+   ],
+   "color": "#4a4a50",
+   "label": "wall"
+  },
+  {
+   "id": "car-left",
+   "type": "box",
+   "p": [
+    -2.6,
+    0.7,
+    -2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    1.8,
+    1.4,
+    4.5
+   ],
+   "color": "#5e6b80",
+   "label": "car"
+  },
+  {
+   "id": "car-right",
+   "type": "box",
+   "p": [
+    0.4,
+    0.7,
+    -2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    1.8,
+    1.4,
+    4.5
+   ],
+   "color": "#7a4f4f",
+   "label": "car"
+  },
+  {
+   "id": "car-far",
+   "type": "box",
+   "p": [
+    3.4,
+    0.7,
+    -2.2
+   ],
+   "rot": [
+    0,
+    0.08,
+    0
+   ],
+   "size": [
+    1.8,
+    1.4,
+    4.5
+   ],
+   "color": "#50705a",
+   "label": "car"
+  },
+  {
+   "id": "guy",
+   "type": "stickfigure",
+   "p": [
+    -1.1,
+    0,
+    -1.2
+   ],
+   "rot": [
+    0,
+    0.3,
+    0
+   ],
+   "height": 1.75,
+   "pose": "standing",
+   "color": "#e0a040"
+  },
+  {
+   "id": "lamp-post",
+   "type": "cylinder",
+   "p": [
+    5,
+    2.5,
+    3
+   ],
+   "size": [
+    0.1,
+    5
+   ],
+   "color": "#888888",
+   "label": "lamp"
+  },
+  {
+   "id": "lamp-head",
+   "type": "sphere",
+   "p": [
+    5,
+    5.1,
+    3
+   ],
+   "size": [
+    0.3
+   ],
+   "color": "#ffe9a8"
+  }
+ ],
+ "id": "demo-parking-lot"
+}

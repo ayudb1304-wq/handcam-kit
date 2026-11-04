@@ -3,43 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HandCam · desk</title>
-<style>
-  :root { color-scheme: dark; --bg:#0e1014; --panel:#161920; --line:#262b35; --fg:#e8eaee; --mute:#8a90a0; --acc:#6ea8ff; }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, sans-serif; }
-  #app { display:grid; grid-template-columns: 300px 1fr 280px; height:100%; }
-  aside, section { min-width:0; }
-  aside { background:var(--panel); border-right:1px solid var(--line); padding:16px; display:flex; flex-direction:column; gap:14px; overflow:auto; }
-  aside.right { border-right:0; border-left:1px solid var(--line); }
-  h1 { font-size:15px; margin:0; letter-spacing:.3px; }
-  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); margin:8px 0 4px; }
-  textarea { width:100%; box-sizing:border-box; background:#0b0d11; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; resize:vertical; min-height:72px; }
-  button { font:inherit; background:var(--acc); color:#06122a; border:0; border-radius:8px; padding:9px 12px; font-weight:600; cursor:pointer; }
-  button { white-space:nowrap; }
-  button.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
-  #qr { background:#fff; padding:10px; border-radius:10px; width:fit-content; }
-  #qr canvas, #qr img { display:block; }
-  .mute { color:var(--mute); font-size:12px; }
-  code { background:#0b0d11; padding:1px 5px; border-radius:4px; font-size:12px; }
-  #view { display:block; width:100%; height:100%; }
-  .row { display:flex; gap:8px; align-items:center; }
-  .warn { background:#3a2a10; border:1px solid #6b4d14; color:#ffd58a; padding:8px 10px; border-radius:8px; font-size:12px; }
-  [hidden] { display:none !important; }
-  #takes li { list-style:none; padding:8px; border:1px solid var(--line); border-radius:8px; margin:0 0 6px; cursor:pointer; font-variant-numeric:tabular-nums; }
-  #takes li.sel { border-color:var(--acc); background:#1b2333; }
-  #takes li.mute { cursor:default; }
-  #takes { padding:0; margin:0; }
-  #player { display:flex; flex-direction:column; gap:8px; border:1px solid var(--line); border-radius:8px; padding:10px; }
-  #player input[type=range] { width:100%; }
-  #time { font-variant-numeric:tabular-nums; }
-  section { position:relative; }
-  #inset { position:absolute; border:2px solid var(--acc); border-radius:4px; pointer-events:none; }
-  #inset span { position:absolute; top:-22px; left:0; font-size:11px; color:var(--acc); white-space:nowrap; }
-  #export { border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:6px; }
-  #export a { color:var(--acc); }
-  #lab { border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:6px; }
-  select { font:inherit; background:#0b0d11; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px; min-width:0; flex:1; }
-</style>
+<title>HandCam Studio</title>
+<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/shared/ui.css">
+<link rel="stylesheet" href="/studio/studio.css">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
@@ -48,336 +15,122 @@
 </script>
 </head>
 <body>
-<div id="app">
-  <aside>
-    <h1>HandCam</h1>
-    <div>
-      <h2>Describe the set</h2>
-      <textarea id="prompt" placeholder="parking lot at night, one car, a guy wedged between two parked cars"></textarea>
-      <div class="row" style="margin-top:8px">
-        <button id="build">Build blockout</button>
-        <span class="mute" id="src"></span>
+<header class="topbar">
+  <a class="brand" href="/" title="HandCam home">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#E07A52"/><path d="M6.5 20.5c2.6-5.2 5.4 1.9 8.2-3.4 2.6-5 5.6-2.4 8.3-7" stroke="#1B0F0A" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="24.6" cy="9.4" r="3" fill="#F4EDE4"/></svg>
+    HandCam <span class="sub">Studio</span>
+  </a>
+  <nav class="steps" aria-label="Progress" data-tour="steps">
+    <div class="step" data-step="set"><span class="n">1</span><span class="label">Set</span></div><i class="step-sep"></i>
+    <div class="step" data-step="shoot"><span class="n">2</span><span class="label">Shoot</span></div><i class="step-sep"></i>
+    <div class="step" data-step="takes"><span class="n">3</span><span class="label">Takes</span></div><i class="step-sep"></i>
+    <div class="step" data-step="make"><span class="n">4</span><span class="label">Make video</span></div>
+  </nav>
+  <div class="top-right">
+    <span class="pill" id="phonePill" title="Phone"><span class="dot" id="phoneDot"></span><span id="status">No phone yet</span></span>
+    <button class="btn quiet sm" id="demoBtn" title="Load an example take to try everything without a phone">Try the demo take</button>
+    <button class="btn quiet icon" id="helpBtn" title="Take the tour" aria-label="Take the tour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.8-.9 1.4v.6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button>
+    <button class="btn quiet icon" id="settingsBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+  </div>
+  <div class="popover card" id="settings" hidden>
+    <span class="eyebrow">Settings</span>
+    <label class="switch">Smooth the live camera outline<input type="checkbox" id="filter" checked></label>
+    <p class="note">Display only. Takes are always recorded raw, exactly as your hand moved.</p>
+    <button class="btn ghost sm" id="replayTour">Show the tour again</button>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- Left: set + phone -->
+  <aside class="col">
+    <section class="card panel" data-tour="set">
+      <div class="panel-head"><span class="eyebrow">01 · Set</span><span class="badge" id="src" hidden></span></div>
+      <h3>Describe the set</h3>
+      <p>One sentence. You get a grey blockout: boxes for things, stick figures for people. That’s on purpose.</p>
+      <textarea class="field" id="prompt" rows="3" placeholder="Empty parking lot at night, one parked car, a man standing beside the driver’s door"></textarea>
+      <div class="chips" id="examples">
+        <button class="chip" type="button">Parking lot at night, a man between two cars</button>
+        <button class="chip" type="button">Office, two people at a desk</button>
+        <button class="chip" type="button">Street corner, a woman waiting</button>
       </div>
-    </div>
-    <div>
-      <h2>Connect your phone</h2>
-      <div id="qr"></div>
-      <p class="mute" id="link"></p>
-      <div id="httpsWarn" class="warn" hidden>Phone motion needs <b>https</b>. Run <code>npm run tunnel</code>, then restart with <code>PUBLIC_URL=https://… npm run dev</code>.</div>
-    </div>
-    <div>
-      <h2>Status</h2>
-      <div class="row"><span id="status" class="mute">no phone yet</span></div>
-      <label class="row mute" style="margin-top:6px"><input type="checkbox" id="filter" checked> smooth live gizmo (display only)</label>
-    </div>
+      <button class="btn primary" id="build">Build the set</button>
+    </section>
+
+    <section class="card panel" data-tour="phone">
+      <div class="panel-head"><span class="eyebrow">02 · Shoot</span><span class="room" id="room"></span></div>
+      <h3>Your phone is the camera</h3>
+      <div class="qr-wrap">
+        <div class="qr" id="qr"></div>
+        <ol class="how">
+          <li><span>1</span><div>Scan with your iPhone camera</div></li>
+          <li><span>2</span><div>Tap <b>Enable motion</b></div></li>
+          <li><span>3</span><div>Tap <b>Re&#8209;anchor</b>, then <b>●</b> to record</div></li>
+        </ol>
+      </div>
+      <div class="link" id="link"></div>
+      <div class="warn-box" id="httpsWarn" hidden>Phone motion needs <b>https</b>. Run <code>npm run tunnel</code>, then restart with <code>PUBLIC_URL=https://… npm run dev</code>.</div>
+    </section>
   </aside>
 
-  <section><canvas id="view"></canvas><div id="inset" hidden><span>take · camera view</span></div></section>
-
-  <aside class="right">
-    <h2>Takes</h2>
-    <div id="player" hidden>
-      <input type="range" id="scrub" min="0" max="1" step="1" value="0" aria-label="Scrub take">
-      <div class="row"><button id="play">▶ Play</button><span id="time" class="mute"></span></div>
-      <div class="row"><span class="mute">Space plays / pauses.</span><button id="live" class="ghost" style="margin-left:auto">Back to live</button></div>
-      <div id="export">
-        <div class="row"><button id="exportBtn">Export video</button><span id="exportState" class="mute"></span></div>
-        <span class="mute">A grey video of this take, plus its first frame, to give an AI video tool as the camera move.</span>
-        <span id="exportLen" class="mute"></span>
-        <span id="exportFiles" class="mute" hidden></span>
-      </div>
-      <div id="lab">
-        <div class="row"><select id="shot" aria-label="Which test shot is this?"><option value="">Name this take…</option></select><button id="toLab" class="ghost">Send to lab</button></div>
-        <span id="labState" class="mute"></span>
-      </div>
+  <!-- Centre: the set -->
+  <section class="stage" data-tour="stage">
+    <canvas id="view"></canvas>
+    <div class="stage-top">
+      <span class="pill"><span class="eyebrow" style="color:var(--fg-2)">Overview</span><span class="muted small">drag to look around</span></span>
+      <span class="pill rec-chip" id="recChip" hidden><span class="dot rec"></span><span id="recTime">REC</span></span>
     </div>
-    <ul id="takes"><li class="mute">Tap ● on the phone to shoot. Takes appear here.</li></ul>
+    <div id="inset" hidden><span class="pill small">What the camera saw</span></div>
+    <div class="player" id="player" hidden data-tour="player">
+      <button class="play" id="play" aria-label="Play"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg></button>
+      <span class="take-name" id="playerName"></span>
+      <div class="timeline"><svg id="curve" preserveAspectRatio="none"></svg><div class="head" id="head"></div><input type="range" id="scrub" min="0" max="1" step="1" value="0" aria-label="Scrub take"></div>
+      <span class="time" id="time"></span>
+      <button class="btn ghost sm" id="live" title="Back to the live camera">Live</button>
+    </div>
+    <div class="stage-veil" id="veil" hidden><div class="card"><span class="spinner"></span><span id="veilText">Building the set…</span></div></div>
+  </section>
+
+  <!-- Right: takes + make video -->
+  <aside class="col">
+    <section class="card panel" data-tour="takes">
+      <div class="panel-head"><span class="eyebrow">03 · Takes</span><span class="badge" id="takeCount">0</span></div>
+      <ul class="takes" id="takes"></ul>
+      <div class="empty" id="noTakes">
+        <img src="/assets/obj-phone.webp" alt="" onerror="this.src='/assets/obj-camera.webp'">
+        <b>No takes yet</b>
+        <p>Shoot one with your phone, or load the demo take to try everything now.</p>
+        <button class="btn ghost sm" id="demoBtn2">Load the demo take</button>
+      </div>
+    </section>
+
+    <section class="card panel" id="takePanel" hidden>
+      <div class="panel-head"><span class="eyebrow">Selected take</span><span class="badge" id="takeLen"></span></div>
+      <select id="shot" aria-label="Which test shot is this?"><option value="">Name this take…</option></select>
+      <div class="actions">
+        <button class="btn ghost" id="exportBtn" title="Grey video of this take + its first frame">Export grey video</button>
+        <button class="btn ghost" id="toLab" title="Save take + set into lab/takes for recipe tests">Send to lab</button>
+      </div>
+      <span class="note" id="takeNote"></span>
+    </section>
+
+    <section class="card panel" id="makePanel" data-tour="make">
+      <div class="panel-head"><span class="eyebrow">04 · Make video</span><span class="badge accent" id="recipeStatus" hidden></span></div>
+      <div id="makeForm">
+        <h3>Make it real</h3>
+        <p style="margin:6px 0 12px">Describe the look. We turn your move into a real video, and check that it moves like you did.</p>
+        <textarea class="field" id="look" rows="3" placeholder="Wet parking lot at night, orange street light, man in a grey hoodie, shot on an old phone"></textarea>
+        <div class="row" style="margin-top:10px"><select id="recipe" class="grow" aria-label="Video model"></select></div>
+        <div class="cost" style="margin-top:10px"><span id="costText">Pick a take first</span><span id="costEta"></span></div>
+        <button class="btn primary lg" id="makeBtn" style="margin-top:12px;width:100%" disabled>Make video</button>
+      </div>
+      <div id="makeJob" hidden></div>
+    </section>
   </aside>
-</div>
+</main>
 
-<script type="module">
-import * as THREE from './shared/three.js';
-import { OrbitControls } from './shared/three.js';
-import { MSG, SHOTS, connectRelay } from './shared/protocol.js';
-import { renderScene, addDefaultLights } from './shared/scene-render.js';
-import { OneEuroQuat } from './shared/one-euro.js';
-import { putTake, allTakes, putScene, getScene } from './shared/store.js';
-import { sampleAt } from './shared/frames.js';
+<div class="modal" id="resultModal" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle"></div>
+<div class="toast-host" id="toasts" aria-live="polite"></div>
 
-// --- info + QR -------------------------------------------------------------
-const info = await (await fetch(`/api/info${location.search}`)).json(); // /desk?room=XXXX picks the room
-const base = info.publicUrl || info.lanUrl;
-const camUrl = `${base.replace(/\/$/, '')}/cam?room=${info.room}`;
-document.getElementById('link').innerHTML = `Room <b>${info.room}</b> · <a href="${camUrl}" style="color:var(--acc)">${camUrl}</a>`;
-document.getElementById('httpsWarn').hidden = camUrl.startsWith('https');
-const { default: QRCode } = await import('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm');
-const qrCanvas = document.createElement('canvas');
-await QRCode.toCanvas(qrCanvas, camUrl, { width: 180, margin: 0 });
-document.getElementById('qr').append(qrCanvas);
-
-// --- three.js overview -----------------------------------------------------
-const canvas = document.getElementById('view');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-const scene3 = new THREE.Scene();
-scene3.background = new THREE.Color(0x0e1014);
-addDefaultLights(scene3);
-scene3.add(new THREE.GridHelper(40, 40, 0x334, 0x223));
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
-camera.position.set(10, 9, 14);
-const controls = new OrbitControls(camera, canvas);
-controls.target.set(0, 1, 0);
-
-/** A frustum outline for a phone camera. view() reshapes it to the phone's real fov/aspect. */
-function makeGizmo(color) {
-  const cam = new THREE.PerspectiveCamera(60, 9 / 16, 0.2, 1.5);
-  const helper = new THREE.CameraHelper(cam);
-  helper.setColors(...Array(5).fill(new THREE.Color(color)));
-  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12), new THREE.MeshBasicMaterial({ color }));
-  const group = new THREE.Group();
-  group.add(helper, dot);
-  scene3.add(group);
-  return { group, dot, view(fov, aspect) {
-    if (!(fov > 0 && aspect > 0) || (fov === cam.fov && aspect === cam.aspect)) return;
-    cam.fov = fov; cam.aspect = aspect; cam.updateProjectionMatrix(); helper.update();
-  } };
-}
-const live = makeGizmo(0xffaa44);   // follows the phone right now
-const replay = makeGizmo(0x6ea8ff); // follows the selected take
-replay.group.visible = false;
-live.group.position.set(0, 1.6, 6);
-const replayCam = new THREE.PerspectiveCamera(60, 9 / 16, 0.05, 200); // renders the inset "what the take saw"
-
-let sceneGroup = null, liveScene = null, shownSceneId = null;
-function showScene(scene) {
-  if (sceneGroup) scene3.remove(sceneGroup);
-  sceneGroup = renderScene(scene);
-  scene3.add(sceneGroup);
-  shownSceneId = scene.id;
-}
-function resize() {
-  const r = canvas.parentElement.getBoundingClientRect();
-  renderer.setSize(r.width, r.height, false);
-  camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
-}
-addEventListener('resize', resize); resize();
-
-// --- live pose: 1€ filter on the DISPLAY only ------------------------------
-// Takes are recorded raw on the phone; this only calms what the gizmo shows. Position isn't filtered:
-// it comes from the joystick, which has no sensor noise.
-const filterOn = document.getElementById('filter');
-const liveFilter = new OneEuroQuat({ mincutoff: 1.0, beta: 0.01 });
-filterOn.onchange = () => liveFilter.reset();
-const poseQ = new THREE.Quaternion();
-function onPose(m) {
-  poseQ.fromArray(m.q);
-  if (filterOn.checked) liveFilter.filter(poseQ, m.ts, live.group.quaternion);
-  else live.group.quaternion.copy(poseQ);
-  live.group.position.fromArray(m.p);
-  live.view(m.fov, m.aspect);
-  live.dot.material.color.set(m.rec ? 0xff2222 : 0x44ff88);
-}
-
-// --- relay -----------------------------------------------------------------
-const statusEl = document.getElementById('status');
-const relay = connectRelay({
-  role: 'desk', room: info.room,
-  onStatus: s => statusEl.textContent = s,
-  onMessage: (m) => {
-    if (m.t === MSG.PEER) { statusEl.textContent = m.joined ? 'phone connected' : 'phone left'; if (m.joined && liveScene) relay.send({ t: MSG.SCENE, scene: liveScene }); }
-    if (m.t === MSG.POSE) onPose(m);
-    if (m.t === MSG.TAKE) receiveTake(m.take);
-  },
-});
-
-// --- build scene from prompt ----------------------------------------------
-const buildBtn = document.getElementById('build'), srcEl = document.getElementById('src');
-buildBtn.onclick = async () => {
-  const prompt = document.getElementById('prompt').value.trim() || 'parking lot';
-  buildBtn.disabled = true; srcEl.textContent = 'building…'; srcEl.title = '';
-  try {
-    const { scene, source, note } = await (await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) })).json();
-    liveScene = scene;
-    selectTake(null);
-    showScene(scene);
-    srcEl.textContent = `blockout · ${source === 'llm' ? 'ai' : 'template'}`;
-    srcEl.title = note || '';
-    relay.send({ t: MSG.SCENE, scene });
-    putScene(scene).catch(() => {}); // so takes shot in this set can be replayed in it later
-  } catch (e) {
-    srcEl.textContent = 'could not build, try again';
-  } finally { buildBtn.disabled = false; }
-};
-buildBtn.click();
-
-// --- takes: list, select, scrub, play ---------------------------------------
-const takesEl = document.getElementById('takes'), player = document.getElementById('player');
-const scrub = document.getElementById('scrub'), playBtn = document.getElementById('play'), timeEl = document.getElementById('time');
-const takes = new Map(); // id -> take
-let current = null, playhead = 0, playing = false;
-const duration = (take) => take.samples.at(-1)?.ts ?? 0;
-const secs = (ms) => (ms / 1000).toFixed(1);
-
-function takeLabel(take) {
-  const shotAt = new Date(take.id.slice(0, 19).replace(/T(\d\d)-(\d\d)-(\d\d)/, 'T$1:$2:$3') + 'Z');
-  const when = isNaN(shotAt) ? take.id : shotAt.toLocaleTimeString();
-  return `${take.label ? `${take.label} · ` : ''}${when} · ${secs(duration(take))} s${take.labSent ? ' · ✓ lab' : ''}`;
-}
-function renderList() {
-  takesEl.innerHTML = '';
-  if (!takes.size) { takesEl.innerHTML = '<li class="mute">Tap ● on the phone to shoot. Takes appear here.</li>'; return; }
-  for (const take of [...takes.values()].sort((a, b) => b.id.localeCompare(a.id))) {
-    const li = document.createElement('li');
-    li.textContent = takeLabel(take);
-    li.title = take.id;
-    li.classList.toggle('sel', take === current);
-    li.onclick = () => selectTake(take);
-    takesEl.append(li);
-  }
-}
-function receiveTake(take) {
-  if (!take?.id || !Array.isArray(take.samples) || !take.samples.length) return;
-  takes.set(take.id, take);
-  putTake(take).catch((e) => console.warn('could not save take', e));
-  selectTake(take);
-}
-async function selectTake(take) {
-  current = take; playing = false; playhead = 0;
-  player.hidden = !take;
-  replay.group.visible = !!take;
-  renderList();
-  if (!take) { if (liveScene && shownSceneId !== liveScene.id) showScene(liveScene); return; }
-  replay.view(take.view?.fov, take.view?.aspect);
-  replayCam.fov = take.view?.fov || 60; replayCam.aspect = take.view?.aspect || 9 / 16; replayCam.updateProjectionMatrix();
-  scrub.max = Math.max(1, Math.round(duration(take)));
-  showLength(take);
-  document.getElementById('shot').value = take.label || '';
-  document.getElementById('labState').textContent = take.labSent ? 'Sent to the lab.' : '';
-  // Show the set this take was shot in (desk only; the phone keeps the live set).
-  if (take.sceneId && take.sceneId !== shownSceneId) {
-    const scene = await takeScene(take);
-    if (scene && current === take) showScene(scene);
-  }
-}
-/** The set a take was shot in: the live one, or one saved on this computer. */
-async function takeScene(take) {
-  if (!take.sceneId || take.sceneId === liveScene?.id) return liveScene;
-  return getScene(take.sceneId).catch(() => null);
-}
-function togglePlay() {
-  if (!current) return;
-  if (!playing && playhead >= duration(current)) playhead = 0;
-  playing = !playing;
-}
-playBtn.onclick = togglePlay;
-scrub.oninput = () => { playing = false; playhead = Number(scrub.value); };
-document.getElementById('live').onclick = () => selectTake(null);
-addEventListener('keydown', (e) => {
-  if (e.code !== 'Space' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
-  e.preventDefault(); togglePlay();
-});
-for (const take of await allTakes().catch(() => [])) takes.set(take.id, take);
-renderList();
-
-// --- export: grey reference video + first frame -------------------------------
-const exportBtn = document.getElementById('exportBtn'), exportState = document.getElementById('exportState');
-const exportFiles = document.getElementById('exportFiles');
-let exportUrls = [];
-function showLength(take) { // runs from selectTake, which can fire before this section has run: look the element up
-  const s = duration(take) / 1000;
-  document.getElementById('exportLen').textContent = s < 3 ? `This take is ${secs(s * 1000)} s. Kling needs at least 3 s: shoot a longer one.`
-    : s > 10 ? `This take is ${secs(s * 1000)} s. Some AI video tools only accept 10–15 s; if it's refused, shoot a shorter one.`
-    : '';
-}
-function download(blob, name) {
-  const url = URL.createObjectURL(blob);
-  exportUrls.push(url);
-  const a = Object.assign(document.createElement('a'), { href: url, download: name, textContent: name });
-  a.click();
-  return a;
-}
-exportBtn.onclick = async () => {
-  const take = current;
-  if (!take) return;
-  const scene = await takeScene(take);
-  if (!scene) { exportState.textContent = 'The set this take was shot in isn’t saved on this computer.'; return; }
-  exportBtn.disabled = true; exportFiles.hidden = true;
-  exportState.textContent = 'starting…';
-  try {
-    const { exportTake } = await import('./shared/export-video.js');
-    const out = await exportTake(take, scene, { onProgress: (f) => exportState.textContent = `making video ${Math.round(f * 100)}%` });
-    for (const url of exportUrls) URL.revokeObjectURL(url);
-    exportUrls = [];
-    const name = `handcam-${take.id}`;
-    exportFiles.replaceChildren('Saved to Downloads: ', download(out.mp4, `${name}.mp4`), ' and ', download(out.png, `${name}-first-frame.png`));
-    exportFiles.hidden = false;
-    exportState.textContent = `${out.width}×${out.height} · ${out.fps} fps · ${secs((out.frames - 1) / out.fps * 1000)} s`;
-  } catch (e) {
-    exportState.textContent = e.message;
-  } finally { exportBtn.disabled = false; }
-};
-
-// --- lab: name the take, send it (take + set) to lab/takes/ for recipe tests ---------
-const shotSel = document.getElementById('shot'), toLab = document.getElementById('toLab'), labState = document.getElementById('labState');
-for (const s of SHOTS) shotSel.append(new Option(s, s));
-shotSel.onchange = () => {
-  if (!current) return;
-  if (shotSel.value) current.label = shotSel.value; else delete current.label;
-  putTake(current).catch(() => {});
-  renderList();
-};
-toLab.onclick = async () => {
-  const take = current;
-  if (!take) return;
-  const scene = await takeScene(take);
-  if (!scene) { labState.textContent = 'The set this take was shot in isn’t saved on this computer.'; return; }
-  toLab.disabled = true; labState.textContent = 'sending…';
-  try {
-    const { labSent, ...clean } = take;
-    const r = await fetch('/api/lab/take', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: clean, scene }) });
-    const out = await r.json();
-    if (!r.ok) throw new Error(out.error || r.statusText);
-    take.labSent = true;
-    putTake(take).catch(() => {});
-    renderList();
-    labState.textContent = `Saved in ${out.saved}. When you’re done, run npm run lab:push to upload.`;
-  } catch (e) {
-    labState.textContent = e.message;
-  } finally { toLab.disabled = false; }
-};
-
-// --- loop ----------------------------------------------------------------
-const insetEl = document.getElementById('inset'), size = new THREE.Vector2();
-let lastT = performance.now();
-function frame(t) {
-  const dt = t - lastT; lastT = t;
-  if (current) {
-    if (playing) { playhead += dt; if (playhead >= duration(current)) { playhead = duration(current); playing = false; } }
-    const s = sampleAt(current.samples, playhead);
-    replay.group.quaternion.fromArray(s.q); replay.group.position.fromArray(s.p);
-    replayCam.quaternion.fromArray(s.q); replayCam.position.fromArray(s.p);
-    scrub.value = playhead;
-    playBtn.textContent = playing ? '❚❚ Pause' : '▶ Play';
-    timeEl.textContent = `${secs(playhead)} / ${secs(duration(current))} s`;
-  }
-  controls.update();
-  renderer.setScissorTest(false);
-  renderer.getSize(size);
-  renderer.setViewport(0, 0, size.x, size.y);
-  renderer.render(scene3, camera);
-  insetEl.hidden = !current;
-  if (current) { // inset: what the take's camera saw, without the outlines
-    const h = Math.round(size.y * 0.42), w = Math.round(h * replayCam.aspect), x = size.x - w - 16, y = 16;
-    live.group.visible = replay.group.visible = false;
-    renderer.setScissorTest(true);
-    renderer.setScissor(x, y, w, h); renderer.setViewport(x, y, w, h);
-    renderer.render(scene3, replayCam);
-    live.group.visible = replay.group.visible = true;
-    Object.assign(insetEl.style, { left: `${x - 2}px`, top: `${size.y - y - h - 2}px`, width: `${w}px`, height: `${h}px` });
-  }
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
-</script>
+<script type="module" src="/studio/main.js"></script>
 </body>
 </html>

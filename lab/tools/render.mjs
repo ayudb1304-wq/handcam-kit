@@ -64,35 +64,11 @@ export async function render(takeDir) {
     await page.goto('https://handcam.lab/');
     const save = (name, dataUrl) => writeFileSync(join(takeDir, name), Buffer.from(dataUrl.split(',')[1], 'base64'));
     const run = (twin) => page.evaluate(async ({ take, scene, twin }) => {
-      const THREE = await import('three');
       const { exportTake } = await import('/shared/export-video.js');
-      const decorate = twin ? (stage) => speckle(THREE, stage) : undefined;
-      const r = await exportTake(take, scene, { decorate });
+      const { speckle } = await import('/shared/speckle.js'); // the same twin the desk makes for Make video
+      const r = await exportTake(take, scene, { decorate: twin ? speckle : undefined });
       const url = (blob) => new Promise((ok) => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(blob); });
       return { mp4: await url(r.mp4), png: await url(r.png), width: r.width, height: r.height, fps: r.fps, frames: r.frames };
-
-      function speckle(THREE, stage) { // random grey blobs at several sizes, ~1.5 m tiles, unlit and unfogged
-        const c = Object.assign(document.createElement('canvas'), { width: 512, height: 512 });
-        const g = c.getContext('2d');
-        let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-        g.fillStyle = '#777'; g.fillRect(0, 0, 512, 512);
-        for (let i = 0; i < 1600; i++) {
-          const v = Math.floor(rnd() * 255);
-          g.fillStyle = `rgb(${v},${v},${v})`;
-          g.beginPath(); g.arc(rnd() * 512, rnd() * 512, 2 + rnd() * rnd() * 30, 0, Math.PI * 2); g.fill();
-        }
-        stage.fog = null;
-        stage.traverse((o) => {
-          if (!o.isMesh) return;
-          o.geometry.computeBoundingBox();
-          const size = o.geometry.boundingBox.getSize(new THREE.Vector3());
-          const [a, b] = [size.x, size.y, size.z].sort((p, q) => q - p);
-          const map = new THREE.CanvasTexture(c);
-          map.wrapS = map.wrapT = THREE.RepeatWrapping;
-          map.repeat.set(Math.max(1, a / 1.5), Math.max(1, b / 1.5));
-          o.material = new THREE.MeshBasicMaterial({ map });
-        });
-      }
     }, { take, scene, twin });
     if (FORCE || !existsSync(join(takeDir, 'reference.mp4'))) {
       const ref = await run(false);
