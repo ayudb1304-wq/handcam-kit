@@ -9,9 +9,13 @@
   const nav = $('#nav');
   const onScrollNav = () => nav.classList.toggle('scrolled', scrollY > 24);
 
-  // Hero product frame: tilted back, flattens as you scroll
+  // Studio product frame: tilted back, flattens as it scrolls into view
   const browser = $('#browser');
-  const onScrollTilt = () => { if (browser) browser.style.setProperty('--tilt', `${Math.max(0, 14 - scrollY / 28)}deg`); };
+  const onScrollTilt = () => {
+    if (!browser) return;
+    const r = browser.getBoundingClientRect();
+    browser.style.setProperty('--tilt', `${Math.max(0, Math.min(10, (r.top - innerHeight * 0.25) / innerHeight * 16)).toFixed(2)}deg`);
+  };
 
   // "Why" paragraph: words light up as it scrolls through the screen
   const why = $('#whyText');
@@ -56,7 +60,7 @@
   // Move match ring counts up once the hero has settled
   const ring = $('#ring'), n = $('#ringN');
   if (ring) {
-    const target = 91, t0 = performance.now() + (reduce ? 0 : 1200), dur = reduce ? 1 : 1400;
+    const target = 91, t0 = performance.now() + (reduce ? 0 : 900), dur = reduce ? 1 : 1400;
     const tick = (t) => {
       const k = Math.min(1, Math.max(0, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 3);
       const v = Math.round(target * e);
@@ -89,5 +93,109 @@
       q.classList.toggle('open', open);
       b.setAttribute('aria-expanded', String(open));
     });
+  }
+
+  // ---- Live video -----------------------------------------------------------------------------
+  // Two videos in lockstep: the AI video leads, the grey move follows (same move, same length).
+  function lockstep(lead, follow, onFrame) {
+    let raf = 0;
+    const tick = () => {
+      if (follow.readyState >= 2 && Math.abs(follow.currentTime - lead.currentTime) > 0.08) follow.currentTime = Math.min(lead.currentTime, (follow.duration || 9e9) - 0.02);
+      if (onFrame) onFrame(lead.currentTime / (lead.duration || 1));
+      raf = requestAnimationFrame(tick);
+    };
+    return {
+      async play() {
+        lead.loop = follow.loop = true;
+        try { await Promise.all([lead.play(), follow.play()]); cancelAnimationFrame(raf); tick(); return true; }
+        catch { return false; } // autoplay blocked (e.g. iPhone Low Power Mode): the caller shows a play button
+      },
+      pause() { lead.pause(); follow.pause(); cancelAnimationFrame(raf); },
+    };
+  }
+
+  // Hero reel: plays right away, muted, inline, looping. Pauses when off screen to save battery.
+  const reel = $('#heroReel');
+  if (reel) {
+    const [move, ai] = $$('video', reel);
+    const head = $('#rcHead'), W = 600;
+    const pair = lockstep(ai, move, (f) => { const x = (f * W).toFixed(1); head.setAttribute('x1', x); head.setAttribute('x2', x); });
+    const btn = $('#rcPlay');
+    let blocked = reduce;
+    const start = async () => { blocked = !(await pair.play()); btn.hidden = !blocked; };
+    btn.addEventListener('click', start);
+    if (reduce) btn.hidden = false; else start();
+    new IntersectionObserver(([e]) => { if (blocked) return; if (e.isIntersecting) pair.play(); else pair.pause(); }, { threshold: 0.15 }).observe(reel);
+  }
+
+  // Gallery: cards from /showcase/examples.json; drag across a card to wipe between the move and the AI video
+  const track = $('#gallery');
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const card = (x) => `
+    <article class="ex" data-reveal>
+      <div class="ex-media" role="slider" tabindex="0" aria-label="${esc(x.title)}: drag to compare your move and the AI video" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+        <video class="ex-ai" muted playsinline loop preload="none" poster="${esc(x.aiPoster)}" src="${esc(x.ai)}"></video>
+        <video class="ex-move" muted playsinline loop preload="none" poster="${esc(x.movePoster)}" src="${esc(x.move)}"></video>
+        <span class="ex-l">Your move</span><span class="ex-r">AI video</span>
+        <div class="ex-handle"><span></span></div>
+        <span class="ex-match"><i>✓</i>${Number(x.match)}% move match</span>
+      </div>
+      <div class="ex-info"><h4>${esc(x.title)}</h4><p>${esc(x.moveText)} · ${Number(x.seconds)} s</p>
+        <div class="ex-tags"><span>${esc(x.model)}</span><span>${esc(x.run)}</span><span>Timing ${esc(x.timing)}</span><span>Walk ${esc(x.walk)}</span></div></div>
+    </article>`;
+  const nextCard = (next) => `
+    <article class="ex ex-next" data-reveal>
+      <div class="ex-media"><img src="/assets/obj-clapper.webp" alt=""></div>
+      <div class="ex-info"><h4>Next on the reel</h4><ul>${next.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>
+    </article>`;
+
+  function wire(media) {
+    const [ai, move] = $$('video', media);
+    const pair = lockstep(ai, move);
+    const l = $('.ex-l', media), r = $('.ex-r', media);
+    let cut = 50, dragging = false, swept = false, anim = 0;
+    const set = (pct) => {
+      cut = Math.max(0, Math.min(100, pct));
+      media.style.setProperty('--cut', `${cut}%`);
+      media.setAttribute('aria-valuenow', Math.round(cut));
+      l.style.opacity = cut < 12 ? 0 : 1;
+      r.style.opacity = cut > 88 ? 0 : 1;
+    };
+    const sweepTo = (to, ms = 500) => {
+      cancelAnimationFrame(anim);
+      const from = cut, t0 = performance.now();
+      const step = (t) => {
+        const k = Math.min(1, (t - t0) / ms), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        set(from + (to - from) * e);
+        if (k < 1 && !dragging) anim = requestAnimationFrame(step);
+      };
+      anim = requestAnimationFrame(step);
+    };
+    const at = (e) => { const b = media.getBoundingClientRect(); return ((e.clientX - b.left) / b.width) * 100; };
+    media.addEventListener('pointerdown', (e) => { dragging = true; cancelAnimationFrame(anim); media.setPointerCapture(e.pointerId); set(at(e)); });
+    media.addEventListener('pointermove', (e) => { if (dragging || e.pointerType === 'mouse') { cancelAnimationFrame(anim); set(at(e)); } });
+    media.addEventListener('pointerup', () => { dragging = false; });
+    media.addEventListener('pointercancel', () => { dragging = false; });
+    media.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !dragging) sweepTo(50); });
+    media.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') { set(cut - 5); e.preventDefault(); }
+      if (e.key === 'ArrowRight') { set(cut + 5); e.preventDefault(); }
+    });
+    set(50);
+    // Play only while on screen. The first time, sweep across once to show what dragging does.
+    new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) { pair.pause(); return; }
+      for (const v of [ai, move]) if (v.preload === 'none') { v.preload = 'auto'; v.load(); }
+      if (!reduce) pair.play();
+      if (!swept && !reduce) { swept = true; set(94); setTimeout(() => sweepTo(6, 1400), 700); setTimeout(() => sweepTo(50, 900), 2400); }
+    }, { threshold: 0.4 }).observe(media);
+  }
+
+  if (track) {
+    fetch('/showcase/examples.json').then((res) => res.json()).then(({ examples, next }) => {
+      track.innerHTML = examples.map(card).join('') + (next && next.length ? nextCard(next) : '');
+      $$('[data-reveal]', track).forEach((el, i) => { el.style.setProperty('--i', i); io.observe(el); });
+      $$('.ex-media[role=slider]', track).forEach(wire);
+    }).catch(() => { track.innerHTML = '<p class="lead" style="text-align:center;color:#c7bdb2">The examples could not load. Refresh to try again.</p>'; });
   }
 })();

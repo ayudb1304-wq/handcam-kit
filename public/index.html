@@ -14,7 +14,7 @@
 <header class="nav" id="nav">
   <div class="nav-in">
     <a class="logo" href="/"><img src="/assets/logo.svg" alt="">HandCam</a>
-    <nav class="links" aria-label="Sections"><a href="#how">How it works</a><a href="#studio">The studio</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></nav>
+    <nav class="links" aria-label="Sections"><a href="#how">How it works</a><a href="#examples">Examples</a><a href="#studio">The studio</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></nav>
     <div class="nav-r"><a class="quiet" href="/desk">Open the studio</a><a class="btn dark sm" href="/desk?demo=1">Try the demo <span class="arr">→</span></a></div>
   </div>
 </header>
@@ -22,24 +22,41 @@
 <main class="wrap">
   <section class="tile hero" aria-labelledby="h1">
     <div class="hero-bg"><img src="/assets/hero.webp" srcset="/assets/hero-1200.webp 1200w, /assets/hero.webp 2400w" sizes="100vw" alt="" fetchpriority="high"></div>
-    <span class="eyebrow fade-in" style="color:#3a2618">AI video, directed by hand</span>
-    <h1 id="h1"><span class="ln"><span>Your <em>hand</em> is the camera.</span></span><span class="ln"><span>The AI follows.</span></span></h1>
-    <p class="lead fade-in" style="animation-delay:.35s">Describe a set in one sentence, shoot the move with your phone, and HandCam turns it into an AI video that moves exactly like you did. Then it checks.</p>
-    <div class="ctas fade-in" style="animation-delay:.5s"><a class="btn dark" href="/desk?demo=1">Try the demo <span class="arr">→</span></a><a class="btn light" href="#how">See how it works</a></div>
-    <div class="trust fade-in" style="animation-delay:.65s">
+    <div class="hero-grid">
+      <span class="eyebrow h-eyebrow fade-in" style="color:#3a2618">AI video, directed by hand</span>
+      <h1 id="h1" class="h-title"><span class="ln"><span>Your <em>hand</em> is</span></span><span class="ln"><span>the camera.</span></span><span class="ln"><span>The AI follows.</span></span></h1>
+      <div class="h-reel fade-in" style="animation-delay:.15s">
+        <div class="reel" id="heroReel" aria-label="Live example: a move shot with a phone, and the AI video that follows it">
+          <figure class="rc rc-move"><video muted playsinline preload="auto" poster="/showcase/media/night-lot-move.webp" src="/showcase/media/night-lot-move.mp4"></video><figcaption class="tag">Your move</figcaption></figure>
+          <span class="rc-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></span>
+          <figure class="rc rc-ai"><video muted playsinline preload="auto" poster="/showcase/media/night-lot-a.webp" src="/showcase/media/night-lot-a.mp4"></video><figcaption class="tag light">AI video · Seedance 2.5</figcaption>
+            <div class="rc-badge"><div class="ring sm" id="ring" style="--p:0"><b><span id="ringN">0</span>%</b></div><span>Move<br>match</span></div></figure>
+          <div class="rc-strip">
+            <svg viewBox="0 -8 600 196" preserveAspectRatio="none" aria-hidden="true"><path d="M0.0,54.8 L8.4,54.8 L16.8,54.8 L25.2,54.8 L33.6,54.8 L42.0,54.8 L50.4,54.8 L58.8,54.8 L67.2,54.8 L75.6,54.8 L84.0,54.8 L92.4,54.8 L100.8,54.8 L109.2,54.8 L117.6,54.8 L126.1,54.4 L134.5,50.1 L142.9,42.6 L151.3,33.2 L159.7,23.6 L168.1,15.1 L176.5,9.4 L184.9,7.8 L193.3,7.8 L201.7,7.8 L210.1,7.8 L218.5,7.8 L226.9,7.8 L235.3,7.8 L243.7,7.8 L252.1,10.3 L260.5,16.7 L268.9,25.5 L277.3,35.3 L285.7,44.4 L294.1,51.3 L302.5,54.7 L310.9,54.8 L319.3,54.8 L327.7,54.8 L336.1,54.8 L344.5,54.8 L352.9,54.8 L361.3,54.8 L369.7,54.8 L378.2,54.8 L386.6,55.6 L395.0,78.4 L403.4,118.1 L411.8,155.7 L420.2,172.2 L428.6,170.7 L437.0,167.4 L445.4,163.6 L453.8,160.6 L462.2,159.7 L470.6,159.7 L479.0,159.7 L487.4,159.7 L495.8,159.7 L504.2,159.7 L512.6,159.7 L521.0,159.7 L529.4,159.7 L537.8,159.7 L546.2,159.7 L554.6,159.7 L563.0,159.7 L571.4,159.7 L579.8,159.7 L588.2,159.7 L596.6,159.7" fill="none" stroke="#15110e" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><path d="M0.0,54.8 L8.4,54.5 L16.8,54.3 L25.2,54.2 L33.6,54.1 L42.0,54.1 L50.4,54.1 L58.8,54.2 L67.2,54.2 L75.6,54.3 L84.0,54.3 L92.4,54.3 L100.8,54.4 L109.2,54.3 L117.6,54.3 L126.1,53.9 L134.5,49.2 L142.9,41.1 L151.3,31.8 L159.7,22.3 L168.1,15.0 L176.5,10.1 L184.9,8.6 L193.3,9.0 L201.7,9.6 L210.1,10.1 L218.5,10.6 L226.9,11.3 L235.3,11.8 L243.7,12.4 L252.1,14.7 L260.5,20.6 L268.9,28.7 L277.3,37.8 L285.7,45.9 L294.1,52.1 L302.5,60.3 L310.9,60.6 L319.3,60.6 L327.7,60.6 L336.1,60.6 L344.5,60.7 L352.9,60.8 L361.3,61.1 L369.7,61.3 L378.2,61.3 L386.6,61.6 L395.0,67.4 L403.4,99.6 L411.8,128.8 L420.2,144.7 L428.6,146.7 L437.0,146.5 L445.4,146.2 L453.8,145.9 L462.2,145.8 L470.6,146.0 L479.0,145.9 L487.4,145.8 L495.8,145.8 L504.2,145.8 L512.6,146.1 L521.0,146.2 L529.4,146.2 L537.8,146.2 L546.2,146.2 L554.6,146.1 L563.0,146.1 L571.4,146.4 L579.8,147.0 L588.2,148.4 L596.6,149.7" fill="none" stroke="#d9653f" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line id="rcHead" x1="0" x2="0" y1="-8" y2="188" stroke="#d9653f" stroke-width="2" vector-effect="non-scaling-stroke" opacity=".7"/></svg>
+            <div class="rc-stats"><span><i style="background:#15110e"></i>Your move</span><span><i style="background:#d9653f"></i>AI video</span><span class="mono">Timing +0.04 s</span><span class="mono">Walk 93%</span></div>
+          </div>
+          <button class="rc-play" id="rcPlay" hidden aria-label="Play the example">▶ Play</button>
+        </div>
+      </div>
+      <p class="lead h-lead fade-in" style="animation-delay:.35s">Describe a set in one sentence, shoot the move with your phone, and HandCam turns it into an AI video that moves exactly like you did. Then it checks.</p>
+      <div class="ctas h-ctas fade-in" style="animation-delay:.5s"><a class="btn dark" href="/desk?demo=1">Try the demo <span class="arr">→</span></a><a class="btn light" href="#examples">Watch the examples</a></div>
+      <div class="trust h-trust fade-in" style="animation-delay:.6s">
       <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 2l7 4v8l-7 4-7-4V6z"/><path d="M3.5 6.2L10 10l6.5-3.8M10 10v8"/></svg>No 3D software</span>
       <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5.5" y="2" width="9" height="16" rx="2.2"/><path d="M9 15h2"/></svg>Works with your iPhone</span>
       <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M6.5 10.3l2.3 2.2 4.7-4.9"/></svg>Every video move-checked</span>
     </div>
-    <div class="showcase fade-in" style="animation-delay:.7s">
-      <div class="browser" id="browser"><div class="bar"><i></i><i></i><i></i><span class="url">handcam · studio</span></div><img src="/assets/shots/studio.webp" alt="The HandCam studio: a grey blockout of a parking lot, the take's camera path, takes and the Make video panel" width="2200" height="1375"></div>
-      <div class="float-card match-card" aria-label="Move match example">
-        <div class="head"><div class="ring" id="ring" style="--p:0"><b><span id="ringN">0</span>%</b></div><div><span class="eyebrow" style="font-size:10.5px">Move match</span><h4>It follows your move</h4></div></div>
-        <ul><li>Timing<b>+0.04 s</b></li><li>Turns that match<b>100%</b></li><li>Walking distance<b>94%</b></li></ul>
-        <div class="mc-foot">Demo take · Seedance 2.5</div>
-      </div>
-      <div class="float-card phone-card"><img src="/assets/shots/phone.webp" alt="The phone camera screen while recording a take" width="720" height="1558"></div>
     </div>
+  </section>
+
+  <section class="tile gallery" id="examples" aria-labelledby="galH">
+    <div class="gal-head" data-reveal>
+      <span class="eyebrow">Made with HandCam</span>
+      <h2 id="galH">Real moves. Real videos.<br>Real scores.</h2>
+      <p class="lead">Each one was shot with a phone in HandCam, made by an AI video model and checked against the take. Drag across a video to see the move it followed.</p>
+    </div>
+    <div class="gal-track" id="gallery" aria-live="polite"></div>
+    <p class="gal-hint">Swipe for more →</p>
+    <noscript><p class="lead" style="text-align:center">Turn on JavaScript to watch the examples.</p></noscript>
   </section>
 
   <section class="tile why" aria-label="Why HandCam">
@@ -115,11 +132,15 @@
     <div class="rows"><div class="row"><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13M12 7l5 5-5 5"/><path d="M20 5v14" opacity=".5"/></svg></span>Whip pan</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="8" height="10" rx="2"/><path d="M14 12h7M18 9l3 3-3 3"/></svg></span>Slow push-in</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9" ry="4.5"/><circle cx="12" cy="12" r="2"/></svg></span>Half orbit</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M8 12l4 4 4-4"/><path d="M5 20h14"/></svg></span>Crouch reveal</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8"/><path d="M10 21l2-6-2-3 2-4 3 3h3M8 13l2-1"/></svg></span>Walk and talk</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c2-4 3 4 5 0s3 4 5 0 3 4 5 0 2 2 3 0"/></svg></span>Nervous handheld</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13M12 7l5 5-5 5"/><path d="M20 5v14" opacity=".5"/></svg></span>Whip pan</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="8" height="10" rx="2"/><path d="M14 12h7M18 9l3 3-3 3"/></svg></span>Slow push-in</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9" ry="4.5"/><circle cx="12" cy="12" r="2"/></svg></span>Half orbit</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M8 12l4 4 4-4"/><path d="M5 20h14"/></svg></span>Crouch reveal</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8"/><path d="M10 21l2-6-2-3 2-4 3 3h3M8 13l2-1"/></svg></span>Walk and talk</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c2-4 3 4 5 0s3 4 5 0 3 4 5 0 2 2 3 0"/></svg></span>Nervous handheld</span></div><div class="row rev"><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg></span>POV glance</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V6M20 18V6M8 12h8M13 9l3 3-3 3"/></svg></span>Slide reveal</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/></svg></span>Chase follow</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><path d="M3 20c0-3 2.5-5 5-5M14 7h7v8h-7z"/></svg></span>Over the shoulder</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c2-4 3 4 5 0s3 4 5 0 3 4 5 0 2 2 3 0"/></svg></span>Found footage</span><span class="pill"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="8" height="10" rx="2"/><path d="M14 12h7M18 9l3 3-3 3"/></svg></span>Slow drift</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg></span>POV glance</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V6M20 18V6M8 12h8M13 9l3 3-3 3"/></svg></span>Slide reveal</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/></svg></span>Chase follow</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><path d="M3 20c0-3 2.5-5 5-5M14 7h7v8h-7z"/></svg></span>Over the shoulder</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c2-4 3 4 5 0s3 4 5 0 3 4 5 0 2 2 3 0"/></svg></span>Found footage</span><span class="pill" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="8" height="10" rx="2"/><path d="M14 12h7M18 9l3 3-3 3"/></svg></span>Slow drift</span></div></div>
   </section>
 
-  <section class="tile studio" id="studio" aria-labelledby="studioH">
+  <section class="tile studio t-sand" id="studio" aria-labelledby="studioH">
     <span class="eyebrow">The studio</span>
-    <h2 id="studioH" style="margin-top:16px">Your move and the AI video,<br>side by side</h2>
-    <p class="lead">Play them together and watch the camera do what your hand did. The score tells you how closely.</p>
-    <img class="shot" data-reveal src="/assets/shots/result.webp" alt="Result screen: the grey reference and the AI video side by side, with a 91 percent move match" loading="lazy" width="2000" height="1549">
+    <h2 id="studioH" style="margin-top:16px">Set, shoot, make.<br>One window.</h2>
+    <p class="lead">Build the set, watch your phone move through it live, replay every take, then make the video and compare it with your move.</p>
+    <div class="showcase" data-reveal>
+      <div class="browser" id="browser"><div class="bar"><i></i><i></i><i></i><span class="url">handcam · studio</span></div><img src="/assets/shots/studio.webp" alt="The HandCam studio: a grey blockout of a parking lot, the take's camera path, takes and the Make video panel" width="2200" height="1375" loading="lazy"></div>
+      <div class="float-card phone-card"><img src="/assets/shots/phone.webp" alt="The phone camera screen while recording a take" width="720" height="1558" loading="lazy"></div>
+      <div class="float-card result-card"><img src="/assets/shots/result.webp" alt="Result screen: your move and the AI video side by side" width="2000" height="1549" loading="lazy"></div>
+    </div>
   </section>
 
   <section class="tile compare" aria-labelledby="cmpH">
@@ -173,7 +194,7 @@
   <footer class="tile">
     <div class="foot">
       <div><a class="logo" href="/"><img src="/assets/logo.svg" alt="">HandCam</a><p>The camera move comes from your hand. HandCam makes sure the AI follows it.</p></div>
-      <div><h5>Product</h5><ul><li><a href="#how">How it works</a></li><li><a href="#studio">The studio</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+      <div><h5>Product</h5><ul><li><a href="#how">How it works</a></li><li><a href="#examples">Examples</a></li><li><a href="#studio">The studio</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li></ul></div>
       <div><h5>Get started</h5><ul><li><a href="/desk?demo=1">Try the demo</a></li><li><a href="/desk">Open the studio</a></li><li><a href="/desk?tour=1">Take the tour</a></li></ul></div>
       <div><h5>Company</h5><ul><li><a href="#">Privacy</a></li><li><a href="#">Terms</a></li><li><a href="#">Contact</a></li></ul></div>
     </div>

@@ -50,6 +50,12 @@ pip3 install opencv-python-headless numpy
 
 Open `http://localhost:3000/` for the landing page, `/desk` for the studio (first visit shows a short tour; **Try the demo take** works without a phone).
 
+**Landing page examples** (the live hero and the "Made with HandCam" gallery) come from `public/showcase/examples.json`. To add one (a horror hallway, a rooftop chase…): put the AI video and its grey move in `public/showcase/media/` as 720×1280 H.264 MP4s without audio, plus a `.webp` of each first frame, and add an entry with its real move-match numbers from `server/score.py`. Encode with:
+
+```bash
+ffmpeg -i in.mp4 -an -vf "scale=720:1280:flags=lanczos,setsar=1,format=yuv420p" -c:v libx264 -preset slow -crf 22 -movflags +faststart -r 24 out.mp4
+```
+
 Open `http://localhost:3000/desk` on your laptop. It shows a QR code.
 Your phone needs **HTTPS** to read the gyro (iOS rule). Easiest path, in a second terminal:
 

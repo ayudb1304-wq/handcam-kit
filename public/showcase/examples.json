@@ -1,0 +1,58 @@
+{
+  "_howto": "Add an example: put <id>.mp4 (AI video, 720x1280, H.264, no audio, faststart) and the grey move <move>.mp4 + their first-frame .webp posters in /showcase/media, then add an entry here. The first entry with \"hero\": true plays in the hero. Numbers come from server/score.py on the original AI output.",
+  "examples": [
+    {
+      "id": "night-lot-a",
+      "hero": true,
+      "title": "Night lot, whip pan",
+      "moveText": "Walk in · glance left · whip pan",
+      "scene": "Wet parking lot at night",
+      "model": "Seedance 2.5",
+      "run": "Run 1 of 3",
+      "seconds": 6,
+      "match": 91,
+      "timing": "+0.04 s",
+      "turns": "99.6%",
+      "walk": "93%",
+      "ai": "/showcase/media/night-lot-a.mp4",
+      "aiPoster": "/showcase/media/night-lot-a.webp",
+      "move": "/showcase/media/night-lot-move.mp4",
+      "movePoster": "/showcase/media/night-lot-move.webp"
+    },
+    {
+      "id": "night-lot-b",
+      "title": "Same move, second run",
+      "moveText": "Walk in · glance left · whip pan",
+      "scene": "Wet parking lot at night",
+      "model": "Seedance 2.5",
+      "run": "Run 2 of 3",
+      "seconds": 6,
+      "match": 81,
+      "timing": "+0.04 s",
+      "turns": "99.2%",
+      "walk": "85%",
+      "ai": "/showcase/media/night-lot-b.mp4",
+      "aiPoster": "/showcase/media/night-lot-b.webp",
+      "move": "/showcase/media/night-lot-move.mp4",
+      "movePoster": "/showcase/media/night-lot-move.webp"
+    },
+    {
+      "id": "night-lot-c",
+      "title": "Same move, third run",
+      "moveText": "Walk in · glance left · whip pan",
+      "scene": "Wet parking lot at night",
+      "model": "Seedance 2.5",
+      "run": "Run 3 of 3",
+      "seconds": 6,
+      "match": 78,
+      "timing": "+0.04 s",
+      "turns": "98.6%",
+      "walk": "81%",
+      "ai": "/showcase/media/night-lot-c.mp4",
+      "aiPoster": "/showcase/media/night-lot-c.webp",
+      "move": "/showcase/media/night-lot-move.mp4",
+      "movePoster": "/showcase/media/night-lot-move.webp"
+    }
+  ],
+  "next": ["Horror hallway", "Rooftop chase", "Music video"]
+}
