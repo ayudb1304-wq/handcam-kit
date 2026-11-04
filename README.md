@@ -76,3 +76,30 @@ Reload `/desk`, scan the QR with your iPhone 14, tap **Enable motion**, and tilt
 - Safari gives **rotation only** (gyro). Walking = on‑screen joystick for v1. See `docs/DECISIONS.md` §3.
 - You must tap a button before iOS hands over motion data. The scaffold does this.
 - Requires HTTPS. Use the cloudflared tunnel above, or deploy the server to Vercel/Fly/Railway later.
+
+## Let a friend try it (free, from this laptop)
+
+```bash
+npm run share
+```
+
+This starts a free Cloudflare tunnel and the server, then prints the links to send:
+
+- **`…/cam`** on their phone: phone-only mode (describe a set, shoot, export a video, no laptop needed).
+- **`…/desk`** on their laptop, then scan its QR code with the phone.
+
+Keep the window open and the laptop awake while they test; Ctrl+C stops it. The link changes each time.
+
+Your friend is a **customer**: they create an account (their first real video is free), see prices in **videos**, and never see what the AI costs you. You, on this laptop at `http://localhost:3000/desk`, are the **founder**: no account needed, real AI, real costs in dollars.
+
+## Accounts, videos and payments (Phase 5)
+
+- Accounts and balances live in `data/accounts.json` (gitignored). Prices are placeholders in `config/pricing.json`.
+- Payments use **Dodo Payments**. In `.env`: `DODO_PAYMENTS_API_KEY=dodo_test_…` (Dodo dashboard → Test Mode → Developer → API Keys), then `npm run dodo:setup` once to create the packs as Dodo products. Test card: `4242 4242 4242 4242`, any future date, CVC `123`. Optional: `DODO_WEBHOOK_SECRET` (Developer → Webhooks, endpoint `https://<your link>/api/pay/webhook`, event `payment.succeeded`); without it, payments are confirmed when the buyer returns from checkout.
+- `REAL_AI=on` lets customers make real AI videos (spends your Higgsfield API money). Off by default: customers get Practice.
+- `ADMIN_EMAILS=you@example.com` makes that account a founder account on a hosted server.
+- Testing switches: `LOCAL_IS_CUSTOMER=1` (see localhost as a customer), `PRACTICE_CHARGES=1` (Practice uses videos like real ones).
+
+## Hosting later (always on, ~$7/month)
+
+`render.yaml` + `Dockerfile` run HandCam on [Render](https://render.com): a **Hobby** workspace ($0, not Pro) with a **Starter** instance and a 1 GB disk for accounts and videos. New → Blueprint → this repo, fill in the secret env vars, deploy, then set `PUBLIC_URL` to the service's https address. Any host that runs one always-on Docker container with a disk works the same (DECISIONS §15).

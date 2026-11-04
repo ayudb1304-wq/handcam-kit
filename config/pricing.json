@@ -1,0 +1,11 @@
+{
+  "_note": "PLACEHOLDER prices until the pricing research is back (docs/PRICING-RESEARCH-PROMPT.md, DECISIONS §29-30, §34). Customers see videos, never our AI cost.",
+  "currency": "USD",
+  "freeVideosOnSignup": 1,
+  "qualityUnits": { "480p": 1, "720p": 2, "1080p": 5 },
+  "longTakeSeconds": 8,
+  "packs": [
+    { "id": "pack10", "name": "10 videos", "videos": 10, "usd": 29 },
+    { "id": "pack30", "name": "30 videos", "videos": 30, "usd": 79 }
+  ]
+}

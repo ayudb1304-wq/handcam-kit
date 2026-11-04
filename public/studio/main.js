@@ -11,6 +11,7 @@ import { setupTour } from './tour.js';
 import { setupEditor } from './editor.js';
 import { setupExport } from './export.js';
 import { setupSequence } from './sequence.js';
+import { signIn, buyVideos, paymentReturnMessage } from '../shared/account.js';
 
 const $ = (id) => document.getElementById(id);
 export function toast(text, ms = 3200) {
@@ -142,14 +143,17 @@ function setPhone(state, text) {
 }
 const relay = connectRelay({
   role: 'desk', room: info.room,
-  onStatus: (s) => { if (s === 'disconnected') setPhone('warn', 'Server disconnected'); },
+  onStatus: (s) => {
+    if (s === 'reconnecting') setPhone('warn', 'Reconnecting…');
+    if (s === 'connected' && liveScene) relay.send({ t: MSG.SCENE, scene: liveScene }); // a phone may have joined meanwhile
+  },
   onMessage: (m) => {
     if (m.t === MSG.PEER) {
       setPhone(m.joined ? 'ok' : 'warn', m.joined ? 'Phone connected' : 'Phone left');
       if (m.joined) { toast('Phone connected. Tap Re-anchor, then ● to shoot.'); if (liveScene) relay.send({ t: MSG.SCENE, scene: liveScene }); }
     }
     if (m.t === MSG.POSE) onPose(m);
-    if (m.t === MSG.TAKE) receiveTake(m.take);
+    if (m.t === MSG.TAKE) { receiveTake(m.take); if (m.take?.id) relay.send({ t: MSG.ACK, id: m.take.id }); }
   },
 });
 
@@ -310,6 +314,7 @@ function renderList() {
 }
 function receiveTake(take) {
   if (!take?.id || !Array.isArray(take.samples) || !take.samples.length) return;
+  if (takes.has(take.id)) return; // the phone re-sent one we already have (it hadn't heard our ack)
   takes.set(take.id, take);
   sequence?.refreshTakes();
   putTake(take).catch((e) => console.warn('could not save take', e));
@@ -473,7 +478,24 @@ var sequence = setupSequence({ takes, getLiveScene: () => liveScene, takeScene, 
 var exporter = setupExport({ getTake: () => current, takeScene, toast });
 
 // --- Make video + tour ---------------------------------------------------------------
-make = setupMake({ getTake: () => current, takeScene, toast, onDone: () => markStep('make'), onJobs: () => renderList() });
+make = setupMake({ getTake: () => current, takeScene, toast, onDone: () => markStep('make'), onJobs: () => renderList(), onAccount: showAccount });
+
+// --- Phase 5: account pill (sign in / balance → buy) ---------------------------------------------------
+let acctCfg = {};
+function showAccount(account, cfg = acctCfg) {
+  acctCfg = cfg;
+  const pill = $('acctPill');
+  pill.hidden = !!cfg.admin && !account; // the founder on the laptop needs no account
+  pill.textContent = account ? `${account.videos} video${account.videos === 1 ? '' : 's'}` : 'Sign in';
+  pill.title = account ? `${account.email}: buy more videos` : 'Sign in or create an account';
+  $('signOut').hidden = !account;
+}
+$('acctPill').onclick = async () => {
+  if (acctCfg.account) return buyVideos({ packs: acctCfg.pricing?.packs, balance: acctCfg.account.videos });
+  if (await signIn()) make.reload();
+};
+$('signOut').onclick = async () => { await fetch('/api/account/logout', { method: 'POST' }); location.reload(); };
+{ const msg = paymentReturnMessage(); if (msg) setTimeout(() => toast(msg, 6000), 800); }
 const tour = setupTour({ loadDemo });
 $('helpBtn').onclick = () => tour.start();
 $('replayTour').onclick = () => { $('settings').hidden = true; tour.start(); };

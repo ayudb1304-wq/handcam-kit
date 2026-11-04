@@ -11,7 +11,7 @@ export const UPLOADS = Object.freeze({ 'reference.mp4': 'video/mp4', 'measure.mp
 const TERMINAL = new Set(['completed', 'failed', 'nsfw', 'canceled']);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000] }) {
+export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000], onSettle = async () => {} }) {
   const running = new Set();
 
   const path = (id, f = '') => join(dir, id, f);
@@ -29,7 +29,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   const say = (job, msg) => { job.log.push({ t: new Date().toISOString(), msg }); };
 
   /** Create a job and save take/scene; the browser then PUTs the UPLOADS and calls start(). */
-  async function create({ take, scene, look, recipeId, demo = false, quality, versions }) {
+  async function create({ take, scene, look, recipeId, demo = false, quality, versions, userId = null, unitFor = () => 0 }) {
     const recipe = recipes[recipeId];
     if (!recipe) throw Object.assign(new Error(`unknown recipe ${recipeId}`), { status: 400 });
     if (typeof look !== 'string' || look.trim().length < 3) throw Object.assign(new Error('Describe the look in a few words first.'), { status: 400 });
@@ -46,7 +46,10 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       aspect: (take.view?.aspect ?? 0.5) < 1 ? '9:16' : '16:9', resolution, versions: versionCount,
       durationS: Math.min(recipe.maxDurationS ?? 15, Math.max(recipe.minDurationS ?? 4, Math.round(durationMs / 1000))),
       status: 'uploading', urls: {}, startImages: [], candidates: [], best: null, outcome: null, error: null, log: [],
+      userId,
     };
+    const unit = unitFor(job); // videos per version for this account (0: free, e.g. practice or the founder's laptop)
+    if (unit > 0) job.charge = { unit, reserved: 0, refunded: 0 };
     say(job, 'Job created');
     return save(job);
   }
@@ -61,6 +64,11 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     job.error = e.message || String(e);
     say(job, `Failed: ${job.error}`);
     await save(job);
+    await settle(job);
+  }
+  /** Give back what the customer doesn't owe (free and failed versions). Never throws into the job. */
+  async function settle(job) {
+    try { await onSettle(job); await save(job); } catch (e) { console.warn(`settle ${job.id}:`, e.message); }
   }
 
   async function poll(provider, requestId) {
@@ -190,6 +198,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     job.status = 'done';
     say(job, job.billing?.tryAgain ? `Done: under ${FREE_BELOW_MATCH}% move match, not charged` : job.outcome === 'passed' ? 'Done: follows your move' : job.outcome === 'unchecked' ? 'Done (not checked)' : 'Done: closest version kept');
     await save(job);
+    await settle(job);
   }
 
   // ---- public steps ----------------------------------------------------------------
@@ -205,7 +214,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   }
 
   return {
-    create, load,
+    create, load, save,
     path: (id, f) => path(id, f),
     async list() {
       const ids = (await readdir(dir).catch(() => [])).sort().reverse().slice(0, 50);
@@ -251,7 +260,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
           const c = await makeCandidate(job, recipe, provider);
           await finishCandidate(job, recipe, provider, c);
           await scoreAndChoose(job, recipe);
-          job.status = 'done'; await save(job);
+          job.status = 'done'; await save(job); await settle(job);
         } catch (e) { await fail(job, e); }
       });
       return job;
@@ -272,7 +281,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
               await Promise.all(job.candidates.filter((c) => c.status === 'running').map((c) => finishCandidate(job, recipe, provider, c)));
               await scoreAndChoose(job, recipe);
               if (job.best == null) throw new Error('no video was made');
-              job.status = 'done'; await save(job);
+              job.status = 'done'; await save(job); await settle(job);
             }
           } catch (e) { await fail(job, e); }
         });

@@ -79,6 +79,7 @@ All messages are JSON with a `t` field.
 | `rec` | desk → cam | `{ state: 'start'|'stop' }` (desk can also trigger recording) |
 | `take` | cam → desk | `{ take }` (see format below) |
 | `anchor` | cam → desk | `{}` informational |
+| `ack` | desk → cam | `{ id }`: the desk has this take; until then the phone re-sends it on every reconnect and every 15 s (Phase 5) |
 
 `pose.ts` is always `performance.now()` on the phone (ms, monotonic), recording or not; only samples inside a take are relative to take start. The desk never trusts its own clock for take timing.
 

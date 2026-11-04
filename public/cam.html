@@ -54,6 +54,16 @@
   #gate li span { font: 600 12px var(--mono); color: var(--accent-2); }
   #gate .btn { width: 100%; }
   #err { color: #ff9b9b; font-size: 13px; min-height: 1em; }
+  .solo { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 14px; margin-top: 8px; }
+  .solo .field { flex: 1; min-width: 0; padding: 9px 11px; font-size: 15px; background: rgba(0,0,0,.35); }
+  .recwrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .drawer { position: fixed; left: 10px; right: 10px; bottom: 10px; max-height: 70vh; overflow: auto; border-radius: 18px; padding: 14px; z-index: 20; }
+  .drawer-head { display: flex; justify-content: space-between; align-items: center; font: 700 18px var(--display); }
+  .drawer-note { margin: 6px 0 10px; color: var(--fg-2); font-size: 13px; }
+  #soloTakes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  #soloTakes li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid var(--line); font-size: 14px; }
+  #soloTakes small { display: block; color: var(--mute); font: 11px var(--mono); }
+  .solo-hint { margin: 0; color: var(--mute); font-size: 12.5px; }
   .hint { position: fixed; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); padding: 18px; border-radius: 18px; display: flex; flex-direction: column; gap: 10px; animation: rise .4s var(--ease) both; }
   .hint > b { font: 700 18px var(--display); }
   .hint p { margin: 0; color: var(--fg-2); font-size: 14px; }
@@ -83,12 +93,22 @@
       <span class="pill glass" id="room"></span>
     </div>
   </div>
+  <form class="solo glass" id="solo" hidden>
+    <input class="field" id="soloPrompt" placeholder="Describe the set: “parking lot at night, a man by a car”" aria-label="Describe the set" autocomplete="off">
+    <button class="btn light sm" id="soloBuild" type="submit">Build</button>
+  </form>
   <div class="zoom glass"><input type="range" id="zoom" min="0" max="1000" step="1" aria-label="Zoom (lens)"><span id="lensLabel">24 mm</span></div>
   <div class="bottom">
     <div class="stickwrap"><div class="stick" id="walk"></div>Walk</div>
-    <button id="rec" aria-label="Record"></button>
+    <div class="recwrap"><button id="rec" aria-label="Record"></button><button class="tbtn glass" id="takesBtn" hidden>Takes</button></div>
     <div class="stickwrap"><div class="stick vertical" id="lift"></div>Up · down</div>
   </div>
+</div>
+
+<div class="drawer glass" id="drawer" hidden>
+  <div class="drawer-head"><b>Your takes</b><button class="tbtn glass" id="drawerClose">Close</button></div>
+  <p class="drawer-note" id="drawerNote">Export a take as a video, then share it or save it to Photos.</p>
+  <ul id="soloTakes"></ul>
 </div>
 
 <div id="gate">
@@ -102,6 +122,7 @@
       <li><span>03</span>Tap ● and move like a camera operator</li>
     </ol>
     <button class="btn light lg" id="enable">Enable motion</button>
+    <p class="solo-hint" id="soloHint" hidden>Phone only: no laptop needed. To use a laptop too, open <b>handcam/desk</b> on it and scan its QR code.</p>
     <div id="err"></div>
   </div>
 </div>
@@ -114,15 +135,17 @@ import { renderScene, povStage, animateScene, motionLength } from './shared/scen
 import { frameAt } from './shared/motion.js';
 import { FRAMES, DEFAULT_FRAME, LENS_RANGE, DEFAULT_LENS, fovFromLens } from './shared/frames.js';
 import { makeStick } from './shared/joystick.js';
-import { putTake, allTakes } from './shared/store.js';
+import { putTake, allTakes, putScene, getScene, deleteTake } from './shared/store.js';
 
 const WALK_SPEED = 1.4;          // m/s at 1×, a normal walking pace
 const SPEEDS = [1, 3, 10];       // life-size, then faster for big sets
 const SAMPLE_MS = 1000 / 60 - 4; // every frame at 60 Hz, every other frame at 120 Hz
 
 const params = new URLSearchParams(location.search);
-const room = (params.get('room') || 'DEMO').toUpperCase();
-document.getElementById('room').textContent = room;
+// Phase 5: without ?room the phone works alone (phone-only mode): describe, shoot, takes and export, all here.
+const SOLO = !params.get('room');
+const room = (params.get('room') || 'SOLO').toUpperCase();
+document.getElementById('room').textContent = SOLO ? 'PHONE ONLY' : room;
 const statusEl = document.getElementById('status');
 const say = (text, rec = false) => { statusEl.textContent = text; statusEl.classList.toggle('rec', rec); };
 
@@ -326,11 +349,16 @@ function placeGhost(setMs) {
 }
 
 // --- relay -----------------------------------------------------------------
-const relay = connectRelay({
+const relay = SOLO ? { send() {}, connected: false } : connectRelay({
   role: 'cam', room,
-  onStatus: s => { if (!recording) say(s === 'connected' ? 'Connected' : s === 'disconnected' ? 'Disconnected' : s); },
+  onStatus: (s) => {
+    if (!recording) say(s === 'connected' ? 'Connected' : s === 'reconnecting' ? 'Reconnecting…' : 'Disconnected');
+    if (s === 'connected') resendTakes();
+  },
   onMessage: (m) => {
     if (m.t === MSG.SCENE) setScene(m.scene);
+    if (m.t === MSG.ACK) unacked.delete(m.id);
+    if (m.t === MSG.PEER && m.role === 'desk' && m.joined) resendTakes();
     if (m.t === MSG.PEER && !recording) say(m.joined ? 'Studio connected' : 'Studio left');
     if (m.t === MSG.REC) setRec(m.state === 'start');
   },
@@ -368,12 +396,16 @@ async function finishTake() {
     samples,
   };
   samples = [];
+  unacked.set(take.id, take); // until the desk says it has it: re-sent on every reconnect (Phase 5)
   relay.send({ t: MSG.TAKE, take }); // the whole take in one message, after the fact: no live packet loss can touch it
   takeCount++;
   say(`Take ${takeCount} saved · ${(take.samples.at(-1).ts / 1000).toFixed(1)} s`);
   try { await putTake(take); } catch (e) { console.warn('could not keep take on phone', e); }
   if (ghostOn) loadGhost(); // the take you just shot is the next ghost
 }
+const unacked = new Map(); // takes the desk hasn't confirmed yet
+function resendTakes() { for (const take of unacked.values()) relay.send({ t: MSG.TAKE, take }); }
+setInterval(() => { if (unacked.size && relay.connected) resendTakes(); }, 15_000);
 const clock = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
 // --- main loop -------------------------------------------------------------
@@ -426,12 +458,75 @@ function showHintOnce() {
   document.body.append(h);
 }
 
+// --- Phase 5: phone-only mode --------------------------------------------------------------------
+const $id = (id) => document.getElementById(id);
+async function soloBuild(prompt) {
+  const btn = $id('soloBuild');
+  btn.disabled = true; btn.textContent = '…'; say('Building the set…');
+  try {
+    const r = await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) });
+    const out = await r.json();
+    if (!r.ok) throw new Error(out.error || 'Could not build the set.');
+    out.scene.setId ||= out.scene.id;
+    setScene(out.scene);
+    putScene(out.scene).catch(() => {});
+    try { localStorage.setItem('handcam.soloScene', out.scene.id); } catch {}
+    say(out.source === 'llm' ? 'Set ready. Tap Re-anchor, then ●' : 'Set ready (a template). Tap Re-anchor, then ●');
+    $id('soloPrompt').blur();
+  } catch (e) { say(e.message); } finally { btn.disabled = false; btn.textContent = 'Build'; }
+}
+const fmt = (ms) => `${(ms / 1000).toFixed(1)} s`;
+async function showTakes() {
+  const list = $id('soloTakes'), takes = (await allTakes().catch(() => [])).filter((t) => t.samples?.length);
+  list.innerHTML = takes.length ? '' : '<li>No takes yet. Tap ● to shoot one.</li>';
+  for (const t of takes.slice(0, 30)) {
+    const li = document.createElement('li');
+    const when = new Date(t.id.slice(0, 19).replace(/T(\d\d)-(\d\d)-(\d\d)/, 'T$1:$2:$3') + 'Z');
+    li.innerHTML = `<div>${t.frame || ''} ${t.rig && t.rig !== 'handheld' ? t.rig : 'take'}<small>${isNaN(when) ? '' : when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${fmt(t.samples.at(-1).ts)}</small></div><button class="btn light sm">Video</button><button class="tbtn glass" aria-label="Delete take">✕</button>`;
+    const [exp, del] = li.querySelectorAll('button');
+    exp.onclick = () => exportOnPhone(t, exp);
+    del.onclick = async () => { if (del.dataset.armed) { await deleteTake(t.id).catch(() => {}); showTakes(); } else { del.dataset.armed = 1; del.textContent = 'Sure?'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); } };
+    list.append(li);
+  }
+  $id('drawer').hidden = false;
+}
+async function exportOnPhone(take, btn) {
+  const scene = take.sceneId && (await getScene(take.sceneId).catch(() => null));
+  if (!scene) return say('The set of this take isn’t on this phone any more.');
+  btn.disabled = true;
+  try {
+    const { exportTake } = await import('./shared/export-video.js');
+    const out = await exportTake(take, scene, { onProgress: (f) => { btn.textContent = `${Math.round(f * 100)}%`; } });
+    const file = new File([out.mp4], `handcam-${take.id}.mp4`, { type: 'video/mp4' });
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'HandCam take' }); // → Save Video / AirDrop / Messages
+    else Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: file.name }).click();
+    btn.textContent = 'Done';
+  } catch (e) {
+    if (e?.name !== 'AbortError') { $id('drawerNote').textContent = e.message; btn.textContent = 'Video'; }
+    else btn.textContent = 'Video';
+  } finally { btn.disabled = false; }
+}
+if (SOLO) {
+  $id('solo').hidden = false;
+  $id('takesBtn').hidden = false;
+  $id('soloHint').hidden = false;
+  $id('solo').onsubmit = (e) => { e.preventDefault(); const v = $id('soloPrompt').value.trim(); if (v) soloBuild(v); };
+  $id('takesBtn').onclick = showTakes;
+  $id('drawerClose').onclick = () => { $id('drawer').hidden = true; };
+  (async () => { // the set you were shooting in last time, or a starter set
+    let last = null;
+    try { const id = localStorage.getItem('handcam.soloScene'); if (id) last = await getScene(id); } catch {}
+    if (last) { setScene(last); $id('soloPrompt').value = last.prompt || ''; }
+    else soloBuild('parking lot at night, a man standing by a car');
+  })();
+}
+
 // --- permission gate -------------------------------------------------------
 document.getElementById('enable').onclick = async () => {
   const err = document.getElementById('err');
-  if (!isSecureContext) { err.textContent = 'This page must be opened over https:// for motion to work. See README → tunnel.'; return; }
+  if (!isSecureContext) { err.innerHTML = 'Motion only works on a secure link (<b>https://</b>). Open the https link from the laptop’s QR code, not an http one.'; return; }
   const ok = await requestMotionPermission();
-  if (!ok) { err.textContent = 'Motion permission was denied. Close this tab, open the link again and tap Allow.'; return; }
+  if (!ok) { err.innerHTML = 'Motion permission was denied. On iPhone: close this tab, open the link again and tap <b>Allow</b>. If it never asks: Settings → Apps → Safari → Advanced → Website Data, remove this site, then try again.'; return; }
   addEventListener('deviceorientation', onOrientation, true);
   document.getElementById('gate').hidden = true;
   document.getElementById('hud').hidden = false;

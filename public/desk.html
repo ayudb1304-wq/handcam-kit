@@ -27,6 +27,7 @@
     <div class="step" data-step="make"><span class="n">4</span><span class="label">Make video</span></div>
   </nav>
   <div class="top-right">
+    <button class="pill acct-pill" id="acctPill" title="Your account">Sign in</button>
     <span class="pill" id="phonePill" title="Phone"><span class="dot" id="phoneDot"></span><span id="status">No phone yet</span></span>
     <button class="btn quiet sm" id="demoBtn" title="Load an example take to try everything without a phone">Try the demo take</button>
     <button class="btn quiet icon" id="helpBtn" title="Take the tour" aria-label="Take the tour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.8-.9 1.4v.6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button>
@@ -37,6 +38,7 @@
     <label class="switch">Smooth the live camera outline<input type="checkbox" id="filter" checked></label>
     <p class="note">Display only. Takes are always recorded raw, exactly as your hand moved.</p>
     <button class="btn ghost sm" id="replayTour">Show the tour again</button>
+    <button class="btn quiet sm" id="signOut" hidden>Sign out</button>
   </div>
 </header>
 
@@ -150,6 +152,7 @@
         <textarea class="field" id="look" rows="3" placeholder="Wet parking lot at night, orange street light, man in a grey hoodie, shot on an old phone"></textarea>
         <div class="row" style="margin-top:10px"><select id="recipe" class="grow" aria-label="Video model"></select></div>
         <div class="row" style="margin-top:8px;gap:8px"><select id="quality" class="grow" style="min-width:0" aria-label="Video quality" title="Higher quality costs more" hidden></select><select id="versions" class="grow" style="min-width:0" aria-label="How many versions to make" title="More versions: more chances one follows your move, and more cost"></select></div>
+        <div class="note" id="recipeWhy" style="margin-top:6px"></div>
         <div class="cost" style="margin-top:10px"><span id="costText">Pick a take first</span><span id="costEta"></span></div>
         <button class="btn primary lg" id="makeBtn" style="margin-top:12px;width:100%" disabled>Make video</button>
       </div>

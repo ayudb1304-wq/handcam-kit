@@ -25,6 +25,7 @@ export function checkLabTake(body) {
  * cloudflared connects from localhost too, so its forwarding headers are what give it away.
  */
 export function isLocal(req) {
+  if (/^(1|on|true)$/i.test(process.env.LOCAL_IS_CUSTOMER || '')) return false; // testing: see the app as a customer does
   const ip = req.socket?.remoteAddress || '';
   const loopback = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
   const forwarded = ['cf-connecting-ip', 'cf-ray', 'x-forwarded-for', 'x-forwarded-host'].some((h) => req.headers?.[h]);

@@ -1,0 +1,35 @@
+# Render Blueprint (optional, for later): one always-on web service + a small disk for accounts and videos.
+# Workspace plan "Hobby" ($0) + instance "starter" (~$7/mo) + 1 GB disk. See README → Hosting.
+services:
+  - type: web
+    name: handcam
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/info
+    disk:
+      name: handcam-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: PUBLIC_URL          # https://<your service>.onrender.com, set after the first deploy
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_EMAILS        # your account email: sees real AI costs and can use real AI
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DODO_PAYMENTS_API_KEY
+        sync: false
+      - key: DODO_MODE
+        value: test
+      - key: DODO_WEBHOOK_SECRET
+        sync: false
+      - key: HF_API_KEY_ID
+        sync: false
+      - key: HF_API_KEY_SECRET
+        sync: false
+      - key: REAL_AI             # "on" lets customers make real AI videos (spends your Higgsfield API money)
+        value: "off"

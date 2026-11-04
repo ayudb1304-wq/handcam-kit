@@ -106,3 +106,19 @@ select { appearance: none; padding-right: 32px; background-image: linear-gradien
 /* Toast */
 .toast-host { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 100; pointer-events: none; }
 .toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: #1d1d22; border: 1px solid var(--line-2); box-shadow: var(--shadow-lg); font-weight: 500; animation: rise .3s var(--ease) both; }
+
+/* Phase 5: account + buy modal (shared by studio and phone) */
+.acct-modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(6,6,8,.6); backdrop-filter: blur(6px); }
+.acct-card { position: relative; width: min(400px, 100%); padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+.acct-card h3 { margin: 0; font: 700 22px/1.1 var(--display); }
+.acct-card form { display: flex; flex-direction: column; gap: 10px; }
+.acct-why { margin: 0; color: var(--fg-2); font-size: 13.5px; }
+.acct-err { color: #ff9b9b; font-size: 13px; min-height: 1em; }
+.acct-x { position: absolute; top: 10px; right: 10px; background: none; border: 0; color: var(--mute); font-size: 16px; cursor: pointer; padding: 6px; }
+.packs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pack { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px; border-radius: 12px; border: 1px solid var(--line-2); background: rgba(255,255,255,.03); color: var(--fg); cursor: pointer; text-align: left; font: inherit; }
+.pack:hover { border-color: var(--accent); background: var(--accent-soft); }
+.pack b { font: 700 15px var(--display); }
+.pack span { font: 700 22px var(--display); color: var(--accent-2); }
+.pack small { color: var(--mute); font: 11px var(--mono); }
+.acct-pill { cursor: pointer; }

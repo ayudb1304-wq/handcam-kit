@@ -10,6 +10,6 @@ test('room codes are 4 chars from the unambiguous alphabet', () => {
 });
 
 test('protocol has the documented message types', () => {
-  assert.deepEqual(Object.values(MSG).sort(), ['anchor', 'hello', 'peer', 'pose', 'rec', 'scene', 'take']);
+  assert.deepEqual(Object.values(MSG).sort(), ['ack', 'anchor', 'hello', 'peer', 'pose', 'rec', 'scene', 'take']);
   assert.deepEqual(ROLES, ['cam', 'desk']);
 });

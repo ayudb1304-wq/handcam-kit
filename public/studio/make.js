@@ -1,13 +1,14 @@
 // Make video panel: look → (render grey move + measuring twin) → server job → approve first frame → result.
 // The server does the AI work and the checking (server/make). This file only renders and uploads.
+import { signIn, buyVideos } from '../shared/account.js';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ACTIVE = new Set(['uploading', 'preparing', 'start_image', 'making', 'checking']);
 const DEMO_LOOK = 'Wet parking lot at night, orange sodium street light, a man in a grey hoodie by the cars, shot on an old phone';
 
-export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {} }) {
+export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}, onAccount = () => {} }) {
   const form = $('makeForm'), box = $('makeJob'), btn = $('makeBtn'), sel = $('recipe'), qsel = $('quality'), vsel = $('versions');
-  let recipes = [], job = null, timer = null, blocked = null, freeBelow = 70;
+  let recipes = [], job = null, timer = null, blocked = null, freeBelow = 70, cfg = {};
   // FOUNDER ONLY: the real AI cost in dollars. Must be replaced by the customer price (videos/credits) before going live: PLAN Phase 5.
   const usd = (x) => `$${x.toFixed(2)}`;
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
@@ -25,18 +26,26 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
     if (blocked) { $('costText').textContent = blocked; $('costEta').textContent = ''; btn.disabled = true; return; }
     if (!take) { $('costText').textContent = 'Pick a take first'; $('costEta').textContent = ''; btn.disabled = true; return; }
     if (!r) return;
-    const free = r.provider === 'mock';
+    const free = r.provider === 'mock' && !cfg.chargePractice;
     // same length rule as the server: whole seconds, within the recipe's limits
     const secs = Math.min(r.maxDurationS ?? 15, Math.max(r.minDurationS ?? 4, Math.round((take.samples?.at(-1)?.ts ?? 0) / 1000)));
     const n = Number(vsel.value) || r.candidates;
-    const video = r.qualities?.[qsel.value] != null ? r.qualities[qsel.value] * secs : r.cost?.video ?? 0;
-    const total = (r.cost?.startImage ?? 0) + n * video;
-    $('costText').textContent = free ? 'Practice · free · no AI'
-      : `≈ ${usd(total)} · ${n} × ${secs} s video${n > 1 ? ', best kept' : ''}`;
     $('costEta').textContent = free ? '≈ 20 s' : qsel.value === '1080p' ? '≈ 5–10 min' : '≈ 3–5 min';
+    if (cfg.admin) { // founder on the laptop: the real AI cost (never shown to customers: PLAN Phase 5)
+      const video = r.qualities?.[qsel.value] != null ? r.qualities[qsel.value] * secs : r.cost?.video ?? 0;
+      const total = (r.cost?.startImage ?? 0) + n * video;
+      $('costText').textContent = free ? 'Practice · free · no AI' : `≈ ${usd(total)} · ${n} × ${secs} s video${n > 1 ? ', best kept' : ''}`;
+    } else {
+      const unit = free ? 0 : (cfg.pricing?.qualityUnits?.[qsel.value] ?? 1) * (secs > (cfg.pricing?.longTakeSeconds ?? 8) ? 2 : 1);
+      const have = cfg.account?.videos;
+      $('costText').innerHTML = free ? 'Practice · free · no AI'
+        : `Uses up to <b>${n * unit}</b> video${n * unit === 1 ? '' : 's'}${have != null ? ` · you have ${have} <a href="#" id="buyLink">buy</a>` : ''}`;
+      $('buyLink')?.addEventListener('click', (e) => { e.preventDefault(); buyVideos({ packs: cfg.pricing?.packs, balance: have }); });
+    }
     $('recipeStatus').hidden = r.status === 'final';
     $('recipeStatus').textContent = r.status;
     btn.disabled = !r.ready;
+    $('recipeWhy').textContent = r.ready ? '' : (r.why ? `${r.label}: ${r.why}.` : '');
   }
   /** Quality list for the chosen model: hidden when it has none (Practice). Remembers the last pick per browser. */
   function fillQualities() {
@@ -59,25 +68,37 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
   }
   vsel.onchange = () => { store.set('handcam.versions', vsel.value); costLine(); };
 
-  fetch('/api/make/config').then(async (res) => {
-    if (res.status === 403) { blocked = 'Open the studio at localhost on the laptop to make videos'; return costLine(); }
-    const cfg = await res.json();
+  async function loadConfig() {
+    const res = await fetch('/api/make/config');
+    cfg = await res.json();
+    onAccount(cfg.account, cfg);
     ({ recipes } = cfg);
     freeBelow = cfg.freeBelowMatch ?? 70;
+    const keepV = vsel.value, keepR = sel.value;
     fillVersions(cfg.maxVersions);
+    if (keepV) vsel.value = keepV;
     sel.innerHTML = '';
     for (const r of recipes) {
-      const o = new Option(`${r.label}${r.ready ? '' : ' · needs setup'}${r.status === 'draft' ? ' · draft recipe' : ''}`, r.id);
+      const o = new Option(`${r.label}${r.ready ? '' : r.why?.startsWith('real AI') ? ' · off for this test' : ' · needs setup'}${r.status === 'draft' && cfg.admin ? ' · draft recipe' : ''}`, r.id);
       o.disabled = !r.ready;
       sel.append(o);
     }
-    sel.value = (recipes.find((r) => r.ready && r.provider !== 'mock') || recipes.find((r) => r.ready))?.id || '';
+    sel.value = recipes.find((r) => r.id === keepR && r.ready)?.id || (recipes.find((r) => r.ready && r.provider !== 'mock') || recipes.find((r) => r.ready))?.id || '';
     fillQualities();
+    return cfg;
+  }
+  loadConfig().then(async () => {
     await loadJobs();
     const take = getTake();
     const last = take ? latestFor(take.id) : jobs[0]; // carry on after a page reload
     if (last && (take || ACTIVE.has(last.status) || last.status === 'needs_approval')) show(last);
   }).catch(() => { blocked = 'Make video is unavailable'; costLine(); });
+  /** Sign in (or top up) and carry on: used when the server says 401 / 402. */
+  async function needAccount(out) {
+    if (out?.code === 'signin') { if (await signIn({ reason: 'Sign in to make real videos. Your first one is free.' })) await loadConfig(); return true; }
+    if (out?.code === 'balance') { buyVideos({ packs: cfg.pricing?.packs, balance: cfg.account?.videos }); return true; }
+    return false;
+  }
 
   // ---- start a job ----
   btn.onclick = async () => {
@@ -96,7 +117,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const { labSent, ...cleanTake } = take;
       const res = await fetch('/api/make', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: cleanTake, scene, look, recipeId: r.id, demo: !!take.demo, quality: qsel.hidden ? undefined : qsel.value, versions: Number(vsel.value) || undefined }) });
       const out = await res.json();
-      if (!res.ok) throw new Error(out.error);
+      if (!res.ok) { if (await needAccount(out)) return; throw new Error(out.error); }
       const files = { 'reference.mp4': ref.mp4, 'measure.mp4': twin.mp4, 'first-frame.png': ref.png };
       let i = 0;
       for (const [name, blob] of Object.entries(files)) {
@@ -112,7 +133,8 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
   async function post(id, action, body) {
     const r = await fetch(`/api/make/${id}/${action}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
     const out = await r.json();
-    if (!r.ok) throw new Error(out.error);
+    if (!r.ok) { if (await needAccount(out)) throw new Error(out.code === 'balance' ? `${out.error} Or choose fewer versions.` : 'Signed in: press it again.'); throw new Error(out.error); }
+    if (out.account) { cfg.account = out.account; onAccount(out.account, cfg); }
     return out;
   }
   function poll() {
@@ -143,6 +165,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       html += `<div class="approve" style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
         <img src="/api/make/${j.id}/media/${s.file}" alt="First frame of your video">
         <p class="note">This is the first frame. Same layout as your set? Then make the video.</p>
+        <div class="row"><select id="approveVersions" class="grow" aria-label="How many versions">${Array.from({ length: cfg.maxVersions || 4 }, (_, i) => `<option value="${i + 1}" ${i + 1 === (j.versions || 2) ? 'selected' : ''}>${i + 1} version${i ? 's' : ''}${j.charge ? ` · up to ${(i + 1) * j.charge.unit} video${(i + 1) * j.charge.unit === 1 ? '' : 's'}` : ''}</option>`).join('')}</select></div>
         <button class="btn primary" data-act="approve" data-n="${s.n}">Looks right · make the video</button>
         <details><summary class="note" style="cursor:pointer">Try other words for the look</summary>
           <textarea class="field" id="relook" rows="2" style="margin-top:8px">${esc(j.look)}</textarea>
@@ -152,13 +175,14 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const best = j.candidates.find((c) => c.n === j.best);
       const ring = ringHtml(j, best);
       const b = j.billing;
-      const billLine = b && j.provider !== 'mock'
-        ? `<p class="note" style="margin:10px 0 0">Charged for ${b.charged} of ${b.videos} version${b.videos > 1 ? 's' : ''}${b.free ? ` · ${b.free} free (under ${b.freeBelow}% move match)` : ''} · AI cost ≈ ${usd(b.apiUsd)}</p>` : '';
+      const paidUnits = j.charge ? b?.charged * j.charge.unit : null;
+      const billLine = b && (j.provider !== 'mock' || j.charge)
+        ? `<p class="note" style="margin:10px 0 0">${paidUnits != null ? `Used ${paidUnits} video${paidUnits === 1 ? '' : 's'}` : `Charged for ${b.charged} of ${b.videos} version${b.videos > 1 ? 's' : ''}`}${b.free ? ` · ${b.free} version${b.free > 1 ? 's' : ''} free (under ${b.freeBelow}% move match)` : ''}${b.apiUsd != null ? ` · AI cost ≈ ${usd(b.apiUsd)}` : ''}</p>` : '';
       const retry = b?.tryAgain
         ? `<div class="warn-box" style="margin:12px 0 0"><b>It didn’t follow your move closely enough.</b> Under ${b.freeBelow}% move match, so it isn’t charged. Make another version?
             <div style="margin-top:8px"><button class="btn primary sm" data-act="again">Try again</button></div></div>` : '';
       html += `<div class="result-card" style="margin-top:12px">
-        <video src="/api/make/${j.id}/media/${best.file}" muted loop playsinline autoplay></video>
+        ${best.preview ? `<img src="/api/make/${j.id}/media/${best.file}" alt="Preview frames (not charged)" style="width:100%;border-radius:10px">` : `<video src="/api/make/${j.id}/media/${best.file}" muted loop playsinline autoplay></video>`}
         <div style="display:flex;flex-direction:column;gap:8px">${ring}<span class="note">${esc(verdictText(j, best))}</span></div></div>
         ${retry}<div class="actions" style="margin-top:12px"><button class="btn ${b?.tryAgain ? 'ghost' : 'primary'}" data-act="open">Open result</button><button class="btn ghost" data-act="new">New video</button></div>${billLine}`;
     }
@@ -166,10 +190,10 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       html += `<p class="warn-box" style="margin:10px 0 0">${esc(j.error)}</p><button class="btn ghost" data-act="new" style="margin-top:10px">Start over</button>`;
     }
     box.innerHTML = html;
-    box.querySelector('[data-act=approve]')?.addEventListener('click', async (e) => { show((await post(j.id, 'approve', { n: Number(e.target.dataset.n) })).job); });
+    box.querySelector('[data-act=approve]')?.addEventListener('click', async (e) => { try { show((await post(j.id, 'approve', { n: Number(e.target.dataset.n), versions: Number($('approveVersions')?.value) || undefined })).job); } catch (x) { toast(x.message, 5000); } });
     box.querySelector('[data-act=redo]')?.addEventListener('click', async () => { show((await post(j.id, 'redo-start', { look: $('relook').value })).job); });
     box.querySelector('[data-act=open]')?.addEventListener('click', () => openResult(j));
-    box.querySelector('[data-act=again]')?.addEventListener('click', async () => { try { show((await post(j.id, 'more')).job); } catch (e) { toast(e.message); } });
+    box.querySelector('[data-act=again]')?.addEventListener('click', async () => { try { show((await post(j.id, 'more')).job); } catch (e) { toast(e.message, 5000); } });
     for (const b of box.querySelectorAll('[data-act=new]')) b.addEventListener('click', showForm);
     const i = jobs.findIndex((x) => x.id === j.id);
     if (i >= 0) jobs[i] = j; else { jobs.unshift(j); onJobs(); }
@@ -189,18 +213,18 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
         <button class="btn quiet icon" data-act="close" aria-label="Close">✕</button></div>
       <div class="compare">
         <figure><video id="rv0" src="/api/make/${j.id}/media/reference.mp4" muted loop playsinline></video><figcaption><span class="eyebrow">Your move</span><span class="badge">grey reference</span></figcaption></figure>
-        <figure><video id="rv1" src="/api/make/${j.id}/media/${c.file}" muted loop playsinline></video><figcaption><span class="eyebrow">AI video</span><span class="badge accent">${j.demo && j.provider === 'mock' ? 'Example result · Seedance 2.5' : esc(j.recipe?.label || '')}${j.resolution ? ` · ${esc(j.resolution)}` : ''}</span></figcaption></figure>
+        <figure>${c.preview ? `<img id="rv1img" src="/api/make/${j.id}/media/${c.file}" alt="Preview frames (not charged)" style="width:100%">` : `<video id="rv1" src="/api/make/${j.id}/media/${c.file}" muted loop playsinline></video>`}<figcaption><span class="eyebrow">AI video</span><span class="badge accent">${j.demo && j.provider === 'mock' ? 'Example result · Seedance 2.5' : esc(j.recipe?.label || '')}${j.resolution ? ` · ${esc(j.resolution)}` : ''}</span></figcaption></figure>
       </div>
       <div class="row wrap"><button class="btn light" data-act="play">▶ Play both</button><span class="muted small grow">Both play in sync, so you can see the camera do what your hand did.</span></div>
       ${c.score ? `<div class="why"><div><b>${c.score.timing_offset_s == null ? '—' : `${c.score.timing_offset_s > 0 ? '+' : ''}${c.score.timing_offset_s.toFixed(2)} s`}</b><span>Timing vs your take</span></div>
         <div><b>${pct(c.score.turn_corr)}</b><span>Turns that match yours</span></div><div><b>${pct(c.score.walk_ratio)}</b><span>Of your walking distance</span></div></div>` : ''}
       <div class="row wrap"><div class="versions grow">${j.candidates.filter((x) => x.file).map((x) => `<button class="version${x.n === c.n ? ' sel' : ''}" data-v="${x.n}">${x.verdict?.pass ? '✓' : x.verdict?.pass === false ? '⚠' : '·'} V${x.n}${x.match != null ? ` · ${x.match}%` : ''}${x.free ? ' · free' : ''}</button>`).join('')}</div>
         <button class="btn ghost" data-act="more">Make another version</button>
-        <a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="handcam-${j.id}-v${c.n}.mp4">Download</a></div>
+        ${c.preview ? '<span class="note">Preview only: this version was free.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="handcam-${j.id}-v${c.n}.mp4">Download</a>`}</div>
       <p class="note">Move match compares the camera’s turns, timing and walking in the AI video with your take. It’s measured, not guessed: the score is the same every time for the same video.</p>
     </div>`;
     m.hidden = false;
-    const [a, b] = [m.querySelector('#rv0'), m.querySelector('#rv1')];
+    const [a, b] = [m.querySelector('#rv0'), m.querySelector('#rv1') || { currentTime: 0, play() {}, pause() {} }];
     let raf = 0;
     const sync = () => { if (Math.abs(b.currentTime - a.currentTime) > 0.06) b.currentTime = a.currentTime; raf = requestAnimationFrame(sync); };
     const close = () => { cancelAnimationFrame(raf); m.hidden = true; m.innerHTML = ''; };
@@ -212,7 +236,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       else { a.pause(); b.pause(); cancelAnimationFrame(raf); e.target.textContent = '▶ Play both'; }
     };
     for (const v of m.querySelectorAll('[data-v]')) v.onclick = () => { close(); openResult(j, Number(v.dataset.v)); };
-    m.querySelector('[data-act=more]').onclick = async () => { close(); try { show((await post(j.id, 'more')).job); } catch (e) { toast(e.message); } };
+    m.querySelector('[data-act=more]').onclick = async () => { close(); try { show((await post(j.id, 'more')).job); } catch (e) { toast(e.message, 5000); } };
   }
 
   function ringHtml(j, c, size = 64) {
@@ -241,5 +265,6 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
     },
     /** Has a finished video been made from this take? For the badge in the takes list. */
     hasVideo: (takeId) => jobs.some((j) => j.take?.id === takeId && j.status === 'done'),
+    reload: () => loadConfig().then(() => loadJobs()),
   };
 }
