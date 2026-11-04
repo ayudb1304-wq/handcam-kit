@@ -13,3 +13,8 @@ lab/**/measure.mp4
 # Make video jobs (takes, uploads, AI results) stay on this computer
 data/
 __pycache__/
+
+# Agent skills installed locally (Higgsfield etc.), not part of HandCam
+.agents/
+.claude/skills/
+skills-lock.json
