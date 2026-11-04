@@ -12,7 +12,8 @@
 3. Seedance 2.5 accepts start_image + video reference and keeps exact length.
 4. Seedance tends to pull the camera back to the main subject when the reference turns away from it (T2b). Next to try: say in the prompt that the camera ends pointing away from the man and he leaves the frame.
 5. Prompt B2 (subject may leave frame) vs B1, 3 runs each: B2 had no swing-backs but one run ignored the start image entirely (T3a). Too few runs to pick a winner; **B1 stays the default**. Across all 6 Seedance runs: 4 followed well, 1 swung back, 1 failed completely.
-6. score.py separates good from bad runs: corr ~0.99 when followed, 0.82 when a move was invented. Usable as an automatic keep/redo check.
+6. Walking (score.py walk_ratio vs the speckled twin): good Seedance runs walked 0.81 to 0.93 of the take's distance, so Seedance slightly under-walks; the failed run 0.13; MiniMax 1.04 (but late).
+7. score.py separates good from bad runs: corr ~0.99 when followed, 0.82 when a move was invented. Usable as an automatic keep/redo check.
 
 ## Not yet known
 - Does the small handheld wobble survive? (T1 move had none.)

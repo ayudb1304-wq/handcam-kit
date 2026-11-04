@@ -16,7 +16,7 @@ const yieldToPage = () => new Promise((r) => { const c = new MessageChannel(); c
  * @returns {Promise<{ mp4: Blob, png: Blob, width: number, height: number, fps: number, frames: number }>}
  * Throws an Error with a message fit to show the user.
  */
-export async function exportTake(take, scene, { fps = EXPORT_FPS, onProgress = () => {} } = {}) {
+export async function exportTake(take, scene, { fps = EXPORT_FPS, onProgress = () => {}, decorate } = {}) {
   const aspect = take.view?.aspect || 9 / 16;
   const { width, height } = exportSize(aspect);
   // H.264 High, level 4.0: covers 1920×1080 and 1080×1920 at 24 fps. What AI video tools and every player accept.
@@ -32,6 +32,7 @@ export async function exportTake(take, scene, { fps = EXPORT_FPS, onProgress = (
   renderer.setSize(width, height, false);
   const stage = povStage();
   stage.add(renderScene(scene));
+  decorate?.(stage); // lab hook (lab/tools/render.mjs): e.g. a textured twin for measuring motion
   const camera = new THREE.PerspectiveCamera(exportFov(take.view?.fov || 60, aspect, width / height), width / height, 0.05, 200);
 
   const target = new ArrayBufferTarget();

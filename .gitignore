@@ -8,3 +8,4 @@ takes/
 # lab/takes holds takes sent from the desk for recipe tests: keep them
 !lab/takes/
 lab/tools/.cache/
+lab/**/measure.mp4
