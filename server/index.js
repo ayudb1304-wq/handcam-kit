@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { MSG, ROLES, makeRoomCode } from '../public/shared/protocol.js';
 import { buildScene, DEFAULT_MODEL } from './scene.js';
+import { validateScene } from './validate-scene.js';
 import { checkLabTake, isLocal, saveLabTake } from './lab.js';
 import { loadRecipes } from './make/recipe.js';
 import { makeJobs } from './make/jobs.js';
@@ -41,7 +42,8 @@ app.get('/api/info', (req, res) => {
 
 // Scene from a sentence: Claude if ANTHROPIC_API_KEY is set, else (or on failure) a keyword-matched template.
 app.post('/api/scene', async (req, res) => {
-  res.json(await buildScene(req.body?.prompt));
+  const current = req.body?.current && !validateScene(req.body.current).length ? req.body.current : undefined;
+  res.json(await buildScene(req.body?.prompt, { current }));
 });
 
 // Send to lab: save a take + its set under lab/takes/ for recipe tests. Laptop only, never via the tunnel.

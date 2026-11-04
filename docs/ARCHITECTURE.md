@@ -35,7 +35,7 @@ Three pieces, one repo, one `npm run dev`.
 - Prompt box → `/api/scene` → renders the blockout in an overview (OrbitControls) and sends `scene` to the room.
 - Draws a small frustum gizmo that follows the live `pose`, shaped by the phone's `fov`/`aspect`.
 - `/desk?room=XXXX` reuses a room code (default: the server's room).
-- Drag‑to‑move objects in the overview (Phase 3). Each edit re‑sends `scene`.
+- **Fix the set** (Phase 3, `studio/editor.js`): click an object (not floors) to select it, drag to move it on the ground, hold R + drag to turn it, Delete removes it, ⌘Z / Undo (10 levels). "Change" sends `POST /api/scene { prompt, current }` and Claude edits that set. Every change is a new **version** of the set: new `id`, same `setId`, saved in IndexedDB, so older takes replay in the version they were shot in. The phone re-anchors only when `setId` changes, so an edit never moves the person shooting. While dragging, drafts are sent ~10×/s so the phone follows live. The desk reopens the last set from IndexedDB instead of rebuilding it (no AI call per reload).
 - Take list: receives `take` messages, stores in IndexedDB, scrub bar replays the take by driving the gizmo.
 - **Export video** (Phase 4a, `shared/export-video.js`): renders the selected take frame by frame on its own canvas in the phone's look (`povStage`), encodes H.264 with WebCodecs and wraps it as MP4 with `mp4-muxer` (CDN, loaded on first export). Downloads `handcam-<take id>.mp4` and `…-first-frame.png`. Frame/time math is in `shared/frames.js` (tested in `server/frames.test.js`).
 - **Lab** (recipe tests, not a product feature): each take can be named with one of the test shots (`SHOTS` in `protocol.js`, stored as `take.label`) and **Send to lab** posts `{ take, scene }` to `POST /api/lab/take`, which writes `lab/takes/<take id>/take.json` + `scene.json`. Accepted only from the laptop itself (`server/lab.js` `isLocal`), never through the tunnel. `npm run lab:push` commits and pushes `lab/takes/`. In the cloud, `lab/tools/render.mjs` re-renders any lab take with the same exporter.
@@ -108,7 +108,7 @@ All messages are JSON with a `t` field.
 
 ```json
 {
-  "id": "…", "units": "m", "prompt": "parking lot…",
+  "id": "scene-…", "setId": "scene-…", "units": "m", "prompt": "parking lot…",
   "spawn": { "p": [0, 1.6, 6], "yaw": 0 },
   "objects": [
     { "id": "ground", "type": "plane", "size": [40, 40], "color": "#2b2b2b" },

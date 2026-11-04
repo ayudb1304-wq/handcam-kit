@@ -129,3 +129,27 @@ test('any Claude failure falls back to a template', async () => {
     assert.deepEqual(validateScene(r.scene), [], name);
   }
 });
+
+test('edit with words: Claude gets the current set and the change; ids and setId are kept', async () => {
+  const current = { ...minimal(), id: 'scene-1', setId: 'scene-0', prompt: 'a field' };
+  let body;
+  const edited = { ...minimal(), objects: [...minimal().objects] };
+  const fetchImpl = async (url, init) => { body = JSON.parse(init.body); return llmReply(edited)(); };
+  const r = await buildScene('turn the guy to face the camera', { env: { ANTHROPIC_API_KEY: 'k' }, fetchImpl, current });
+  assert.equal(r.source, 'edit');
+  assert.match(body.messages[0].content, /current set/);
+  assert.match(body.messages[0].content, /turn the guy to face the camera/);
+  assert.equal(r.scene.setId, 'scene-0');
+  assert.notEqual(r.scene.id, 'scene-1', 'an edit is a new version of the set');
+  assert.equal(r.scene.prompt, 'a field');
+});
+
+test('edit with words without a key or on failure keeps the current set and says why', async () => {
+  const current = { ...minimal(), id: 'scene-1', setId: 'scene-1' };
+  const none = await buildScene('move it', { env: {}, current });
+  assert.equal(none.unchanged, true);
+  assert.equal(none.scene, current);
+  const bad = await buildScene('move it', { env: { ANTHROPIC_API_KEY: 'k' }, current, fetchImpl: async () => ({ ok: false, status: 500, text: async () => 'x' }), log: quiet });
+  assert.equal(bad.unchanged, true);
+  assert.match(bad.note, /Could not/);
+});

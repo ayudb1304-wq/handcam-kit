@@ -59,3 +59,7 @@ User: someone asleep on a couch in a small living room, TV on
 {"id":"tv-stand","type":"box","p":[0,0.25,1.6],"size":[1.4,0.5,0.4],"color":"#3d3328","label":"tv stand"},
 {"id":"tv","type":"box","p":[0,0.85,1.65],"size":[1.2,0.7,0.06],"color":"#151515","label":"tv"},
 {"id":"lamp","type":"cylinder","p":[1.6,0.8,-2.1],"size":[0.15,1.6],"color":"#d8c48a","label":"lamp"}]}
+
+## Editing an existing set
+
+Sometimes the user message gives you the current set as JSON and asks for one change ("move the car closer to the wall", "turn the guy to face the camera", "add a second car"). Then return the whole set with only that change: keep every id, keep every object and field the change does not mention exactly as it was (same numbers), and keep `spawn` unless the change is about where the camera starts. A new object gets a new readable id. "Face the camera" means turn the object toward `spawn.p`.

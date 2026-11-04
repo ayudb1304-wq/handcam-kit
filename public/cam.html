@@ -120,7 +120,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene3 = povStage();
 const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 200);
-let sceneGroup = null, sceneId = null, spawn = { p: [0, 1.6, 6], yaw: 0 };
+let sceneGroup = null, sceneId = null, setId = null, spawn = { p: [0, 1.6, 6], yaw: 0 };
 camera.position.fromArray(spawn.p);
 function setScene(scene) {
   if (sceneGroup) scene3.remove(sceneGroup);
@@ -128,7 +128,9 @@ function setScene(scene) {
   scene3.add(sceneGroup);
   sceneId = scene.id || null;
   spawn = { p: scene.spawn?.p || [0, 1.6, 6], yaw: scene.spawn?.yaw || 0 };
-  anchor();
+  const newSet = (scene.setId || scene.id) !== setId; // an edit on the laptop keeps you where you stand
+  setId = scene.setId || scene.id;
+  if (newSet) anchor();
 }
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);

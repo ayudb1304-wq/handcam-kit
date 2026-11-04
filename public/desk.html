@@ -54,6 +54,12 @@
         <button class="chip" type="button">Street corner, a woman waiting</button>
       </div>
       <button class="btn primary" id="build">Build the set</button>
+      <div class="edit-words" id="editWords" hidden>
+        <span class="eyebrow">Fix the set</span>
+        <div class="row"><input class="field grow" id="editPrompt" placeholder="“Move the car closer to the wall”" aria-label="Change the set with words"><button class="btn ghost sm" id="editBtn">Change</button></div>
+        <p class="note">Or click an object in the set: drag to move it, hold <b>R</b> and drag to turn it, <b>Delete</b> removes it.</p>
+        <button class="btn quiet sm" id="undoBtn" disabled title="Undo the last change (⌘Z)">Undo</button>
+      </div>
     </section>
 
     <section class="card panel" data-tour="phone">
@@ -77,6 +83,7 @@
     <canvas id="view"></canvas>
     <div class="stage-top">
       <span class="pill"><span class="eyebrow" style="color:var(--fg-2)">Overview</span><span class="muted small">drag to look around</span></span>
+      <span class="pill sel-pill" id="selPill" hidden><b id="selName"></b><span class="muted small">drag · R+drag turns · Delete</span></span>
       <span class="pill rec-chip" id="recChip" hidden><span class="dot rec"></span><span id="recTime">REC</span></span>
     </div>
     <div id="inset" hidden><span class="pill small">What the camera saw</span></div>

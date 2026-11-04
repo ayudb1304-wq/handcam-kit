@@ -37,7 +37,7 @@ Server relays, desk shows QR, phone tilts a camera. No recording yet.
 
 ---
 
-## Phase 3 — Fix the set · `todo`
+## Phase 3 — Fix the set · `built` (2026-11-05, checked in Chrome with a simulated phone; waiting for your laptop + iPhone test)
 
 - Desk overview: click an object to select, drag on ground plane to move, `R` + drag to rotate about Y, `Delete` deletes. Every change re‑sends `scene` (phone updates live).
 - "Edit with words" box: sends `{ prompt, current }` to `/api/scene` so the LLM edits instead of regenerating.

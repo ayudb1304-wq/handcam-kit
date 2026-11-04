@@ -8,6 +8,7 @@ import { putTake, allTakes, deleteTake, putScene, getScene } from '../shared/sto
 import { sampleAt } from '../shared/frames.js';
 import { setupMake } from './make.js';
 import { setupTour } from './tour.js';
+import { setupEditor } from './editor.js';
 
 const $ = (id) => document.getElementById(id);
 export function toast(text, ms = 3200) {
@@ -151,13 +152,79 @@ async function build(prompt) {
   } finally { buildBtn.disabled = false; $('veil').hidden = true; }
 }
 function useScene(scene) {
+  scene.setId ||= scene.id;
   liveScene = scene;
+  undoStack.length = 0; undoBtn.disabled = true;
   selectTake(null);
   showScene(scene);
   relay.send({ t: MSG.SCENE, scene });
-  putScene(scene).catch(() => {}); // so takes shot in this set can be replayed in it later
+  keepScene(scene);
+  if (scene.prompt && !$('prompt').value) $('prompt').value = scene.prompt;
+  $('editWords').hidden = false;
   markStep('set');
 }
+/** Save a set version on this computer (takes replay in the exact version they were shot in) and remember it. */
+function keepScene(scene) {
+  putScene(scene).catch(() => {});
+  try { localStorage.setItem('handcam.lastSceneId', scene.id); } catch {}
+}
+
+// --- Phase 3: fix the set (drag, turn, delete, words, undo) -------------------------------------
+const undoStack = [], undoBtn = $('undoBtn');
+/** A changed set becomes a new version (new id, same setId): older takes keep replaying in what they saw. */
+function commitEdit(next) {
+  undoStack.push(liveScene);
+  if (undoStack.length > 10) undoStack.shift();
+  undoBtn.disabled = false;
+  setLive({ ...next, id: `scene-${Date.now()}`, setId: liveScene.setId || liveScene.id });
+}
+function setLive(scene) {
+  liveScene = scene;
+  showScene(scene);
+  relay.send({ t: MSG.SCENE, scene });
+  keepScene(scene);
+  editor.refresh();
+}
+function undo() {
+  const prev = undoStack.pop();
+  if (!prev) return;
+  undoBtn.disabled = !undoStack.length;
+  setLive(prev);
+  toast('Undone');
+}
+undoBtn.onclick = undo;
+addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/INPUT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); undo(); }
+});
+const editor = setupEditor({
+  canvas, camera, controls, scene3,
+  getGroup: () => sceneGroup,
+  getScene: () => (!current && liveScene && shownSceneId === liveScene.id ? liveScene : null), // only the live set, not a take's
+  preview: (draft) => relay.send({ t: MSG.SCENE, scene: draft }),
+  commit: commitEdit,
+  onSelect: (o) => {
+    $('selPill').hidden = !o;
+    if (o) $('selName').textContent = o.label || o.id;
+  },
+});
+async function editWithWords() {
+  const words = $('editPrompt').value.trim();
+  if (!words || !liveScene) return;
+  if (current) selectTake(null);
+  const btn = $('editBtn');
+  btn.disabled = true; btn.textContent = 'Changing…';
+  try {
+    const r = await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: words, current: liveScene }) });
+    const out = await r.json();
+    if (out.unchanged) return toast(out.note || 'Nothing changed.', 5000);
+    commitEdit(out.scene);
+    $('editPrompt').value = '';
+    toast('Set changed. Undo if it isn’t right.');
+  } catch { toast('Could not change the set. Try again.'); }
+  finally { btn.disabled = false; btn.textContent = 'Change'; }
+}
+$('editBtn').onclick = editWithWords;
+$('editPrompt').addEventListener('keydown', (e) => { if (e.key === 'Enter') editWithWords(); });
 buildBtn.onclick = () => build($('prompt').value.trim() || 'parking lot');
 for (const chip of document.querySelectorAll('#examples .chip')) chip.onclick = () => { $('prompt').value = chip.textContent; build(chip.textContent); };
 $('prompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) buildBtn.click(); });
@@ -355,7 +422,12 @@ for (const take of await allTakes().catch(() => [])) takes.set(take.id, take);
 renderList();
 const params = new URLSearchParams(location.search);
 if (params.has('demo')) { await build('parking lot at night'); await loadDemo(); }
-else build($('prompt').value.trim() || 'parking lot');
+else {
+  let last = null;
+  try { const id = localStorage.getItem('handcam.lastSceneId'); if (id) last = await getScene(id); } catch {}
+  if (last) useScene(last); // the set you were working on, as you left it
+  else build($('prompt').value.trim() || 'parking lot');
+}
 tour.maybeAutoStart(params.has('tour') || params.has('demo'));
 
 // --- loop -----------------------------------------------------------------------------
@@ -375,6 +447,7 @@ function frame(t) {
   }
   if (recSince !== null) { const s = Math.floor((performance.now() - recSince) / 1000); $('recTime').textContent = `REC ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
   controls.update();
+  editor.update();
   renderer.setScissorTest(false);
   renderer.getSize(size);
   renderer.setViewport(0, 0, size.x, size.y);

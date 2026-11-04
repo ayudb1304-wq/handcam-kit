@@ -57,7 +57,15 @@ export function tidy(scene) {
 }
 
 /** Ask Claude for a scene. Throws on anything unexpected; the caller falls back to a template. */
-export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImpl = fetch } = {}) {
+/** The user message: a new set from a sentence, or (with `current`) the same set with one change. */
+export function sceneRequest(prompt, current) {
+  if (!current) return prompt;
+  const { id, setId, prompt: _p, ...plain } = current;
+  return `Here is the current set:\n${JSON.stringify(plain)}\n\nChange it like this: ${prompt}\n\n` +
+    'Return the whole set with only that change. Keep every id, and keep every object and field the change does not mention exactly as it is.';
+}
+
+export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImpl = fetch, current } = {}) {
   cachedPrompt ??= await readFile(PROMPT_PATH, 'utf8');
   cachedSchema ??= await readFile(SCHEMA_PATH, 'utf8');
   const system = `${cachedPrompt}\n\n## JSON schema your output must match\n\n${cachedSchema}`;
@@ -73,7 +81,7 @@ export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImp
       // No json_schema structured output: with it Claude returned 1–3 objects instead of ~12 (DECISIONS §12).
       // The schema goes in the prompt instead, and validateScene() is the real check.
       output_config: { effort: 'low' },
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: sceneRequest(prompt, current) }],
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
@@ -89,9 +97,23 @@ export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImp
 }
 
 // ---- the one entry point used by /api/scene --------------------------------
-/** → { scene, source: 'llm'|'template', note? }. Never throws for a bad prompt or a dead API. */
-export async function buildScene(prompt, { env = process.env, fetchImpl, log = console } = {}) {
+/**
+ * → { scene, source: 'llm'|'template'|'edit', note? }. Never throws for a bad prompt or a dead API.
+ * With `current` (Phase 3 "edit with words") Claude changes that set instead of making a new one; without a key, or if
+ * the edit fails, the current set comes back unchanged with a note (a template would throw the user's set away).
+ */
+export async function buildScene(prompt, { env = process.env, fetchImpl, log = console, current } = {}) {
   prompt = String(prompt || '').slice(0, 2000);
+  if (current && typeof current === 'object') {
+    if (!env.ANTHROPIC_API_KEY) return { scene: current, source: 'edit', unchanged: true, note: 'Changing the set with words needs the AI blockout (ANTHROPIC_API_KEY). Drag objects instead.' };
+    try {
+      const edited = await llmScene(prompt, { apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, fetchImpl, current });
+      return { scene: { ...edited, prompt: current.prompt, setId: current.setId || current.id, id: `scene-${Date.now()}` }, source: 'edit' };
+    } catch (e) {
+      log.warn(`[scene] edit failed: ${e.message}`);
+      return { scene: current, source: 'edit', unchanged: true, note: 'Could not make that change. Try other words, or drag the object.' };
+    }
+  }
   let scene, source = 'template', note;
   if (env.ANTHROPIC_API_KEY && prompt.trim()) {
     try {
@@ -107,5 +129,6 @@ export async function buildScene(prompt, { env = process.env, fetchImpl, log = c
   if (!scene) scene = await loadTemplate(matchTemplate(prompt));
   scene.prompt = prompt;
   scene.id = `scene-${Date.now()}`;
+  scene.setId = scene.id; // edits make new versions (new id) of the same set (same setId)
   return { scene, source, ...(note && { note }) };
 }
