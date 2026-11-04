@@ -47,7 +47,7 @@ Server relays, desk shows QR, phone tilts a camera. No recording yet.
 
 ---
 
-## Phase 3b — Things move · `todo`
+## Phase 3b — Things move · `built` (2026-11-05, checked in Chrome with a simulated phone; waiting for your iPhone test)
 
 People walk, cars drive, someone rides in the car, and the camera can ride along, so you can plan "follow him to the car" and "frame the driver through the windscreen" shots. The **camera** is still never authored: your hand records it; this phase only moves the set (DECISIONS §17).
 

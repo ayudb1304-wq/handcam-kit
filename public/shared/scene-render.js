@@ -1,6 +1,7 @@
 // Scene JSON -> THREE.Group. Used by both desk.html and cam.html so they always show the same set.
 import * as THREE from './three.js';
-import { buildStickFigure } from './stickfigure.js';
+import { buildStickFigure, poseStickFigure } from './stickfigure.js';
+import { planMotion, stateAt } from './motion.js';
 
 export function renderScene(scene) {
   const g = new THREE.Group();
@@ -9,7 +10,31 @@ export function renderScene(scene) {
     const m = buildObject(o);
     if (m) { m.name = o.id; m.userData.obj = o; g.add(m); }
   }
+  const plan = planMotion(scene);
+  if (plan.moving.size) g.userData.motion = plan;
   return g;
+}
+
+/** Does this set have anything that moves (Phase 3b)? → seconds of motion, or 0. */
+export const motionLength = (group) => group?.userData.motion?.duration ?? 0;
+
+/**
+ * Put every moving object where it is `ms` after ● (Phase 3b). ms ≤ 0 = everything at its start.
+ * Walking stick figures swing their legs by the distance covered; vehicles just glide.
+ */
+export function animateScene(group, ms) {
+  const plan = group?.userData.motion;
+  if (!plan) return;
+  for (const id of plan.moving) {
+    const m = group.getObjectByName(id), s = stateAt(plan, id, ms);
+    if (!m || !s) continue;
+    m.position.set(s.p[0], s.p[1], s.p[2]);
+    m.rotation.y = s.yaw;
+    if (m.userData.figure) {
+      const stride = 0.75 * m.userData.figure.height; // metres per full leg cycle
+      poseStickFigure(m, s.pose || m.userData.obj.pose || 'standing', s.moving && s.walked > 0 ? (s.walked / stride) % 1 : null);
+    }
+  }
 }
 
 function mat(color = '#8a8f99') {

@@ -56,6 +56,21 @@ export function tidy(scene) {
   return scene;
 }
 
+/** The first complete {...} in text (braces inside strings ignored), so prose after the JSON can't break parsing. */
+export function firstJsonObject(text) {
+  const start = text.indexOf('{');
+  if (start < 0) throw new Error('no JSON in the reply');
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return text.slice(start, i + 1);
+  }
+  throw new Error('the JSON in the reply is cut off');
+}
+
 /** Ask Claude for a scene. Throws on anything unexpected; the caller falls back to a template. */
 /** The user message: a new set from a sentence, or (with `current`) the same set with one change. */
 export function sceneRequest(prompt, current) {
@@ -89,8 +104,7 @@ export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImp
   const msg = await res.json();
   if (msg.stop_reason !== 'end_turn') throw new Error(`model stopped with ${msg.stop_reason}`);
   const text = (msg.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-  const start = text.indexOf('{'), end = text.lastIndexOf('}'); // tolerate a stray code fence or sentence
-  const scene = tidy(JSON.parse(text.slice(start, end + 1)));
+  const scene = tidy(JSON.parse(firstJsonObject(text))); // tolerate a code fence or a sentence before/after
   const errors = validateScene(scene);
   if (errors.length) throw new Error(`invalid scene: ${errors.slice(0, 5).join('; ')}`);
   return scene;

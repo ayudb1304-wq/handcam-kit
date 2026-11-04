@@ -2,7 +2,7 @@
 import * as THREE from '../shared/three.js';
 import { OrbitControls } from '../shared/three.js';
 import { MSG, SHOTS, connectRelay } from '../shared/protocol.js';
-import { renderScene, addDefaultLights } from '../shared/scene-render.js';
+import { renderScene, addDefaultLights, animateScene } from '../shared/scene-render.js';
 import { OneEuroQuat } from '../shared/one-euro.js';
 import { putTake, allTakes, deleteTake, putScene, getScene } from '../shared/store.js';
 import { sampleAt } from '../shared/frames.js';
@@ -103,8 +103,9 @@ const filterOn = $('filter');
 const liveFilter = new OneEuroQuat({ mincutoff: 1.0, beta: 0.01 });
 filterOn.onchange = () => liveFilter.reset();
 const poseQ = new THREE.Quaternion();
-let recSince = null;
+let recSince = null, liveSetMs = 0; // the phone's set clock (Phase 3b): the desk shows the set moving with it
 function onPose(m) {
+  liveSetMs = m.st ?? 0;
   poseQ.fromArray(m.q);
   if (filterOn.checked) liveFilter.filter(poseQ, m.ts, live.group.quaternion);
   else live.group.quaternion.copy(poseQ);
@@ -448,6 +449,7 @@ function frame(t) {
   if (recSince !== null) { const s = Math.floor((performance.now() - recSince) / 1000); $('recTime').textContent = `REC ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
   controls.update();
   editor.update();
+  if (!editor.busy()) animateScene(sceneGroup, current ? playhead : liveSetMs); // a take replays the set's motion too
   renderer.setScissorTest(false);
   renderer.getSize(size);
   renderer.setViewport(0, 0, size.x, size.y);

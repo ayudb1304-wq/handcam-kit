@@ -2,41 +2,211 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "HandCam scene (blockout)",
   "type": "object",
-  "required": ["units", "spawn", "objects"],
+  "required": [
+    "units",
+    "spawn",
+    "objects"
+  ],
   "properties": {
-    "id": { "type": "string" },
-    "prompt": { "type": "string" },
-    "units": { "const": "m" },
+    "id": {
+      "type": "string"
+    },
+    "prompt": {
+      "type": "string"
+    },
+    "units": {
+      "const": "m"
+    },
     "spawn": {
       "type": "object",
-      "required": ["p"],
+      "required": [
+        "p"
+      ],
       "properties": {
-        "p": { "$ref": "#/$defs/vec3", "description": "camera start, eye height ~1.6" },
-        "yaw": { "type": "number", "description": "radians, 0 = looking down -Z" }
+        "p": {
+          "$ref": "#/$defs/vec3",
+          "description": "camera start, eye height ~1.6"
+        },
+        "yaw": {
+          "type": "number",
+          "description": "radians, 0 = looking down -Z"
+        }
       }
     },
     "objects": {
       "type": "array",
       "maxItems": 60,
-      "items": { "$ref": "#/$defs/object" }
+      "items": {
+        "$ref": "#/$defs/object"
+      }
     }
   },
   "$defs": {
-    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
     "object": {
       "type": "object",
-      "required": ["id", "type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,32}$" },
-        "type": { "enum": ["plane", "box", "cylinder", "sphere", "stickfigure"] },
-        "label": { "type": "string", "maxLength": 40 },
-        "p": { "$ref": "#/$defs/vec3" },
-        "rot": { "$ref": "#/$defs/vec3", "description": "euler XYZ radians" },
-        "size": { "type": "array", "items": { "type": "number", "minimum": 0.01 }, "minItems": 1, "maxItems": 3,
-                  "description": "plane:[w,d] box:[w,h,d] cylinder:[r,h] sphere:[r]" },
-        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
-        "height": { "type": "number", "minimum": 0.5, "maximum": 2.5, "description": "stickfigure only" },
-        "pose": { "enum": ["standing", "sitting", "lying", "crouching"], "description": "stickfigure only" }
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,32}$"
+        },
+        "type": {
+          "enum": [
+            "plane",
+            "box",
+            "cylinder",
+            "sphere",
+            "stickfigure"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "p": {
+          "$ref": "#/$defs/vec3"
+        },
+        "rot": {
+          "$ref": "#/$defs/vec3",
+          "description": "euler XYZ radians"
+        },
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "description": "plane:[w,d] box:[w,h,d] cylinder:[r,h] sphere:[r]"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2.5,
+          "description": "stickfigure only"
+        },
+        "pose": {
+          "enum": [
+            "standing",
+            "sitting",
+            "lying",
+            "crouching"
+          ],
+          "description": "stickfigure only"
+        },
+        "on": {
+          "type": "string",
+          "description": "id of the object this one rides on (a driver in a car); keeps its offset at rest. One level deep."
+        },
+        "moves": {
+          "type": "array",
+          "maxItems": 20,
+          "description": "Phase 3b: actions done one after another when recording starts. Never the camera.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "do",
+                  "to"
+                ],
+                "properties": {
+                  "do": {
+                    "const": "go"
+                  },
+                  "to": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "description": "[x, z] destination"
+                  },
+                  "speed": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 60,
+                    "description": "m/s, default 1.4 (walk). Car in town ~8-14."
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "do",
+                  "yaw"
+                ],
+                "properties": {
+                  "do": {
+                    "const": "turn"
+                  },
+                  "yaw": {
+                    "type": "number",
+                    "description": "face this yaw (radians, 0 = +z)"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "do",
+                  "pose"
+                ],
+                "properties": {
+                  "do": {
+                    "const": "pose"
+                  },
+                  "pose": {
+                    "enum": [
+                      "standing",
+                      "sitting",
+                      "lying",
+                      "crouching"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "do",
+                  "s"
+                ],
+                "properties": {
+                  "do": {
+                    "const": "wait"
+                  },
+                  "s": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 60
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
       },
       "additionalProperties": false
     }

@@ -2,7 +2,7 @@
 // Rendered frame by frame, not screen-recorded: frame i shows exactly the sample recorded at or before i/fps,
 // whatever the speed of the computer. The look matches the phone's view (povStage).
 import * as THREE from './three.js';
-import { renderScene, povStage } from './scene-render.js';
+import { renderScene, povStage, animateScene } from './scene-render.js';
 import { sampleAt, frameTimes, exportSize, exportFov } from './frames.js';
 
 export const EXPORT_FPS = 24;
@@ -31,7 +31,8 @@ export async function exportTake(take, scene, { fps = EXPORT_FPS, onProgress = (
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setSize(width, height, false);
   const stage = povStage();
-  stage.add(renderScene(scene));
+  const set = renderScene(scene);
+  stage.add(set);
   decorate?.(stage); // lab hook (lab/tools/render.mjs): e.g. a textured twin for measuring motion
   const camera = new THREE.PerspectiveCamera(exportFov(take.view?.fov || 60, aspect, width / height), width / height, 0.05, 200);
 
@@ -46,6 +47,7 @@ export async function exportTake(take, scene, { fps = EXPORT_FPS, onProgress = (
   try {
     for (let i = 0; i < times.length; i++) {
       const s = sampleAt(take.samples, times[i]);
+      animateScene(set, times[i]); // the set's own motion at the same moment (Phase 3b)
       camera.quaternion.fromArray(s.q);
       camera.position.fromArray(s.p);
       renderer.render(stage, camera);

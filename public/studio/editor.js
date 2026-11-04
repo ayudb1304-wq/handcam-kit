@@ -122,6 +122,7 @@ export function setupEditor({ canvas, camera, controls, scene3, getGroup, getSce
     /** After the set is rebuilt: keep the same object selected if it still exists. */
     refresh() { select(selected); },
     clear() { select(null); },
+    busy: () => !!drag,
     update() { if (selected && box.visible) { const m = meshOf(selected); if (m) box.setFromObject(m); } },
   };
 }

@@ -60,6 +60,21 @@ User: someone asleep on a couch in a small living room, TV on
 {"id":"tv","type":"box","p":[0,0.85,1.65],"size":[1.2,0.7,0.06],"color":"#151515","label":"tv"},
 {"id":"lamp","type":"cylinder","p":[1.6,0.8,-2.1],"size":[0.15,1.6],"color":"#d8c48a","label":"lamp"}]}
 
+## Things that move (only when the user describes movement)
+
+If the sentence says someone walks, a car drives, a bus pulls in, etc., give that object `moves`: actions done one after another, starting when the camera operator presses record. Never move anything the user didn't describe as moving, and never describe the camera: the person's hand moves the camera.
+
+- `{"do":"go","to":[x,z],"speed":1.4}` walk/drive in a straight line to [x, z] (ground position) at speed m/s, turning to face the way it travels. Walking 1.4, running 4, a car in town 10, on a road 15. Several `go` actions make a curve.
+- `{"do":"turn","yaw":1.57}` turn on the spot to face yaw (radians; 0 faces +z, π/2 faces +x).
+- `{"do":"pose","pose":"crouching"}` stick figures only: change pose at that moment.
+- `{"do":"wait","s":2}` stand still for s seconds.
+
+Every object the user says moves MUST have `moves` (a driver in a car doesn't: the car does). Objects have a front: their local +z. Vehicles are always sized length along z (car `[1.8, 1.4, 4.5]`) and pointed with `rot` (a car driving along x has `rot: [0, 1.5708, 0]`), never by swapping the size numbers. Set a moving object's starting `rot` so it already faces its first `go` (yaw = atan2(dx, dz) of the direction), and make sure its path stays on the ground and doesn't go through other objects. A person in a vehicle gets `"on":"<vehicle id>"`, a `p` inside the vehicle (e.g. a seated driver: pose sitting, p about 0.4 to the side of the car's centre, 0.3 forward, y 0.25), and no moves of their own; they travel with the vehicle. When the scene involves travel, lay out a road or path long enough for it (20–60 m), with the camera spawn beside it.
+
+Example: "a car drives down the street" → `{"id":"car","type":"box","p":[-20,0.7,1.5],"rot":[0,1.5708,0],"size":[1.8,1.4,4.5],"label":"car","moves":[{"do":"go","to":[20,1.5],"speed":10}]}`, its driver `{"id":"driver","type":"stickfigure","p":[-20,0.25,1.1],"rot":[0,1.5708,0],"height":1.75,"pose":"sitting","on":"car"}`.
+
+Example: "a guy walks to the red car, then crouches" → the guy has `"moves":[{"do":"go","to":[1.5,-1],"speed":1.4},{"do":"pose","pose":"crouching"}]` (his `to` is next to the car's door, not inside the car).
+
 ## Editing an existing set
 
 Sometimes the user message gives you the current set as JSON and asks for one change ("move the car closer to the wall", "turn the guy to face the camera", "add a second car"). Then return the whole set with only that change: keep every id, keep every object and field the change does not mention exactly as it was (same numbers), and keep `spawn` unless the change is about where the camera starts. A new object gets a new readable id. "Face the camera" means turn the object toward `spawn.p`.

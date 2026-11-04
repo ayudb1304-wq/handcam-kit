@@ -74,7 +74,7 @@ All messages are JSON with a `t` field.
 | `hello` | any → relay | `{ role: 'cam'|'desk', room }` |
 | `peer` | relay → any | `{ role, joined: true/false }` |
 | `scene` | desk → cam | `{ scene }` (full scene JSON, not a diff) |
-| `pose` | cam → desk | `{ ts, q:[x,y,z,w], p:[x,y,z], rec: bool, fov, aspect }` (fov/aspect = the phone's view, so the desk frustum matches what the phone shows; not stored in takes) |
+| `pose` | cam → desk | `{ ts, q:[x,y,z,w], p:[x,y,z], rec: bool, st, fov, aspect }` (`st` = the set's clock in ms, so the desk shows the set moving live) (fov/aspect = the phone's view, so the desk frustum matches what the phone shows; not stored in takes) |
 | `rec` | desk → cam | `{ state: 'start'|'stop' }` (desk can also trigger recording) |
 | `take` | cam → desk | `{ take }` (see format below) |
 | `anchor` | cam → desk | `{}` informational |
@@ -118,7 +118,9 @@ All messages are JSON with a `t` field.
 }
 ```
 
-Types: `plane`, `box`, `cylinder`, `sphere`, `stickfigure`. `stickfigure.pose ∈ {standing, sitting, lying, crouching}`; it is built from capsules/cylinders in `shared/stickfigure.js` and the same builder is mirrored in the Blender exporter.
+Types: `plane`, `box`, `cylinder`, `sphere`, `stickfigure`.
+
+**Things that move (Phase 3b, `shared/motion.js`).** Any object may have `moves` (done one after another from ●: `{do:'go', to:[x,z], speed}`, `{do:'turn', yaw}`, `{do:'pose', pose}`, `{do:'wait', s}`) and `on: '<id>'` (rides on that object, keeping its offset at rest, one level deep). Objects face their local +z; vehicles are sized length-along-z and pointed with `rot`. `planMotion(scene)` + `stateAt(plan, id, ms)` is a pure function of (scene, time): the phone, the desk replay, the video export and the Blender export all compute the set from it, so takes stay camera-only. `scene-render.js` `animateScene(group, ms)` applies it (stick figures swing their legs by distance walked; vehicles glide). The set's clock is 0 (everything at its start) until ●, then the take's `ts`; **Rehearse** on the phone plays it once without recording. **Ride with…** on the phone carries the camera in a moving object's frame (your hand and sticks move you within it, and you turn with it); the take still stores world `p`/`q`, plus `take.ride` for information. `stickfigure.pose ∈ {standing, sitting, lying, crouching}`; it is built from capsules/cylinders in `shared/stickfigure.js` and the same builder is mirrored in the Blender exporter.
 
 ## Coordinate conventions (write them once, here)
 

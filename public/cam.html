@@ -29,6 +29,7 @@
   #status.rec { color: #ffd0d0; border-color: rgba(255,77,77,.5); background: rgba(70,10,10,.6); font-family: var(--mono); }
   .tbtn { height: 34px; padding: 0 12px; border-radius: 999px; font: 600 13px var(--font); display: inline-flex; align-items: center; gap: 6px; }
   .tbtn:active { transform: scale(.96); }
+  .tbtn.on { background: rgba(224,122,82,.55); border-color: rgba(240,160,125,.8); }
   #room { font: 600 11px var(--mono); letter-spacing: .12em; }
   .bottom { display: flex; justify-content: space-between; align-items: flex-end; }
   #rec { width: 82px; height: 82px; border-radius: 50%; border: 0; padding: 0; flex: none; background: transparent; position: relative; box-shadow: 0 0 0 4px rgba(255,255,255,.92), 0 10px 30px -8px rgba(0,0,0,.6); }
@@ -69,6 +70,8 @@
   <div class="top">
     <span class="pill glass" id="status">connecting…</span>
     <div class="right">
+      <button class="tbtn glass" id="rehearse" hidden title="Play the set's movement once, without recording">Rehearse</button>
+      <button class="tbtn glass" id="ride" hidden title="Ride along with something that moves">On foot</button>
       <button class="tbtn glass" id="speed" aria-label="Walking speed">1×</button>
       <button class="tbtn glass" id="anchor">Re&#8209;anchor</button>
       <span class="pill glass" id="room"></span>
@@ -100,7 +103,8 @@
 import * as THREE from './shared/three.js';
 import { MSG, connectRelay } from './shared/protocol.js';
 import { orientationToQuaternion, requestMotionPermission, screenAngle } from './shared/orientation.js';
-import { renderScene, povStage } from './shared/scene-render.js';
+import { renderScene, povStage, animateScene, motionLength } from './shared/scene-render.js';
+import { frameAt } from './shared/motion.js';
 import { makeStick } from './shared/joystick.js';
 import { putTake } from './shared/store.js';
 
@@ -131,7 +135,60 @@ function setScene(scene) {
   const newSet = (scene.setId || scene.id) !== setId; // an edit on the laptop keeps you where you stand
   setId = scene.setId || scene.id;
   if (newSet) anchor();
+  setupMotionButtons();
 }
+
+// --- Phase 3b: the set's clock, rehearse, ride along ---------------------------------------
+// Everything that moves waits at its start until ● is pressed; the take's ts is the set's clock.
+let rehearseStart = null, ride = null; // ride: { id, offset (camera in the vehicle's frame), yaw0 }
+const rideBtn = document.getElementById('ride'), rehearseBtn = document.getElementById('rehearse');
+function setClock(t) {
+  if (recording && recStart !== null) return t - recStart;
+  if (rehearseStart !== null) {
+    const ms = t - rehearseStart;
+    if (ms > motionLength(sceneGroup) * 1000 + 1000) { rehearseStart = null; rehearseBtn.classList.remove('on'); say('Rehearsal done'); return 0; }
+    return ms;
+  }
+  return 0;
+}
+function movers() { // things with their own moves you can ride with
+  const plan = sceneGroup?.userData.motion;
+  return plan ? [...plan.own.keys()].map((id) => plan.byId.get(id)) : [];
+}
+function setupMotionButtons() {
+  const list = movers();
+  rehearseBtn.hidden = !motionLength(sceneGroup);
+  rideBtn.hidden = !list.length;
+  if (ride && !list.some((o) => o.id === ride.id)) setRide(null);
+}
+rehearseBtn.onclick = () => {
+  if (recording) return;
+  rehearseStart = rehearseStart === null ? performance.now() : null;
+  rehearseBtn.classList.toggle('on', rehearseStart !== null);
+  say(rehearseStart !== null ? 'Rehearsing (not recording)' : 'Ready');
+};
+const rideM = new THREE.Matrix4(), rideInv = new THREE.Matrix4(), rideQ = new THREE.Quaternion();
+function setRide(id, ms = 0) {
+  if (!id) { ride = null; rideBtn.textContent = 'On foot'; return; }
+  const f = frameAt(sceneGroup.userData.motion, id, ms);
+  rideM.fromArray(f.elements); rideInv.copy(rideM).invert();
+  const o0 = sceneGroup.userData.motion.byId.get(id);
+  if (camera.position.distanceTo(new THREE.Vector3(...f.p)) > 6) {
+    // too far to be "in" it: start just ahead of it, at eye level, looking back at it (the windscreen shot)
+    const ahead = (o0.size?.[2] ?? 1) / 2 + 2;
+    camera.position.set(0, 1.4 - (o0.p?.[1] ?? 0), ahead).applyMatrix4(rideM);
+    faceYaw(Math.atan2(f.p[0] - camera.position.x, f.p[2] - camera.position.z) + Math.PI);
+  }
+  ride = { id, offset: camera.position.clone().applyMatrix4(rideInv), yaw0: f.yaw };
+  const o = sceneGroup.userData.motion.byId.get(id);
+  rideBtn.textContent = `Riding: ${o.label || o.id}`;
+}
+rideBtn.onclick = () => { // On foot → each mover → On foot
+  const list = movers(), i = ride ? list.findIndex((o) => o.id === ride.id) : -1;
+  setRide(list[i + 1]?.id || null, lastSetMs);
+  say(ride ? 'Your hand and the sticks now move you inside it' : 'On foot');
+};
+let lastSetMs = 0;
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
@@ -149,13 +206,17 @@ function onOrientation(e) {
   orientationToQuaternion(rawQ, e.alpha, e.beta, e.gamma, screenAngle());
   if (!haveOrientation) { haveOrientation = true; anchor(); } // first reading: start facing the set
 }
-/** Re-anchor: wherever the phone points now becomes the spawn direction, and the camera goes back to spawn. */
-function anchor() {
-  camera.position.fromArray(spawn.p);
+/** Turn the view so the phone's current direction looks along `yaw` (0 = looking down -z). */
+function faceYaw(yaw) {
   if (!haveOrientation) return;
   const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(rawQ);
-  const yaw = Math.atan2(-fwd.x, -fwd.z);
-  yawOffset.setFromAxisAngle(Y, spawn.yaw - yaw);
+  yawOffset.setFromAxisAngle(Y, yaw - Math.atan2(-fwd.x, -fwd.z));
+}
+/** Re-anchor: wherever the phone points now becomes the spawn direction, and the camera goes back to spawn. */
+function anchor() {
+  if (typeof ride !== 'undefined' && ride) setRide(null);
+  camera.position.fromArray(spawn.p);
+  faceYaw(spawn.yaw);
 }
 document.getElementById('anchor').onclick = () => { anchor(); relay.send({ t: MSG.ANCHOR }); };
 
@@ -197,7 +258,7 @@ function setRec(on) {
   recording = on;
   recBtn.classList.toggle('on', on);
   document.body.classList.toggle('recording', on);
-  if (on) { samples = []; recStart = null; say('● 0:00', true); }
+  if (on) { samples = []; recStart = null; rehearseStart = null; rehearseBtn.classList.remove('on'); say('● 0:00', true); }
   else finishTake();
 }
 recBtn.onclick = () => setRec(!recording);
@@ -212,6 +273,7 @@ async function finishTake() {
     id: takeId(), sceneId, fps_hint: 60,
     view: { fov: camera.fov, aspect: camera.aspect },
     device: { ua: navigator.userAgent, source: 'gyro+joystick' },
+    ...(ride && { ride: ride.id }),
     samples,
   };
   samples = [];
@@ -228,10 +290,20 @@ let lastFrame = null, lastSample = -Infinity;
 function frame(t) {
   const dt = lastFrame === null ? 0 : Math.min((t - lastFrame) / 1000, 0.1);
   lastFrame = t;
+  const setMs = setClock(t);
+  lastSetMs = setMs;
+  animateScene(sceneGroup, setMs);
   if (haveOrientation) {
     q.copy(yawOffset).multiply(rawQ);
+    if (ride) { // inside a moving vehicle: it carries you and turns you with it; your hand and sticks move you within it
+      const f = frameAt(sceneGroup.userData.motion, ride.id, setMs);
+      rideM.fromArray(f.elements); rideInv.copy(rideM).invert();
+      q.premultiply(rideQ.setFromAxisAngle(Y, f.yaw - ride.yaw0));
+      camera.position.copy(ride.offset).applyMatrix4(rideM);
+    }
     camera.quaternion.copy(q);
     move(dt);
+    if (ride) ride.offset.copy(camera.position).applyMatrix4(rideInv);
   }
   renderer.render(scene3, camera);
   if (haveOrientation && t - lastSample >= SAMPLE_MS) {
@@ -242,7 +314,7 @@ function frame(t) {
       samples.push({ ts: t - recStart, q: qa, p });
       if (samples.length % 30 === 0) say(`● ${clock(t - recStart)}`, true);
     }
-    relay.send({ t: MSG.POSE, ts: t, q: qa, p, rec: recording, fov: camera.fov, aspect: camera.aspect });
+    relay.send({ t: MSG.POSE, ts: t, q: qa, p, rec: recording, st: setMs, fov: camera.fov, aspect: camera.aspect });
   }
   requestAnimationFrame(frame);
 }

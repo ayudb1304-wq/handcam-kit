@@ -5,7 +5,8 @@
 const TYPES = ['plane', 'box', 'cylinder', 'sphere', 'stickfigure'];
 const POSES = ['standing', 'sitting', 'lying', 'crouching'];
 const SIZE_LEN = { plane: 2, box: 3, cylinder: 2, sphere: 1 }; // plane:[w,d] box:[w,h,d] cylinder:[r,h] sphere:[r]
-const KEYS = new Set(['id', 'type', 'label', 'p', 'rot', 'size', 'color', 'height', 'pose']);
+const KEYS = new Set(['id', 'type', 'label', 'p', 'rot', 'size', 'color', 'height', 'pose', 'moves', 'on']);
+const MAX_MOVES = 20;
 const MAX_OBJECTS = 60;
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -33,6 +34,14 @@ export function validateScene(scene) {
     if (o.rot !== undefined && !isVec3(o.rot)) errors.push(`${at} rot must be [rx,ry,rz]`);
     if (o.label !== undefined && (typeof o.label !== 'string' || o.label.length > 40)) errors.push(`${at} label must be a string ≤ 40 chars`);
     if (o.color !== undefined && !/^#[0-9a-fA-F]{6}$/.test(o.color)) errors.push(`${at} color must be #rrggbb`);
+    if (o.on !== undefined && (typeof o.on !== 'string' || o.on === o.id)) errors.push(`${at} on must be the id of another object`);
+    if (o.moves !== undefined) {
+      if (!Array.isArray(o.moves) || o.moves.length > MAX_MOVES) errors.push(`${at} moves must be a list of at most ${MAX_MOVES} actions`);
+      else o.moves.forEach((m, j) => {
+        const bad = moveProblem(m, o.type);
+        if (bad) errors.push(`${at} moves[${j}] ${bad}`);
+      });
+    }
     if (o.type === 'stickfigure') {
       if (o.size !== undefined) errors.push(`${at} stickfigure takes height, not size`);
       if (o.height !== undefined && !(isNum(o.height) && o.height >= 0.5 && o.height <= 2.5)) errors.push(`${at} height must be 0.5–2.5`);
@@ -45,5 +54,24 @@ export function validateScene(scene) {
       }
     }
   });
+  const ids = new Set(scene.objects.map((o) => o?.id));
+  for (const o of scene.objects) if (o && typeof o.on === 'string' && o.on !== o.id && !ids.has(o.on)) errors.push(`${o.id} rides on "${o.on}", which isn't in the set`);
   return errors;
+}
+
+/** One Phase 3b action (see public/shared/motion.js), or why it's wrong. */
+function moveProblem(m, type) {
+  if (!m || typeof m !== 'object') return 'must be an object';
+  if (m.do === 'go') {
+    if (!(Array.isArray(m.to) && m.to.length === 2 && m.to.every(isNum))) return 'go needs to: [x, z]';
+    if (m.speed !== undefined && !(isNum(m.speed) && m.speed > 0 && m.speed <= 60)) return 'speed must be 0–60 m/s';
+    return Object.keys(m).every((k) => ['do', 'to', 'speed'].includes(k)) ? null : 'go takes only to and speed';
+  }
+  if (m.do === 'turn') return isNum(m.yaw) && Object.keys(m).length === 2 ? null : 'turn needs yaw (radians)';
+  if (m.do === 'wait') return isNum(m.s) && m.s >= 0 && m.s <= 60 && Object.keys(m).length === 2 ? null : 'wait needs s (0–60 seconds)';
+  if (m.do === 'pose') {
+    if (type !== 'stickfigure') return 'pose is for stick figures only';
+    return POSES.includes(m.pose) && Object.keys(m).length === 2 ? null : `pose must be one of ${POSES.join('/')}`;
+  }
+  return 'do must be go, turn, pose or wait';
 }

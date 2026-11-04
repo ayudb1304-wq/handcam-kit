@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { validateScene } from './validate-scene.js';
-import { matchTemplate, listTemplates, loadTemplate, buildScene, DEFAULT_MODEL } from './scene.js';
+import { matchTemplate, listTemplates, loadTemplate, buildScene, DEFAULT_MODEL, firstJsonObject } from './scene.js';
 
 const ACCEPT_PROMPT = 'parking lot at night, one car, a guy stuck between two cars';
 const minimal = () => ({ units: 'm', spawn: { p: [0, 1.6, 6] }, objects: [{ id: 'ground', type: 'plane', size: [20, 20] }] });
@@ -152,4 +152,28 @@ test('edit with words without a key or on failure keeps the current set and says
   const bad = await buildScene('move it', { env: { ANTHROPIC_API_KEY: 'k' }, current, fetchImpl: async () => ({ ok: false, status: 500, text: async () => 'x' }), log: quiet });
   assert.equal(bad.unchanged, true);
   assert.match(bad.note, /Could not/);
+});
+
+test('moves and riding: valid actions pass, mistakes are named', () => {
+  const ok = { ...minimal(), objects: [...minimal().objects,
+    { id: 'car', type: 'box', size: [1.8, 1.4, 4.5], moves: [{ do: 'go', to: [0, 20], speed: 10 }, { do: 'wait', s: 1 }, { do: 'turn', yaw: 1 }] },
+    { id: 'driver', type: 'stickfigure', on: 'car', pose: 'sitting' },
+    { id: 'guy', type: 'stickfigure', moves: [{ do: 'go', to: [1, 1] }, { do: 'pose', pose: 'crouching' }] }] };
+  assert.deepEqual(validateScene(ok), []);
+  const bad = { ...minimal(), objects: [...minimal().objects,
+    { id: 'a', type: 'box', moves: [{ do: 'fly', to: [1, 1] }] },
+    { id: 'b', type: 'box', moves: [{ do: 'pose', pose: 'sitting' }] },
+    { id: 'c', type: 'box', on: 'ghost' },
+    { id: 'd', type: 'box', moves: [{ do: 'go', to: [1, 2, 3] }] }] };
+  const e = validateScene(bad).join(' | ');
+  assert.match(e, /do must be go, turn, pose or wait/);
+  assert.match(e, /pose is for stick figures only/);
+  assert.match(e, /rides on "ghost"/);
+  assert.match(e, /go needs to/);
+});
+
+test('the first JSON object is read even with prose or a second object after it', () => {
+  assert.equal(firstJsonObject('Here: {"a":{"b":"}"}} and also {"c":1}'), '{"a":{"b":"}"}}');
+  assert.equal(firstJsonObject('```json\n{"x":"a \\" }"}\n```'), '{"x":"a \\" }"}');
+  assert.throws(() => firstJsonObject('{"a":1'), /cut off/);
 });
