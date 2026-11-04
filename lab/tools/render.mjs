@@ -3,7 +3,7 @@
 //
 //   node lab/tools/render.mjs lab/takes/<take id> [--force]
 //     -> reference.mp4 + first-frame.png (what the AI gets; kept if already there unless --force)
-//     -> measure.mp4: the same camera path through the same set, every surface speckled, so lab/tools/score.py can
+//     -> measure.mp4: the same camera path through the same set, every surface speckled, so server/score.py can
 //        track walking (the flat grey reference has too little texture for that). Never sent to an AI.
 //
 // Needs Playwright with Chromium (preinstalled in Claude cloud sessions). three.js and mp4-muxer are fetched once

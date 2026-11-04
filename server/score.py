@@ -1,10 +1,10 @@
 """Move match v0: how closely does an AI video follow the camera move of a HandCam take?
 
-    python3 lab/tools/score.py TAKE.json RESULT.mp4 [RESULT2.mp4 ...]
+    python3 server/score.py TAKE.json RESULT.mp4 [RESULT2.mp4 ...]
 
 Turning and tilting: truth comes from the take's raw samples (yaw = turn left/right, pitch = tilt up/down,
 degrees); the result's are estimated by phase correlation between consecutive frames.
-Walking (forward/back, up/down): needs measure.mp4 next to TAKE.json (lab/tools/render.mjs makes it: the same
+Walking (forward/back, up/down): needs measure.mp4 next to TAKE.json (lab/tools/render.mjs or the desk makes it: the same
 camera path through a speckled copy of the set). Both it and the result are measured the same way, from dense
 optical flow fitted with zoom + shift per frame, and compared. "fwd" is how much bigger the view got, in %.
 Known limits: fast whips with motion blur read smaller than they are; frames inside fast turns are skipped
