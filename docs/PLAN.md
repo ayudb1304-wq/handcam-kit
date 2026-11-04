@@ -87,7 +87,7 @@ Built ahead of the recipe so it's plug and play when the recipe is final (DECISI
 
 ---
 
-## Phase 4 — Frame, lens and export · `todo`
+## Phase 4 — Frame, lens and export · `built` (2026-11-05, checked in Chrome; the Blender import is untested because Blender isn't installed on the laptop)
 
 Two parts: shoot in the shape and lens the final video needs, then export it in forms AI video tools and Blender take directly.
 

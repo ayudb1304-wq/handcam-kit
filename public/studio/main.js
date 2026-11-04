@@ -5,10 +5,11 @@ import { MSG, SHOTS, connectRelay } from '../shared/protocol.js';
 import { renderScene, addDefaultLights, animateScene } from '../shared/scene-render.js';
 import { OneEuroQuat } from '../shared/one-euro.js';
 import { putTake, allTakes, deleteTake, putScene, getScene } from '../shared/store.js';
-import { sampleAt } from '../shared/frames.js';
+import { sampleAt, takeOutput } from '../shared/frames.js';
 import { setupMake } from './make.js';
 import { setupTour } from './tour.js';
 import { setupEditor } from './editor.js';
+import { setupExport } from './export.js';
 
 const $ = (id) => document.getElementById(id);
 export function toast(text, ms = 3200) {
@@ -302,6 +303,7 @@ async function selectTake(take) {
   replay.group.visible = !!take;
   renderList();
   make.onTake(take);
+  exporter?.onTake(take);
   if (!take) { if (liveScene && shownSceneId !== liveScene.id) showScene(liveScene); return; }
   replay.view(take.view?.fov, take.view?.aspect);
   replayCam.fov = take.view?.fov || 60; replayCam.aspect = take.view?.aspect || 9 / 16; replayCam.updateProjectionMatrix();
@@ -339,27 +341,6 @@ shotSel.onchange = () => {
   if (shotSel.value) current.label = shotSel.value; else delete current.label;
   if (!current.demo) putTake(current).catch(() => {});
   renderList(); $('playerName').textContent = nice(current);
-};
-let exportUrls = [];
-$('exportBtn').onclick = async () => {
-  const take = current, btn = $('exportBtn');
-  if (!take) return;
-  const scene = await takeScene(take);
-  if (!scene) return toast('The set this take was shot in isn’t saved on this computer.');
-  btn.disabled = true;
-  try {
-    const { exportTake } = await import('../shared/export-video.js');
-    const out = await exportTake(take, scene, { onProgress: (f) => { btn.textContent = `Exporting ${Math.round(f * 100)}%`; } });
-    for (const u of exportUrls) URL.revokeObjectURL(u);
-    exportUrls = [];
-    const name = `handcam-${take.id}`;
-    for (const [blob, file] of [[out.mp4, `${name}.mp4`], [out.png, `${name}-first-frame.png`]]) {
-      const url = URL.createObjectURL(blob); exportUrls.push(url);
-      Object.assign(document.createElement('a'), { href: url, download: file }).click();
-    }
-    toast(`Saved ${out.width}×${out.height} grey video + first frame to Downloads`);
-  } catch (e) { toast(e.message, 5000); }
-  finally { btn.disabled = false; btn.textContent = 'Export grey video'; }
 };
 $('toLab').onclick = async () => {
   const take = current, btn = $('toLab');
@@ -410,6 +391,9 @@ async function loadDemo() {
 }
 $('demoBtn').onclick = $('demoBtn2').onclick = loadDemo;
 
+// --- Phase 4 export panel -----------------------------------------------------------------
+var exporter = setupExport({ getTake: () => current, takeScene, toast });
+
 // --- Make video + tour ---------------------------------------------------------------
 make = setupMake({ getTake: () => current, takeScene, toast, onDone: () => markStep('make'), onJobs: () => renderList() });
 const tour = setupTour({ loadDemo });
@@ -439,6 +423,11 @@ function frame(t) {
   if (current) {
     if (playing) { playhead += dt; if (playhead >= duration(current)) { playhead = duration(current); playing = false; } }
     const s = sampleAt(current.samples, playhead);
+    if (s.f) { // Phase 4: the zoom as performed, sample by sample
+      const fov = takeOutput(current).fovAt(s);
+      replay.view(fov, current.view?.aspect);
+      if (replayCam.fov !== fov) { replayCam.fov = fov; replayCam.updateProjectionMatrix(); }
+    }
     replay.group.quaternion.fromArray(s.q); replay.group.position.fromArray(s.p);
     replayCam.quaternion.fromArray(s.q); replayCam.position.fromArray(s.p);
     scrub.value = playhead;

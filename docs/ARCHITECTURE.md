@@ -39,7 +39,7 @@ Three pieces, one repo, one `npm run dev`.
 - Take list: receives `take` messages, stores in IndexedDB, scrub bar replays the take by driving the gizmo.
 - **Export video** (Phase 4a, `shared/export-video.js`): renders the selected take frame by frame on its own canvas in the phone's look (`povStage`), encodes H.264 with WebCodecs and wraps it as MP4 with `mp4-muxer` (CDN, loaded on first export). Downloads `handcam-<take id>.mp4` and `…-first-frame.png`. Frame/time math is in `shared/frames.js` (tested in `server/frames.test.js`).
 - **Lab** (recipe tests, not a product feature): each take can be named with one of the test shots (`SHOTS` in `protocol.js`, stored as `take.label`) and **Send to lab** posts `{ take, scene }` to `POST /api/lab/take`, which writes `lab/takes/<take id>/take.json` + `scene.json`. Accepted only from the laptop itself (`server/lab.js` `isLocal`), never through the tunnel. `npm run lab:push` commits and pushes `lab/takes/`. In the cloud, `lab/tools/render.mjs` re-renders any lab take with the same exporter.
-- Still to come (Phase 4): JSON and Blender buttons.
+- **Export panel** (Phase 4, `studio/export.js`): **Video** (MP4 in the take's frame with the lens per sample + first-frame PNG), **JSON** (`{take, scene}`), **Blender** (a zip: `take.json` raw, `scene.json`, `export.json`, `figures.json` = stick-figure joints, `motion.json` = the set's motion baked at 24 fps, `camera.json` only when smoothed, `import.py` = `exporters/blender_import.py`, `README.txt` with the one command). **Smoothing** 0–1 maps to a 1€ mincutoff of 1 → 0.05 Hz on a COPY (`shared/smooth.js`); 0 = raw. A ready-to-paste prompt describing the move (`shared/describe.js`) with a Copy button. Zip writer: `shared/zip.js` (stored, no compression).
 
 ## 4. Make video (`server/make/`, `recipes/`)
 
@@ -88,15 +88,19 @@ All messages are JSON with a `t` field.
   "id": "2026-11-02T18-04-11Z-a3f9",
   "sceneId": "…",
   "fps_hint": 60,
-  "view": { "fov": 60, "aspect": 0.59 },
+  "frame": "16:9",
+  "view": { "fov": 45.7, "aspect": 1.778 },
   "device": { "ua": "...", "source": "gyro+joystick" },
   "samples": [
-    { "ts": 0,      "q": [x,y,z,w], "p": [x,y,z] },
-    { "ts": 16.6,   "q": [x,y,z,w], "p": [x,y,z] }
+    { "ts": 0,      "q": [x,y,z,w], "p": [x,y,z], "f": 24 },
+    { "ts": 16.6,   "q": [x,y,z,w], "p": [x,y,z], "f": 24.3 }
   ]
 }
 ```
 
+- `frame` (Phase 4): the output frame chosen on the phone before shooting, `16:9` | `9:16` | `2.39:1`. The phone shows exactly that frame; exports are 1920×1080 / 1080×1920 / 1920×804. Takes without it (before Phase 4) export at the nearest standard frame without cropping.
+- `f` per sample (Phase 4): the full-frame lens in mm (16–135) as zoomed by hand; the frame's long side is 36 mm (`shared/frames.js` `fovFromLens`). `view.fov` is the first sample's.
+- `ride` (Phase 3b, optional): the id of the object the camera rode with.
 - `label` (optional, desk only): which lab test shot this is, one of `SHOTS` in `protocol.js`.
 - `ts` is ms since take start. Irregular spacing is fine and expected. One sample per rendered frame, capped at 60 Hz.
 - `view` is the phone camera's vertical fov (degrees) and aspect (w/h) while shooting. Exporters use it for the lens.

@@ -38,3 +38,21 @@ test('exportFov never crops what the phone showed', () => {
   assert.ok(Math.abs(halfW(v, 16 / 9) - halfW(60, 2.16)) < 1e-9);
   assert.ok(halfH(v) >= halfH(60));
 });
+
+test('lens: 24 mm on 16:9 is ~46° vertical (20.25 mm tall frame); fov and lens convert both ways', async () => {
+  const { fovFromLens, lensFromFov } = await import('../public/shared/frames.js');
+  const v = fovFromLens(24, 16 / 9);
+  assert.ok(Math.abs(v - 45.7) < 1, `24 mm 16:9 vertical fov ${v}`); // 20.25 mm tall frame
+  assert.ok(Math.abs(fovFromLens(50, 9 / 16) - 39.6) < 0.2); // portrait: 36 mm tall
+  assert.ok(Math.abs(lensFromFov(fovFromLens(35, 2.39), 2.39) - 35) < 1e-9);
+});
+
+test('takeOutput: chosen frame wins (exact size, lens per sample); old takes keep the 4a rule', async () => {
+  const { takeOutput, fovFromLens } = await import('../public/shared/frames.js');
+  const framed = takeOutput({ frame: '2.39:1', view: { fov: 50, aspect: 2.39 }, samples: [] });
+  assert.deepEqual([framed.width, framed.height], [1920, 804]);
+  assert.equal(framed.fovAt({ f: 85 }), fovFromLens(85, 2.39));
+  assert.equal(framed.fovAt({}), 50);
+  const old = takeOutput({ view: { fov: 60, aspect: 390 / 844 }, samples: [] });
+  assert.deepEqual([old.width, old.height], [1080, 1920]);
+});

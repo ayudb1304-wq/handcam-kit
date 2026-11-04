@@ -113,8 +113,17 @@
     <section class="card panel" id="takePanel" hidden>
       <div class="panel-head"><span class="eyebrow">Selected take</span><span class="badge" id="takeLen"></span></div>
       <select id="shot" aria-label="Which test shot is this?"><option value="">Name this take…</option></select>
+      <div class="export-box">
+        <span class="eyebrow">Export</span>
+        <div class="actions three">
+          <button class="btn ghost" id="exportBtn" title="Grey video of this take in its frame + the first frame as a picture">Video</button>
+          <button class="btn ghost" id="jsonBtn" title="The take and its set in one file">JSON</button>
+          <button class="btn ghost" id="blenderBtn" title="A folder for Blender: set, camera, lens and movement">Blender</button>
+        </div>
+        <label class="smooth-row">Smoothing <input type="range" id="smooth" min="0" max="1" step="0.05" value="0"><span id="smoothVal">off (raw)</span></label>
+        <div class="prompt-box"><textarea class="field" id="movePrompt" rows="3" readonly aria-label="Prompt describing this move"></textarea><button class="btn quiet sm" id="copyPrompt">Copy prompt</button></div>
+      </div>
       <div class="actions">
-        <button class="btn ghost" id="exportBtn" title="Grey video of this take + its first frame">Export grey video</button>
         <button class="btn ghost" id="toLab" title="Save take + set into lab/takes for recipe tests">Send to lab</button>
         <button class="btn quiet" id="deleteTake" title="Remove this take from this computer">Delete take</button>
       </div>

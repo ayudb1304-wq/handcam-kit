@@ -165,3 +165,13 @@ body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(-
 .edit-words .btn.quiet { align-self: flex-start; }
 .sel-pill { gap: 8px; border-color: rgba(240,160,125,.45); }
 .sel-pill b { color: var(--accent-2); font: 600 12.5px var(--font); }
+
+/* Phase 4: export */
+.export-box { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.015); }
+.actions.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.smooth-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: 12.5px; color: var(--fg-2); }
+.smooth-row input { accent-color: var(--accent); }
+.smooth-row span { font: 11.5px var(--mono); color: var(--mute); min-width: 62px; text-align: right; }
+.prompt-box { display: flex; flex-direction: column; gap: 6px; }
+.prompt-box textarea { font-size: 12px; line-height: 1.45; resize: vertical; }
+.prompt-box .btn { align-self: flex-end; }

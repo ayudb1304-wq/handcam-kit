@@ -32,6 +32,9 @@
   .tbtn.on { background: rgba(224,122,82,.55); border-color: rgba(240,160,125,.8); }
   #room { font: 600 11px var(--mono); letter-spacing: .12em; }
   .bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+  .zoom { align-self: center; display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 999px; margin-top: auto; margin-bottom: 12px; width: min(78vw, 360px); }
+  .zoom input { flex: 1; accent-color: var(--accent); height: 28px; }
+  .zoom span { font: 600 12px var(--mono); min-width: 52px; text-align: right; }
   #rec { width: 82px; height: 82px; border-radius: 50%; border: 0; padding: 0; flex: none; background: transparent; position: relative; box-shadow: 0 0 0 4px rgba(255,255,255,.92), 0 10px 30px -8px rgba(0,0,0,.6); }
   #rec::after { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: var(--rec); transition: all .25s var(--ease); }
   #rec.on::after { inset: 24px; border-radius: 8px; }
@@ -72,11 +75,13 @@
     <div class="right">
       <button class="tbtn glass" id="rehearse" hidden title="Play the set's movement once, without recording">Rehearse</button>
       <button class="tbtn glass" id="ride" hidden title="Ride along with something that moves">On foot</button>
+      <button class="tbtn glass" id="frameBtn" title="The shape of the final video">16:9</button>
       <button class="tbtn glass" id="speed" aria-label="Walking speed">1×</button>
       <button class="tbtn glass" id="anchor">Re&#8209;anchor</button>
       <span class="pill glass" id="room"></span>
     </div>
   </div>
+  <div class="zoom glass"><input type="range" id="zoom" min="0" max="1000" step="1" aria-label="Zoom (lens)"><span id="lensLabel">24 mm</span></div>
   <div class="bottom">
     <div class="stickwrap"><div class="stick" id="walk"></div>Walk</div>
     <button id="rec" aria-label="Record"></button>
@@ -105,6 +110,7 @@ import { MSG, connectRelay } from './shared/protocol.js';
 import { orientationToQuaternion, requestMotionPermission, screenAngle } from './shared/orientation.js';
 import { renderScene, povStage, animateScene, motionLength } from './shared/scene-render.js';
 import { frameAt } from './shared/motion.js';
+import { FRAMES, DEFAULT_FRAME, LENS_RANGE, DEFAULT_LENS, fovFromLens } from './shared/frames.js';
 import { makeStick } from './shared/joystick.js';
 import { putTake } from './shared/store.js';
 
@@ -121,6 +127,7 @@ const say = (text, rec = false) => { statusEl.textContent = text; statusEl.class
 // --- three.js POV --------------------------------------------------------
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setClearColor(0x000000, 1);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene3 = povStage();
 const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 200);
@@ -189,11 +196,42 @@ rideBtn.onclick = () => { // On foot → each mover → On foot
   say(ride ? 'Your hand and the sticks now move you inside it' : 'On foot');
 };
 let lastSetMs = 0;
+// --- Phase 4: the frame you shoot for, and the lens -----------------------------------------
+// The phone shows exactly the chosen frame (bars outside it), like a real camera's monitor.
+let shotFrame = DEFAULT_FRAME, lens = DEFAULT_LENS;
+try { shotFrame = FRAMES[localStorage.getItem('handcam.frame')] ? localStorage.getItem('handcam.frame') : DEFAULT_FRAME; } catch {}
+const view = { x: 0, y: 0, w: 1, h: 1 };
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
-  camera.aspect = innerWidth / innerHeight;
+  const a = FRAMES[shotFrame], screenA = innerWidth / innerHeight;
+  view.w = screenA > a ? Math.round(innerHeight * a) : innerWidth;
+  view.h = screenA > a ? innerHeight : Math.round(innerWidth / a);
+  view.x = Math.round((innerWidth - view.w) / 2); view.y = Math.round((innerHeight - view.h) / 2);
+  Object.assign(document.querySelector('.frame').style, { left: `${view.x + 10}px`, top: `${view.y + 10}px`, width: `${view.w - 20}px`, height: `${view.h - 20}px`, right: 'auto', bottom: 'auto' });
+  camera.aspect = a;
+  camera.fov = fovFromLens(lens, a);
   camera.updateProjectionMatrix();
 }
+const frameBtn = document.getElementById('frameBtn');
+frameBtn.textContent = shotFrame;
+frameBtn.onclick = () => {
+  if (recording) return;
+  const keys = Object.keys(FRAMES);
+  shotFrame = keys[(keys.indexOf(shotFrame) + 1) % keys.length];
+  frameBtn.textContent = shotFrame;
+  try { localStorage.setItem('handcam.frame', shotFrame); } catch {}
+  resize();
+};
+// Zoom: a full-frame lens size, recorded on every sample like position and rotation (performed, never added later).
+const zoomEl = document.getElementById('zoom'), lensLabel = document.getElementById('lensLabel');
+const [LMIN, LMAX] = LENS_RANGE, toLens = (v) => LMIN * Math.pow(LMAX / LMIN, v / 1000), toSlider = (mm) => (1000 * Math.log(mm / LMIN)) / Math.log(LMAX / LMIN);
+zoomEl.value = toSlider(lens);
+zoomEl.oninput = () => {
+  lens = Math.round(toLens(Number(zoomEl.value)) * 10) / 10;
+  lensLabel.textContent = `${Math.round(lens)} mm`;
+  camera.fov = fovFromLens(lens, FRAMES[shotFrame]);
+  camera.updateProjectionMatrix();
+};
 addEventListener('resize', resize); resize();
 
 // --- orientation + re-anchor ------------------------------------------------
@@ -258,6 +296,7 @@ function setRec(on) {
   recording = on;
   recBtn.classList.toggle('on', on);
   document.body.classList.toggle('recording', on);
+  frameBtn.disabled = on;
   if (on) { samples = []; recStart = null; rehearseStart = null; rehearseBtn.classList.remove('on'); say('● 0:00', true); }
   else finishTake();
 }
@@ -270,8 +309,8 @@ function takeId() {
 async function finishTake() {
   if (!samples.length) { say('Nothing recorded'); return; }
   const take = {
-    id: takeId(), sceneId, fps_hint: 60,
-    view: { fov: camera.fov, aspect: camera.aspect },
+    id: takeId(), sceneId, fps_hint: 60, frame: shotFrame,
+    view: { fov: fovFromLens(samples[0].f || lens, FRAMES[shotFrame]), aspect: FRAMES[shotFrame] },
     device: { ua: navigator.userAgent, source: 'gyro+joystick' },
     ...(ride && { ride: ride.id }),
     samples,
@@ -305,13 +344,15 @@ function frame(t) {
     move(dt);
     if (ride) ride.offset.copy(camera.position).applyMatrix4(rideInv);
   }
+  renderer.setScissorTest(false); renderer.clear(); // bars outside the frame
+  renderer.setViewport(view.x, view.y, view.w, view.h); renderer.setScissor(view.x, view.y, view.w, view.h); renderer.setScissorTest(true);
   renderer.render(scene3, camera);
   if (haveOrientation && t - lastSample >= SAMPLE_MS) {
     lastSample = t;
     const qa = [q.x, q.y, q.z, q.w], p = camera.position.toArray();
     if (recording) {
       if (recStart === null) recStart = t;
-      samples.push({ ts: t - recStart, q: qa, p });
+      samples.push({ ts: t - recStart, q: qa, p, f: lens });
       if (samples.length % 30 === 0) say(`● ${clock(t - recStart)}`, true);
     }
     relay.send({ t: MSG.POSE, ts: t, q: qa, p, rec: recording, st: setMs, fov: camera.fov, aspect: camera.aspect });
@@ -325,7 +366,7 @@ function showHintOnce() {
   try { if (localStorage.getItem('handcam.camhint') === '1') return; localStorage.setItem('handcam.camhint', '1'); } catch {}
   const h = document.createElement('div');
   h.className = 'hint glass';
-  h.innerHTML = '<b>Quick start</b><p>Point the phone at the set and tap <b>Re-anchor</b>. Left stick walks, right stick goes up and down. Tap ● to record, ● again to stop.</p><button class="btn light">Got it</button>';
+  h.innerHTML = '<b>Quick start</b><p>Point the phone at the set and tap <b>Re-anchor</b>. Left stick walks, right stick goes up and down, the slider zooms. Tap ● to record, ● again to stop.</p><button class="btn light">Got it</button>';
   h.querySelector('button').onclick = () => h.remove();
   document.body.append(h);
 }

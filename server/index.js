@@ -27,6 +27,8 @@ const PUBLIC_URL = process.env.PUBLIC_URL || '';
 const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(join(__dirname, '..', 'public'), { extensions: ['html'] }));
+// The Blender importer, so the desk can put it in the Blender export zip (Phase 4).
+app.get('/exporters/blender_import.py', (req, res) => res.type('text/x-python').sendFile(join(__dirname, '..', 'exporters', 'blender_import.py')));
 
 // A single default room per server process keeps Phase 0 simple. Desk can ask for a fresh one.
 const DEFAULT_ROOM = makeRoomCode();
