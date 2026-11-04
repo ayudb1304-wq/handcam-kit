@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { MSG, ROLES, makeRoomCode } from '../public/shared/protocol.js';
 import { buildScene, DEFAULT_MODEL } from './scene.js';
+import { checkLabTake, isLocal, saveLabTake } from './lab.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Optional .env in the project root (gitignored) for ANTHROPIC_API_KEY etc. Needs Node ≥ 20.12; otherwise use `export`.
@@ -35,6 +36,18 @@ app.get('/api/info', (req, res) => {
 // Scene from a sentence: Claude if ANTHROPIC_API_KEY is set, else (or on failure) a keyword-matched template.
 app.post('/api/scene', async (req, res) => {
   res.json(await buildScene(req.body?.prompt));
+});
+
+// Send to lab: save a take + its set under lab/takes/ for recipe tests. Laptop only, never via the tunnel.
+app.post('/api/lab/take', async (req, res) => {
+  if (!isLocal(req)) return res.status(403).json({ error: 'Open the desk at http://localhost:' + PORT + '/desk on this laptop to send takes to the lab.' });
+  const errors = checkLabTake(req.body);
+  if (errors.length) return res.status(400).json({ error: errors.slice(0, 3).join('; ') });
+  try {
+    res.json({ saved: await saveLabTake(join(__dirname, '..'), req.body) });
+  } catch (e) {
+    res.status(500).json({ error: `could not save: ${e.message}` });
+  }
 });
 
 // ---- WebSocket relay -------------------------------------------------------

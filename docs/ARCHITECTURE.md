@@ -38,6 +38,7 @@ Three pieces, one repo, one `npm run dev`.
 - Drag‑to‑move objects in the overview (Phase 3). Each edit re‑sends `scene`.
 - Take list: receives `take` messages, stores in IndexedDB, scrub bar replays the take by driving the gizmo.
 - **Export video** (Phase 4a, `shared/export-video.js`): renders the selected take frame by frame on its own canvas in the phone's look (`povStage`), encodes H.264 with WebCodecs and wraps it as MP4 with `mp4-muxer` (CDN, loaded on first export). Downloads `handcam-<take id>.mp4` and `…-first-frame.png`. Frame/time math is in `shared/frames.js` (tested in `server/frames.test.js`).
+- **Lab** (recipe tests, not a product feature): each take can be named with one of the test shots (`SHOTS` in `protocol.js`, stored as `take.label`) and **Send to lab** posts `{ take, scene }` to `POST /api/lab/take`, which writes `lab/takes/<take id>/take.json` + `scene.json`. Accepted only from the laptop itself (`server/lab.js` `isLocal`), never through the tunnel. `npm run lab:push` commits and pushes `lab/takes/`. In the cloud, `lab/tools/render.mjs` re-renders any lab take with the same exporter.
 - Still to come (Phase 4): JSON and Blender buttons.
 
 ## Wire protocol (`public/shared/protocol.js` is canonical)
@@ -72,6 +73,7 @@ All messages are JSON with a `t` field.
 }
 ```
 
+- `label` (optional, desk only): which lab test shot this is, one of `SHOTS` in `protocol.js`.
 - `ts` is ms since take start. Irregular spacing is fine and expected. One sample per rendered frame, capped at 60 Hz.
 - `view` is the phone camera's vertical fov (degrees) and aspect (w/h) while shooting. Exporters use it for the lens.
 - `q` is a unit quaternion in three.js convention (Y up, right‑handed, camera looks down −Z).

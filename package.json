@@ -8,9 +8,12 @@
     "dev": "node --watch server/index.js",
     "start": "node server/index.js",
     "test": "node --test server/*.test.js",
-    "tunnel": "npx -y cloudflared tunnel --url http://localhost:3000"
+    "tunnel": "npx -y cloudflared tunnel --url http://localhost:3000",
+    "lab:push": "git add lab/takes && git commit -m \"lab: takes from the desk\" && git push"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "express": "^4.19.2",
     "ws": "^8.17.0"

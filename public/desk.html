@@ -37,6 +37,8 @@
   #inset span { position:absolute; top:-22px; left:0; font-size:11px; color:var(--acc); white-space:nowrap; }
   #export { border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:6px; }
   #export a { color:var(--acc); }
+  #lab { border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:6px; }
+  select { font:inherit; background:#0b0d11; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px; min-width:0; flex:1; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -84,6 +86,10 @@
         <span id="exportLen" class="mute"></span>
         <span id="exportFiles" class="mute" hidden></span>
       </div>
+      <div id="lab">
+        <div class="row"><select id="shot" aria-label="Which test shot is this?"><option value="">Name this take…</option></select><button id="toLab" class="ghost">Send to lab</button></div>
+        <span id="labState" class="mute"></span>
+      </div>
     </div>
     <ul id="takes"><li class="mute">Tap ● on the phone to shoot. Takes appear here.</li></ul>
   </aside>
@@ -92,7 +98,7 @@
 <script type="module">
 import * as THREE from './shared/three.js';
 import { OrbitControls } from './shared/three.js';
-import { MSG, connectRelay } from './shared/protocol.js';
+import { MSG, SHOTS, connectRelay } from './shared/protocol.js';
 import { renderScene, addDefaultLights } from './shared/scene-render.js';
 import { OneEuroQuat } from './shared/one-euro.js';
 import { putTake, allTakes, putScene, getScene } from './shared/store.js';
@@ -215,7 +221,7 @@ const secs = (ms) => (ms / 1000).toFixed(1);
 function takeLabel(take) {
   const shotAt = new Date(take.id.slice(0, 19).replace(/T(\d\d)-(\d\d)-(\d\d)/, 'T$1:$2:$3') + 'Z');
   const when = isNaN(shotAt) ? take.id : shotAt.toLocaleTimeString();
-  return `${when} · ${secs(duration(take))} s · ${take.samples.length} samples`;
+  return `${take.label ? `${take.label} · ` : ''}${when} · ${secs(duration(take))} s${take.labSent ? ' · ✓ lab' : ''}`;
 }
 function renderList() {
   takesEl.innerHTML = '';
@@ -245,6 +251,8 @@ async function selectTake(take) {
   replayCam.fov = take.view?.fov || 60; replayCam.aspect = take.view?.aspect || 9 / 16; replayCam.updateProjectionMatrix();
   scrub.max = Math.max(1, Math.round(duration(take)));
   showLength(take);
+  document.getElementById('shot').value = take.label || '';
+  document.getElementById('labState').textContent = take.labSent ? 'Sent to the lab.' : '';
   // Show the set this take was shot in (desk only; the phone keeps the live set).
   if (take.sceneId && take.sceneId !== shownSceneId) {
     const scene = await takeScene(take);
@@ -307,6 +315,35 @@ exportBtn.onclick = async () => {
   } catch (e) {
     exportState.textContent = e.message;
   } finally { exportBtn.disabled = false; }
+};
+
+// --- lab: name the take, send it (take + set) to lab/takes/ for recipe tests ---------
+const shotSel = document.getElementById('shot'), toLab = document.getElementById('toLab'), labState = document.getElementById('labState');
+for (const s of SHOTS) shotSel.append(new Option(s, s));
+shotSel.onchange = () => {
+  if (!current) return;
+  if (shotSel.value) current.label = shotSel.value; else delete current.label;
+  putTake(current).catch(() => {});
+  renderList();
+};
+toLab.onclick = async () => {
+  const take = current;
+  if (!take) return;
+  const scene = await takeScene(take);
+  if (!scene) { labState.textContent = 'The set this take was shot in isn’t saved on this computer.'; return; }
+  toLab.disabled = true; labState.textContent = 'sending…';
+  try {
+    const { labSent, ...clean } = take;
+    const r = await fetch('/api/lab/take', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: clean, scene }) });
+    const out = await r.json();
+    if (!r.ok) throw new Error(out.error || r.statusText);
+    take.labSent = true;
+    putTake(take).catch(() => {});
+    renderList();
+    labState.textContent = `Saved in ${out.saved}. When you’re done, run npm run lab:push to upload.`;
+  } catch (e) {
+    labState.textContent = e.message;
+  } finally { toLab.disabled = false; }
 };
 
 // --- loop ----------------------------------------------------------------

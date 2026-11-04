@@ -98,3 +98,7 @@ Closest competitor is Higgsfield (3D Jutsu: prompt → 3D scene with characters,
 ## 22. Why export came before Phases 3 and 3b (Nov 2026)
 Several products now turn a phone move into an AI-video camera move (Higgsfield's Blender plugin, film-space, GREYSET). The open problem, and the thing we aim to be best at, is getting AI video models to actually *follow* the move. That needs many controlled tests (same set, same start image, same prompt, five standard moves, change one thing at a time), and every test needs a grey video. So Phase 4a goes first; Phases 3 and 3b wait. Test results and the recipe live in `lab/` (this repo is private; move `lab/` out before ever making it public).
 
+## 23. Send to lab writes files only from the laptop, and git does the transport
+**Context.** Recipe tests run in a cloud Claude session; takes live in the laptop browser. The server is also reachable through the cloudflared tunnel, so an endpoint that writes files must not be open to anyone with the tunnel link.
+**Decision.** `POST /api/lab/take` only accepts loopback requests without proxy headers (`cf-connecting-ip`, `cf-ray`, `x-forwarded-*`; cloudflared connects from localhost too, so the headers are what give it away). It writes plain JSON into `lab/takes/<id>/`, the id restricted to `[A-Za-z0-9._-]`. Pushing is a separate, visible step the user runs (`npm run lab:push`); the server never runs git. `.gitignore`'s old `takes/` rule gets a `!lab/takes/` exception.
+

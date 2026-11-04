@@ -13,6 +13,9 @@ export const MSG = Object.freeze({
 
 export const ROLES = Object.freeze(['cam', 'desk']);
 
+/** Optional take.label: which standard test shot a take is (lab recipe tests), or 'other'. */
+export const SHOTS = Object.freeze(['1 slow walk', '2 walk past', '3 half circle', '4 whip', '5 crouch', 'other']);
+
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O to avoid confusion when read aloud
 export function makeRoomCode() {
   let s = '';
