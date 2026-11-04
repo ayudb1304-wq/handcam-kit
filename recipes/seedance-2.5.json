@@ -1,0 +1,36 @@
+{
+  "id": "seedance-2.5",
+  "label": "Seedance 2.5",
+  "status": "draft",
+  "provider": "higgsfield",
+  "notes": "Lab recipe v0.1 (lab/recipe.md) moved to Higgsfield's public API. Not yet tested on this API: reference-to-video takes the start image as a reference picture, not a locked first frame (the lab used the connector's omni_reference mode). Re-test with lab takes, then set status to final.",
+  "startImage": {
+    "endpoint": "alibaba/qwen-image-3/edit",
+    "input": {
+      "image_urls": ["{{firstFrameUrl}}"],
+      "aspect_ratio": "{{aspect}}",
+      "resolution": "1k",
+      "prompt": "Turn this grey 3D blockout into a photoreal film still, keeping the exact same layout, object positions, horizon height and camera angle. Every grey box becomes the real object it stands for and every stick figure a real person, in the same place and pose. {{look}}. Shot on a phone at eye level, natural light, slight grain, no text."
+    },
+    "output": "images.0.url"
+  },
+  "video": {
+    "endpoint": "bytedance/seedance-2.5/reference-to-video",
+    "input": {
+      "image_urls": ["{{startImageUrl}}"],
+      "video_urls": ["{{referenceUrl}}"],
+      "duration": "{{durationS}}",
+      "resolution": "480p",
+      "aspect_ratio": "{{aspect}}",
+      "generate_audio": false,
+      "prompt": "Handheld phone footage. The reference image sets the look of the scene and the first frame: {{look}}. The reference video shows only the camera movement: follow the camera movement of the reference video exactly, including its timing, small shakes and corrections. Do not copy the grey look of the reference video; keep the scene photoreal like the reference image. People stay where they are unless the reference shows them moving. Do not add any camera movement that is not in the reference."
+    },
+    "output": "video.url"
+  },
+  "candidates": 2,
+  "extraTries": 1,
+  "minDurationS": 4,
+  "maxDurationS": 15,
+  "pass": { "turnCorrMin": 0.95, "maxOffsetS": 0.3, "walkRatio": [0.7, 1.3], "walkCorrMin": 0.9 },
+  "cost": { "startImage": 1, "video": 18, "unit": "Higgsfield credits (estimate)" }
+}

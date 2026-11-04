@@ -9,6 +9,12 @@ import { dirname, join } from 'node:path';
 import { MSG, ROLES, makeRoomCode } from '../public/shared/protocol.js';
 import { buildScene, DEFAULT_MODEL } from './scene.js';
 import { checkLabTake, isLocal, saveLabTake } from './lab.js';
+import { loadRecipes } from './make/recipe.js';
+import { makeJobs } from './make/jobs.js';
+import { makeRoutes } from './make/routes.js';
+import { makeMock } from './make/providers/mock.js';
+import { makeHiggsfield, higgsfieldReady } from './make/providers/higgsfield.js';
+import { runScore } from './make/score.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Optional .env in the project root (gitignored) for ANTHROPIC_API_KEY etc. Needs Node ≥ 20.12; otherwise use `export`.
@@ -49,6 +55,15 @@ app.post('/api/lab/take', async (req, res) => {
     res.status(500).json({ error: `could not save: ${e.message}` });
   }
 });
+
+// Make video: take + set + look -> a real video that follows the move, checked. See server/make/ and recipes/.
+const ROOT = join(__dirname, '..');
+const recipes = await loadRecipes(join(ROOT, 'recipes'));
+const providers = { mock: makeMock({ demoDir: join(ROOT, 'public', 'demo') }), higgsfield: makeHiggsfield() };
+const providerReady = (p) => p === 'mock' || (p === 'higgsfield' && higgsfieldReady());
+const jobs = makeJobs({ dir: join(ROOT, 'data', 'jobs'), recipes, providers, score: runScore });
+app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady }));
+jobs.resume().catch((e) => console.warn('could not resume make jobs:', e.message));
 
 // ---- WebSocket relay -------------------------------------------------------
 const server = createServer(app);
@@ -98,5 +113,6 @@ function lanIp() {
 server.listen(PORT, () => {
   console.log(`HandCam relay  →  http://localhost:${PORT}/desk   (LAN: http://${lanIp()}:${PORT})`);
   console.log(process.env.ANTHROPIC_API_KEY ? `scenes: Claude (${process.env.ANTHROPIC_MODEL || DEFAULT_MODEL})` : 'scenes: templates only (set ANTHROPIC_API_KEY for AI blockouts)');
+  console.log(`make video: ${Object.values(recipes).map((r) => `${r.label}${providerReady(r.provider) ? '' : ' (needs HF_API_KEY_ID/SECRET)'}`).join(', ')}`);
   console.log(`room ${DEFAULT_ROOM}${PUBLIC_URL ? `   public: ${PUBLIC_URL}` : '   (set PUBLIC_URL to your https tunnel for phone testing)'}`);
 });

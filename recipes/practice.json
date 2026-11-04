@@ -1,0 +1,23 @@
+{
+  "id": "practice",
+  "label": "Practice (no AI, no credits)",
+  "status": "final",
+  "provider": "mock",
+  "notes": "Runs the whole Make video flow with no AI: the start image is the grey first frame and the video is your grey move (or the example result for the demo take). For trying the app and testing the screens.",
+  "startImage": {
+    "endpoint": "mock/start-image",
+    "input": { "image_urls": ["{{firstFrameUrl}}"], "prompt": "{{look}}", "demo": "{{demo}}" },
+    "output": "images.0.url"
+  },
+  "video": {
+    "endpoint": "mock/video",
+    "input": { "image_urls": ["{{startImageUrl}}"], "video_urls": ["{{referenceUrl}}"], "duration": "{{durationS}}", "demo": "{{demo}}" },
+    "output": "video.url"
+  },
+  "candidates": 2,
+  "extraTries": 1,
+  "minDurationS": 3,
+  "maxDurationS": 30,
+  "pass": { "turnCorrMin": 0.95, "maxOffsetS": 0.3, "walkRatio": [0.6, 1.4], "walkCorrMin": 0.9 },
+  "cost": { "startImage": 0, "video": 0, "unit": "credits" }
+}
