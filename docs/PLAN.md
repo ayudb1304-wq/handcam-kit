@@ -119,7 +119,7 @@ Steadier shots without smoothing, and the tools directors use to pick the take.
 
 ---
 
-## Phase 5 — Stranger test, phone-only, deploy · `todo`
+## Phase 5 — Stranger test, phone-only, deploy · `built` (2026-11-05; Dodo checkout waits for the test API key; stranger test = your friend via `npm run share`)
 
 - **Phone-only mode is a headline feature**, not a fallback: `/cam` without a room shows the prompt box, builds the set, shoots, lists takes and exports, all on the phone. No laptop, no 3D software. (Every competitor needs a desktop or Blender; see COMPETITORS.md.)
 - Empty-state copy, onboarding hints on both pages (max three sentences each).
@@ -132,7 +132,7 @@ Steadier shots without smoothing, and the tools directors use to pick the take.
 
 ---
 
-## Phase 5b — Shots and sequences · `todo`
+## Phase 5b — Shots and sequences · `built` (2026-11-05, checked in Chrome; Blender sequence import untested without Blender)
 
 Plan a whole scene, not just one move.
 
@@ -144,7 +144,7 @@ Plan a whole scene, not just one move.
 
 ---
 
-## Phase 6 — True walking · `todo`
+## Phase 6 — True walking · `built, needs a device` (2026-11-05: page bridge checked with a simulated tracker; iPhone app type-checks, Android WebXR untested)
 
 Raised from "optional": every hand-held competitor has positional tracking (VirtuCamera, Jetset, VRL Cam, Unreal VCam), so it matters more than first planned.
 
@@ -155,7 +155,7 @@ Raised from "optional": every hand-held competitor has positional tracking (Virt
 
 ---
 
-## Phase 7 — Send to an AI video service (optional) · `todo`
+## Phase 7 — Send to an AI video service (optional) · `done as Make video` (see the Make video section above: Higgsfield/Seedance, move-checked)
 
 - From the export panel, optionally send the video reference + first frame + prompt (+ the user's own reference images) to a video model service, e.g. Higgsfield / Seedance or Kling, and show the result next to the take.
 - Strictly optional: plain file export (Phase 4) stays the default, nothing requires an account with any vendor, and the app works the same without it.

@@ -1,0 +1,5 @@
+<!-- Add these keys to the app's Info (Xcode → target → Info). ARKit needs the camera; the image is never shown or saved. -->
+<key>NSCameraUsageDescription</key>
+<string>HandCam uses the camera only to track how you walk, so your steps move the virtual camera. The image is never shown or saved.</string>
+<key>UIRequiredDeviceCapabilities</key>
+<array><string>arkit</string></array>

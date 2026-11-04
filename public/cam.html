@@ -87,6 +87,7 @@
       <button class="tbtn glass" id="ride" hidden title="Ride along with something that moves">On foot</button>
       <button class="tbtn glass" id="frameBtn" title="The shape of the final video">16:9</button>
       <button class="tbtn glass" id="rigBtn" title="Handheld, gimbal (horizon level), tripod (stays put) or dolly (moves on one line)">Handheld</button>
+      <button class="tbtn glass" id="walkBtn" hidden title="True walking: your steps move the camera (AR tracking)">Walk: stick</button>
       <button class="tbtn glass" id="ghostBtn" title="Show your last take's path faintly, to beat or match it">Ghost</button>
       <button class="tbtn glass" id="speed" aria-label="Walking speed">1×</button>
       <button class="tbtn glass" id="anchor">Re&#8209;anchor</button>
@@ -265,7 +266,7 @@ const yawOffset = new THREE.Quaternion(); // turns "where the phone points now" 
 const Y = new THREE.Vector3(0, 1, 0);
 let haveOrientation = false;
 function onOrientation(e) {
-  if (e.alpha == null) return;
+  if (e.alpha == null || (ext && !ext.off)) return; // a tracker is driving rotation
   orientationToQuaternion(rawQ, e.alpha, e.beta, e.gamma, screenAngle());
   if (!haveOrientation) { haveOrientation = true; anchor(); } // first reading: start facing the set
 }
@@ -280,6 +281,7 @@ function anchor() {
   if (typeof ride !== 'undefined' && ride) setRide(null);
   camera.position.fromArray(spawn.p);
   faceYaw(spawn.yaw);
+  if (typeof anchorTracked === 'function') anchorTracked();
 }
 document.getElementById('anchor').onclick = () => { anchor(); relay.send({ t: MSG.ANCHOR }); };
 
@@ -391,7 +393,7 @@ async function finishTake() {
   const take = {
     id: takeId(), sceneId, fps_hint: 60, frame: shotFrame, rig,
     view: { fov: fovFromLens(samples[0].f || lens, FRAMES[shotFrame]), aspect: FRAMES[shotFrame] },
-    device: { ua: navigator.userAgent, source: 'gyro+joystick' },
+    device: { ua: navigator.userAgent, source: ext && !ext.off ? `${ext.source}+joystick` : 'gyro+joystick' },
     ...(ride && { ride: ride.id }),
     samples,
   };
@@ -428,7 +430,12 @@ function frame(t) {
     }
     if (rig === 'gimbal') levelRoll(q);
     camera.quaternion.copy(q);
-    move(dt);
+    if (ext && !ext.off && !ride) {
+      const before = camera.position.clone();
+      move(dt); // the sticks still work: they add on top of your steps
+      ext.stick.add(camera.position.sub(before));
+      trackedPosition();
+    } else move(dt);
     if (ride) ride.offset.copy(camera.position).applyMatrix4(rideInv);
   }
   renderer.setScissorTest(false); renderer.clear(); // bars outside the frame
@@ -456,6 +463,57 @@ function showHintOnce() {
   h.innerHTML = '<b>Quick start</b><p>Point the phone at the set and tap <b>Re-anchor</b>. Left stick walks, right stick goes up and down, the slider zooms. Tap ● to record, ● again to stop.</p><button class="btn light">Got it</button>';
   h.querySelector('button').onclick = () => h.remove();
   document.body.append(h);
+}
+
+// --- Phase 6: true walking -------------------------------------------------------------------------
+// Real position from AR tracking: the native iPhone wrapper (ios/, ARKit) calls window.handcamPose(p, q) every frame;
+// on Android, Chrome's WebXR does the same through startWebXR(). Your steps move the camera (× the 1/3/10 scale);
+// the sticks still add on top. Rotation comes from the same tracker. Samples are what the camera did, as always.
+let ext = null; // { p: [x,y,z] latest tracked position, p0: at re-anchor, base: camera position at re-anchor, stick: Vector3, source }
+const extQ = new THREE.Quaternion(), extDelta = new THREE.Vector3();
+window.handcamPose = (pos, quat, source = 'arkit') => {
+  if (!ext) {
+    ext = { p: pos, p0: pos, base: camera.position.clone(), stick: new THREE.Vector3(), source };
+    walkBtn.hidden = false; walkBtn.textContent = 'Walk: steps'; walkBtn.classList.add('on');
+    say(source === 'arkit' ? 'True walking on: your steps move the camera' : 'AR walking on');
+  }
+  ext.p = pos;
+  rawQ.fromArray(quat); // tracker orientation stands in for the gyro; re-anchor aligns its heading with the set
+  if (!haveOrientation) { haveOrientation = true; anchor(); }
+};
+/** Re-anchor for tracked walking: where you stand now becomes the camera's spot (spawn after anchor()). */
+function anchorTracked() { if (ext) { ext.p0 = ext.p; ext.base = camera.position.clone(); ext.stick.set(0, 0, 0); } }
+/** Camera position from the tracker: re-anchor spot + (steps since, turned into the set's heading, × scale) + sticks. */
+function trackedPosition() {
+  if (rig === 'tripod') { camera.position.copy(ext.base).add(ext.stick); return; }
+  extDelta.set(ext.p[0] - ext.p0[0], ext.p[1] - ext.p0[1], ext.p[2] - ext.p0[2]).applyQuaternion(extQ.copy(yawOffset)).multiplyScalar(speedScale);
+  if (rig === 'dolly' && dollyDir) { const along = extDelta.x * dollyDir.x + extDelta.z * dollyDir.z; extDelta.set(along * dollyDir.x, 0, along * dollyDir.z); }
+  camera.position.copy(ext.base).add(extDelta).add(ext.stick);
+}
+const walkBtn = document.getElementById('walkBtn');
+walkBtn.onclick = () => { // tracked steps on/off (off: back to the stick only)
+  if (!ext) return startWebXR();
+  ext.off = !ext.off;
+  walkBtn.textContent = ext.off ? 'Walk: stick' : 'Walk: steps';
+  walkBtn.classList.toggle('on', !ext.off);
+  if (!ext.off) anchorTracked();
+};
+// Android Chrome: WebXR AR session as the tracker. Feature-detected; the button only shows where it can work.
+let xrSession = null;
+if (navigator.xr?.isSessionSupported) navigator.xr.isSessionSupported('immersive-ar').then((ok) => { if (ok && !window.webkit?.messageHandlers?.handcam) walkBtn.hidden = false; }).catch(() => {});
+async function startWebXR() {
+  try {
+    xrSession = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['local'], optionalFeatures: ['dom-overlay'], domOverlay: { root: document.body } });
+  } catch (e) { say(`AR walking isn't available here (${e.message})`); return; }
+  const space = await xrSession.requestReferenceSpace('local');
+  const onFrame = (t, xf) => {
+    const pose = xf.getViewerPose(space);
+    if (pose) { const { position: P, orientation: O } = pose.transform; window.handcamPose([P.x, P.y, P.z], [O.x, O.y, O.z, O.w], 'webxr'); }
+    xrSession?.requestAnimationFrame(onFrame);
+  };
+  xrSession.requestAnimationFrame(onFrame);
+  xrSession.addEventListener('end', () => { xrSession = null; ext = null; walkBtn.textContent = 'Walk: stick'; walkBtn.classList.remove('on'); });
+  // we only read the pose; this page keeps drawing the set itself (the AR camera image is never shown)
 }
 
 // --- Phase 5: phone-only mode --------------------------------------------------------------------
