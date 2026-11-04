@@ -5,30 +5,52 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>HandCam · phone</title>
+<link rel="stylesheet" href="/shared/ui.css">
 <style>
-  :root { color-scheme: dark; }
   [hidden] { display: none !important; } /* #gate/#hud set display below, which would otherwise beat the hidden attribute */
-  html, body { margin: 0; height: 100%; background: #000; color: #eee; font: 15px/1.3 -apple-system, system-ui, sans-serif; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   #view { position: fixed; inset: 0; }
-  #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: max(12px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom)); }
+  /* viewfinder corners */
+  .frame { position: fixed; inset: max(64px, calc(env(safe-area-inset-top) + 52px)) 18px max(210px, calc(env(safe-area-inset-bottom) + 196px)); pointer-events: none; }
+  .frame i { position: absolute; width: 22px; height: 22px; border: 2px solid rgba(244,237,228,.55); }
+  .frame i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 6px; }
+  .frame i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 6px; }
+  .frame i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 6px; }
+  .frame i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 6px; }
+  body.recording .frame i { border-color: rgba(255,77,77,.85); }
+  #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: max(12px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom)); }
   #hud > * { pointer-events: auto; }
-  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
-  .top .right { display: flex; gap: 8px; }
-  .pill { background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.15); border-radius: 999px; padding: 6px 10px; backdrop-filter: blur(6px); }
-  #status.rec { color: #ff6b6b; font-variant-numeric: tabular-nums; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .top .right { display: flex; gap: 6px; }
+  .glass { background: rgba(14,14,17,.55); border: 1px solid rgba(255,255,255,.14); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: var(--fg); }
+  #status { font-variant-numeric: tabular-nums; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; }
+  #status.rec { color: #ffd0d0; border-color: rgba(255,77,77,.5); background: rgba(70,10,10,.6); font-family: var(--mono); }
+  .tbtn { height: 34px; padding: 0 12px; border-radius: 999px; font: 600 13px var(--font); display: inline-flex; align-items: center; gap: 6px; }
+  .tbtn:active { transform: scale(.96); }
+  #room { font: 600 11px var(--mono); letter-spacing: .12em; }
   .bottom { display: flex; justify-content: space-between; align-items: flex-end; }
-  button { font: inherit; color: #fff; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 6px 12px; }
-  #rec { width: 78px; height: 78px; border-radius: 50%; border: 4px solid #fff; background: #e33; padding: 0; flex: none; }
-  #rec.on { border-radius: 16px; width: 60px; height: 60px; margin: 9px; }
-  .stickwrap { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; opacity: .8; }
-  .stick { position: relative; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.22); touch-action: none; }
-  .stick.vertical { width: 64px; height: 120px; border-radius: 32px; }
-  .knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px; border-radius: 50%; background: rgba(255,255,255,.35); pointer-events: none; }
-  #gate { position: fixed; inset: 0; background: #000; display: grid; place-items: center; text-align: center; padding: 24px; }
-  #gate h1 { font-size: 22px; margin: 0 0 8px; }
-  #gate p { opacity: .7; max-width: 32ch; margin: 0 0 20px; }
-  #gate button { background: #fff; color: #000; font-weight: 600; padding: 14px 26px; }
-  #err { color: #f88; font-size: 13px; margin-top: 12px; }
+  #rec { width: 82px; height: 82px; border-radius: 50%; border: 0; padding: 0; flex: none; background: transparent; position: relative; box-shadow: 0 0 0 4px rgba(255,255,255,.92), 0 10px 30px -8px rgba(0,0,0,.6); }
+  #rec::after { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: var(--rec); transition: all .25s var(--ease); }
+  #rec.on::after { inset: 24px; border-radius: 8px; }
+  #rec:active::after { transform: scale(.94); }
+  .stickwrap { display: flex; flex-direction: column; align-items: center; gap: 8px; font: 600 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(244,237,228,.7); }
+  .stick { position: relative; width: 124px; height: 124px; border-radius: 50%; background: rgba(14,14,17,.42); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); touch-action: none; }
+  .stick.vertical { width: 64px; height: 124px; border-radius: 32px; }
+  .knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #d8d2c9); box-shadow: 0 6px 16px rgba(0,0,0,.45); pointer-events: none; }
+  #gate { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 28px; background: radial-gradient(500px 360px at 50% 115%, rgba(224,122,82,.35), transparent), linear-gradient(180deg, #17130f, #0b0b0d 60%); }
+  #gate .wrap { max-width: 340px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  #gate img { width: 170px; height: 170px; object-fit: contain; filter: drop-shadow(0 22px 28px rgba(0,0,0,.55)); animation: bob 6s ease-in-out infinite; }
+  @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-3deg) } 50% { transform: translateY(-10px) rotate(3deg) } }
+  #gate h1 { margin: 0; font: 800 30px/1.05 var(--display); letter-spacing: -.02em; }
+  #gate p { margin: 0; color: var(--fg-2); }
+  #gate ol { margin: 4px 0 6px; padding: 0; list-style: none; display: grid; gap: 8px; text-align: left; width: 100%; }
+  #gate li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); color: var(--fg-2); font-size: 14px; }
+  #gate li span { font: 600 12px var(--mono); color: var(--accent-2); }
+  #gate .btn { width: 100%; }
+  #err { color: #ff9b9b; font-size: 13px; min-height: 1em; }
+  .hint { position: fixed; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); padding: 18px; border-radius: 18px; display: flex; flex-direction: column; gap: 10px; animation: rise .4s var(--ease) both; }
+  .hint > b { font: 700 18px var(--display); }
+  .hint p { margin: 0; color: var(--fg-2); font-size: 14px; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -39,28 +61,35 @@
 </head>
 <body>
 <canvas id="view"></canvas>
+<div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
 <div id="hud" hidden>
   <div class="top">
-    <span class="pill" id="status">connecting…</span>
+    <span class="pill glass" id="status">connecting…</span>
     <div class="right">
-      <button id="speed" aria-label="Walking speed">1×</button>
-      <button id="anchor">Re‑anchor</button>
-      <span class="pill" id="room"></span>
+      <button class="tbtn glass" id="speed" aria-label="Walking speed">1×</button>
+      <button class="tbtn glass" id="anchor">Re&#8209;anchor</button>
+      <span class="pill glass" id="room"></span>
     </div>
   </div>
   <div class="bottom">
-    <div class="stickwrap"><div class="stick" id="walk"></div>walk</div>
+    <div class="stickwrap"><div class="stick" id="walk"></div>Walk</div>
     <button id="rec" aria-label="Record"></button>
-    <div class="stickwrap"><div class="stick vertical" id="lift"></div>up / down</div>
+    <div class="stickwrap"><div class="stick vertical" id="lift"></div>Up · down</div>
   </div>
 </div>
 
 <div id="gate">
-  <div>
+  <div class="wrap">
+    <img src="/assets/obj-phone.webp" alt="">
+    <span class="eyebrow">HandCam</span>
     <h1>Your phone is the camera</h1>
-    <p>Tap below, then move the phone. Hold it like you'd film with it.</p>
-    <button id="enable">Enable motion</button>
+    <ol>
+      <li><span>01</span>Tap below and allow motion</li>
+      <li><span>02</span>Point at the set, tap Re&#8209;anchor</li>
+      <li><span>03</span>Tap ● and move like a camera operator</li>
+    </ol>
+    <button class="btn light lg" id="enable">Enable motion</button>
     <div id="err"></div>
   </div>
 </div>
@@ -146,10 +175,10 @@ function move(dt) {
 // --- relay -----------------------------------------------------------------
 const relay = connectRelay({
   role: 'cam', room,
-  onStatus: s => { if (!recording) say(s); },
+  onStatus: s => { if (!recording) say(s === 'connected' ? 'Connected' : s === 'disconnected' ? 'Disconnected' : s); },
   onMessage: (m) => {
     if (m.t === MSG.SCENE) setScene(m.scene);
-    if (m.t === MSG.PEER && !recording) say(m.joined ? 'desk connected' : 'desk left');
+    if (m.t === MSG.PEER && !recording) say(m.joined ? 'Studio connected' : 'Studio left');
     if (m.t === MSG.REC) setRec(m.state === 'start');
   },
 });
@@ -163,6 +192,7 @@ function setRec(on) {
   if (on === recording) return;
   recording = on;
   recBtn.classList.toggle('on', on);
+  document.body.classList.toggle('recording', on);
   if (on) { samples = []; recStart = null; say('● 0:00', true); }
   else finishTake();
 }
@@ -173,7 +203,7 @@ function takeId() {
   return `${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}Z-${hex}`;
 }
 async function finishTake() {
-  if (!samples.length) { say('nothing recorded'); return; }
+  if (!samples.length) { say('Nothing recorded'); return; }
   const take = {
     id: takeId(), sceneId, fps_hint: 60,
     view: { fov: camera.fov, aspect: camera.aspect },
@@ -183,7 +213,7 @@ async function finishTake() {
   samples = [];
   relay.send({ t: MSG.TAKE, take }); // the whole take in one message, after the fact: no live packet loss can touch it
   takeCount++;
-  say(`take ${takeCount} · ${(take.samples.at(-1).ts / 1000).toFixed(1)} s · ${take.samples.length} samples`);
+  say(`Take ${takeCount} saved · ${(take.samples.at(-1).ts / 1000).toFixed(1)} s`);
   try { await putTake(take); } catch (e) { console.warn('could not keep take on phone', e); }
 }
 const clock = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
@@ -214,6 +244,16 @@ function frame(t) {
 }
 requestAnimationFrame(frame);
 
+// --- one-time hint after motion is on ----------------------------------------
+function showHintOnce() {
+  try { if (localStorage.getItem('handcam.camhint') === '1') return; localStorage.setItem('handcam.camhint', '1'); } catch {}
+  const h = document.createElement('div');
+  h.className = 'hint glass';
+  h.innerHTML = '<b>Quick start</b><p>Point the phone at the set and tap <b>Re-anchor</b>. Left stick walks, right stick goes up and down. Tap ● to record, ● again to stop.</p><button class="btn light">Got it</button>';
+  h.querySelector('button').onclick = () => h.remove();
+  document.body.append(h);
+}
+
 // --- permission gate -------------------------------------------------------
 document.getElementById('enable').onclick = async () => {
   const err = document.getElementById('err');
@@ -223,6 +263,7 @@ document.getElementById('enable').onclick = async () => {
   addEventListener('deviceorientation', onOrientation, true);
   document.getElementById('gate').hidden = true;
   document.getElementById('hud').hidden = false;
+  showHintOnce();
 };
 </script>
 </body>
