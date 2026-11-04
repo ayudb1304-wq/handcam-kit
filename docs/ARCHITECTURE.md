@@ -75,6 +75,7 @@ All messages are JSON with a `t` field.
 | `peer` | relay → any | `{ role, joined: true/false }` |
 | `scene` | desk → cam | `{ scene }` (full scene JSON, not a diff) |
 | `pose` | cam → desk | `{ ts, q:[x,y,z,w], p:[x,y,z], rec: bool, st, fov, aspect }` (`st` = the set's clock in ms, so the desk shows the set moving live) (fov/aspect = the phone's view, so the desk frustum matches what the phone shows; not stored in takes) |
+| (`pose.gh`) | cam → desk | `1` while the phone's Ghost is on: the desk shows the last take in this set as a faint camera at the same set time, plus its path |
 | `rec` | desk → cam | `{ state: 'start'|'stop' }` (desk can also trigger recording) |
 | `take` | cam → desk | `{ take }` (see format below) |
 | `anchor` | cam → desk | `{}` informational |
@@ -100,6 +101,8 @@ All messages are JSON with a `t` field.
 
 - `frame` (Phase 4): the output frame chosen on the phone before shooting, `16:9` | `9:16` | `2.39:1`. The phone shows exactly that frame; exports are 1920×1080 / 1080×1920 / 1920×804. Takes without it (before Phase 4) export at the nearest standard frame without cropping.
 - `f` per sample (Phase 4): the full-frame lens in mm (16–135) as zoomed by hand; the frame's long side is 36 mm (`shared/frames.js` `fovFromLens`). `view.fov` is the first sample's.
+- `rig` (Phase 4b): `handheld` | `gimbal` (roll held level) | `tripod` (position locked) | `dolly` (moves only along the line faced at ●). Applied while shooting; samples are what the camera did.
+- `star`, `name` (Phase 4b, desk only): the circled take and a free-text name.
 - `ride` (Phase 3b, optional): the id of the object the camera rode with.
 - `label` (optional, desk only): which lab test shot this is, one of `SHOTS` in `protocol.js`.
 - `ts` is ms since take start. Irregular spacing is fine and expected. One sample per rendered frame, capped at 60 Hz.

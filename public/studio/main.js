@@ -2,7 +2,7 @@
 import * as THREE from '../shared/three.js';
 import { OrbitControls } from '../shared/three.js';
 import { MSG, SHOTS, connectRelay } from '../shared/protocol.js';
-import { renderScene, addDefaultLights, animateScene } from '../shared/scene-render.js';
+import { renderScene, addDefaultLights, animateScene, povStage } from '../shared/scene-render.js';
 import { OneEuroQuat } from '../shared/one-euro.js';
 import { putTake, allTakes, deleteTake, putScene, getScene } from '../shared/store.js';
 import { sampleAt, takeOutput } from '../shared/frames.js';
@@ -79,7 +79,16 @@ function makeGizmo(color) {
 }
 const live = makeGizmo(0xf4ede4);   // follows the phone right now
 const replay = makeGizmo(0xe07a52); // follows the selected take
-replay.group.visible = false;
+const other = makeGizmo(0x9fd0ff);  // Phase 4b: the take you compare with, or the ghost of the last take
+replay.group.visible = false; other.group.visible = false;
+let ghostPath = null; // faint line of the ghost/compare take's camera path
+function showPath(take) {
+  if (ghostPath) { scene3.remove(ghostPath); ghostPath.geometry.dispose(); ghostPath = null; }
+  if (!take) return;
+  const pts = take.samples.filter((_, i) => i % 3 === 0).map((sm) => new THREE.Vector3(...sm.p));
+  ghostPath = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.5 }));
+  scene3.add(ghostPath);
+}
 live.group.position.set(0, 1.6, 6);
 const replayCam = new THREE.PerspectiveCamera(60, 9 / 16, 0.05, 200); // renders the inset: what the take saw
 
@@ -104,9 +113,15 @@ const filterOn = $('filter');
 const liveFilter = new OneEuroQuat({ mincutoff: 1.0, beta: 0.01 });
 filterOn.onchange = () => liveFilter.reset();
 const poseQ = new THREE.Quaternion();
-let recSince = null, liveSetMs = 0; // the phone's set clock (Phase 3b): the desk shows the set moving with it
+let recSince = null, liveSetMs = 0, ghostLive = null; // the phone's set clock (Phase 3b): the desk shows the set moving with it
 function onPose(m) {
   liveSetMs = m.st ?? 0;
+  // Phase 4b ghost: the phone asked for it; show the last take in this set as a faint camera at the same moment
+  const wantGhost = !!m.gh && !current;
+  if (wantGhost && !ghostLive) { ghostLive = lastTakeInSet(); showPath(ghostLive); }
+  if (!wantGhost && ghostLive) { ghostLive = null; if (!compareTake) showPath(null); }
+  other.group.visible = !!(ghostLive || (current && compareTake));
+  if (ghostLive) { const g = sampleAt(ghostLive.samples, m.rec ? liveSetMs : 0); other.group.position.fromArray(g.p); other.group.quaternion.fromArray(g.q); other.view(ghostLive.view?.fov, ghostLive.view?.aspect); }
   poseQ.fromArray(m.q);
   if (filterOn.checked) liveFilter.filter(poseQ, m.ts, live.group.quaternion);
   else live.group.quaternion.copy(poseQ);
@@ -167,6 +182,7 @@ function useScene(scene) {
 }
 /** Save a set version on this computer (takes replay in the exact version they were shot in) and remember it. */
 function keepScene(scene) {
+  sceneSets.set(scene.id, scene.setId || scene.id);
   putScene(scene).catch(() => {});
   try { localStorage.setItem('handcam.lastSceneId', scene.id); } catch {}
 }
@@ -257,7 +273,13 @@ const takes = new Map(); // id -> take
 let current = null, playhead = 0, playing = false;
 const duration = (take) => take.samples.at(-1)?.ts ?? 0;
 const secs = (ms) => (ms / 1000).toFixed(1);
-const nice = (take) => (take.label ? take.label.replace(/^\d /, (m) => `Shot ${m}· `) : take.demo ? 'Demo take' : 'Take');
+const nice = (take) => take.name || (take.label ? take.label.replace(/^\d /, (m) => `Shot ${m}· `) : take.demo ? 'Demo take' : 'Take');
+/** The most recent take shot in the live set (any version of it): the ghost to beat. */
+function lastTakeInSet() {
+  const setId = liveScene?.setId || liveScene?.id;
+  return [...takes.values()].filter((t) => !t.demo && (t.sceneId === liveScene?.id || sceneSets.get(t.sceneId) === setId)).sort((a, b) => b.id.localeCompare(a.id))[0] || null;
+}
+const sceneSets = new Map(); // sceneId -> setId, filled as scenes are seen
 
 function takeTime(take) {
   const shotAt = new Date(take.id.slice(0, 19).replace(/T(\d\d)-(\d\d)-(\d\d)/, 'T$1:$2:$3') + 'Z');
@@ -265,7 +287,8 @@ function takeTime(take) {
 }
 function renderList() {
   takesEl.innerHTML = '';
-  const list = [...takes.values()].sort((a, b) => (b.demo ? -1 : 0) - (a.demo ? -1 : 0) || b.id.localeCompare(a.id));
+  // starred first (the circled takes), then newest; the demo stays on top
+  const list = [...takes.values()].sort((a, b) => (b.demo ? -1 : 0) - (a.demo ? -1 : 0) || (b.star ? 1 : 0) - (a.star ? 1 : 0) || b.id.localeCompare(a.id));
   $('noTakes').hidden = list.length > 0;
   $('takeCount').textContent = list.length;
   for (const take of list) {
@@ -273,6 +296,7 @@ function renderList() {
     li.className = `take${take === current ? ' sel' : ''}`;
     li.innerHTML = `<span class="t-name"></span><svg viewBox="0 0 92 34" preserveAspectRatio="none"><path d="${curvePath(take, 92, 34)}" fill="none" stroke="${take === current ? '#f0a07d' : '#8b8780'}" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="t-meta"></span>`;
     li.querySelector('.t-name').textContent = nice(take);
+    if (take.star) li.querySelector('.t-name').insertAdjacentHTML('afterbegin', '<span class="t-star">★</span>');
     if (take.labSent) li.querySelector('.t-name').insertAdjacentHTML('beforeend', ' <span class="badge ok">lab</span>');
     if (make.hasVideo(take.id)) li.querySelector('.t-name').insertAdjacentHTML('beforeend', ' <span class="badge accent">video</span>');
     li.querySelector('.t-meta').textContent = `${takeTime(take)} · ${secs(duration(take))} s`;
@@ -297,6 +321,7 @@ export async function takeScene(take) {
 }
 async function selectTake(take) {
   if (armed) disarmDelete();
+  if (take !== current) setCompare(null);
   current = take; playing = false; playhead = 0;
   player.hidden = !take;
   $('takePanel').hidden = !take;
@@ -313,6 +338,9 @@ async function selectTake(take) {
   $('curve').setAttribute('viewBox', '0 0 600 34');
   $('curve').innerHTML = `<path d="${curvePath(take, 600, 34)}" fill="none" stroke="#e07a52" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
   $('shot').value = take.label || '';
+  $('takeName').value = take.name || '';
+  $('starBtn').classList.toggle('on', !!take.star); $('starBtn').textContent = take.star ? '★' : '☆';
+  fillCompare(take);
   const s = duration(take) / 1000;
   $('takeNote').textContent = take.labSent ? 'Sent to the lab.' : s < 3 ? `${secs(s * 1000)} s is short: AI video tools want at least 3 s.` : s > 15 ? 'Longer than most AI video tools accept (about 15 s).' : '';
   if (take.sceneId && take.sceneId !== shownSceneId) {
@@ -320,9 +348,11 @@ async function selectTake(take) {
     if (scene && current === take) showScene(scene);
   }
 }
+/** Playback length: the longer of the take and the one it's compared with (they scrub together). */
+const playLength = () => Math.max(duration(current), compareTake ? duration(compareTake) : 0);
 function togglePlay() {
   if (!current) return;
-  if (!playing && playhead >= duration(current)) playhead = 0;
+  if (!playing && playhead >= playLength()) playhead = 0;
   playing = !playing;
 }
 $('play').onclick = togglePlay;
@@ -391,6 +421,46 @@ async function loadDemo() {
 }
 $('demoBtn').onclick = $('demoBtn2').onclick = loadDemo;
 
+// --- Phase 4b: star, rename, compare -------------------------------------------------------
+const saveTake = (take) => { if (!take.demo) putTake(take).catch(() => {}); };
+$('starBtn').onclick = () => {
+  if (!current) return;
+  current.star = !current.star;
+  saveTake(current);
+  $('starBtn').classList.toggle('on', current.star); $('starBtn').textContent = current.star ? '★' : '☆';
+  renderList();
+};
+$('takeName').addEventListener('change', () => {
+  if (!current) return;
+  const v = $('takeName').value.trim().slice(0, 60);
+  if (v) current.name = v; else delete current.name;
+  saveTake(current); renderList(); $('playerName').textContent = nice(current);
+});
+let compareTake = null, compareSet = null;
+const compareStage = povStage(), compareCam = new THREE.PerspectiveCamera(60, 9 / 16, 0.05, 200);
+function fillCompare(take) {
+  const sel = $('compareSel');
+  sel.innerHTML = '<option value="">Compare with…</option>';
+  for (const t of [...takes.values()].filter((t) => t !== take).sort((a, b) => (b.star ? 1 : 0) - (a.star ? 1 : 0) || b.id.localeCompare(a.id))) {
+    sel.append(new Option(`${t.star ? '★ ' : ''}${nice(t)} · ${takeTime(t)} · ${secs(duration(t))} s`, t.id));
+  }
+  sel.value = compareTake?.id || '';
+}
+async function setCompare(take) {
+  compareTake = take || null;
+  if (compareSet) { compareStage.remove(compareSet); compareSet = null; }
+  showPath(compareTake);
+  other.group.visible = !!compareTake;
+  if (!compareTake) { $('insetLabel').textContent = 'What the camera saw'; return; }
+  const scene = await takeScene(compareTake);
+  if (scene && compareTake === take) { compareSet = renderScene(scene); compareStage.add(compareSet); }
+  compareCam.fov = compareTake.view?.fov || 60; compareCam.aspect = replayCam.aspect; compareCam.updateProjectionMatrix();
+  other.view(compareTake.view?.fov, compareTake.view?.aspect);
+  $('insetLabel').textContent = nice(current); $('inset2Label').textContent = nice(compareTake);
+  scrub.max = Math.max(1, Math.round(playLength()));
+}
+$('compareSel').onchange = () => setCompare(takes.get($('compareSel').value) || null);
+
 // --- Phase 4 export panel -----------------------------------------------------------------
 var exporter = setupExport({ getTake: () => current, takeScene, toast });
 
@@ -421,7 +491,7 @@ let lastT = performance.now();
 function frame(t) {
   const dt = t - lastT; lastT = t;
   if (current) {
-    if (playing) { playhead += dt; if (playhead >= duration(current)) { playhead = duration(current); playing = false; } }
+    if (playing) { playhead += dt; if (playhead >= playLength()) { playhead = playLength(); playing = false; } }
     const s = sampleAt(current.samples, playhead);
     if (s.f) { // Phase 4: the zoom as performed, sample by sample
       const fov = takeOutput(current).fovAt(s);
@@ -431,9 +501,15 @@ function frame(t) {
     replay.group.quaternion.fromArray(s.q); replay.group.position.fromArray(s.p);
     replayCam.quaternion.fromArray(s.q); replayCam.position.fromArray(s.p);
     scrub.value = playhead;
-    $('head').style.left = `${(playhead / Math.max(1, duration(current))) * 100}%`;
+    $('head').style.left = `${(playhead / Math.max(1, playLength())) * 100}%`;
+    if (compareTake) {
+      const c = sampleAt(compareTake.samples, playhead);
+      other.group.position.fromArray(c.p); other.group.quaternion.fromArray(c.q);
+      compareCam.position.fromArray(c.p); compareCam.quaternion.fromArray(c.q);
+      if (compareSet) animateScene(compareSet, playhead);
+    }
     $('play').innerHTML = playing ? '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg>' : '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>';
-    $('time').textContent = `${secs(playhead)} / ${secs(duration(current))} s`;
+    $('time').textContent = `${secs(playhead)} / ${secs(playLength())} s`;
   }
   if (recSince !== null) { const s = Math.floor((performance.now() - recSince) / 1000); $('recTime').textContent = `REC ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
   controls.update();
@@ -444,16 +520,28 @@ function frame(t) {
   renderer.setViewport(0, 0, size.x, size.y);
   renderer.render(scene3, camera);
   insetEl.hidden = !current;
-  if (current) { // inset: what the take's camera saw, without the outlines
-    const h = Math.round(size.y * 0.46), w = Math.round(h * replayCam.aspect), x = size.x - w - 18, y = 86;
-    live.group.visible = replay.group.visible = false;
+  $('inset2').hidden = !(current && compareTake);
+  if (current) { // inset: what the take's camera saw, without the outlines; with Compare, two side by side
+    const both = !!compareTake, maxW = both ? size.x * 0.46 : size.x * 0.6;
+    let h = Math.round(size.y * 0.46), w = Math.round(h * replayCam.aspect);
+    if (w > maxW) { w = Math.round(maxW); h = Math.round(w / replayCam.aspect); }
+    const y = 86, x = size.x - w - 18;
+    const wasOther = other.group.visible, wasPath = ghostPath?.visible;
+    live.group.visible = replay.group.visible = other.group.visible = false;
+    if (ghostPath) ghostPath.visible = false;
     renderer.setScissorTest(true);
-    renderer.setScissor(x, y, w, h); renderer.setViewport(x, y, w, h);
-    renderer.setClearColor(0x161a22, 1); renderer.clear();
-    renderer.render(scene3, replayCam);
+    const draw = (stage, cam, rx, el) => {
+      renderer.setScissor(rx, y, w, h); renderer.setViewport(rx, y, w, h);
+      renderer.setClearColor(0x161a22, 1); renderer.clear();
+      renderer.render(stage, cam);
+      Object.assign(el.style, { left: `${rx}px`, top: `${size.y - y - h}px`, width: `${w}px`, height: `${h}px` });
+    };
+    draw(scene3, replayCam, x, insetEl);
+    if (both) draw(compareStage, compareCam, x - w - 12, $('inset2'));
     renderer.setClearColor(0x000000, 0);
     live.group.visible = replay.group.visible = true;
-    Object.assign(insetEl.style, { left: `${x}px`, top: `${size.y - y - h}px`, width: `${w}px`, height: `${h}px` });
+    other.group.visible = wasOther;
+    if (ghostPath) ghostPath.visible = wasPath;
   }
   requestAnimationFrame(frame);
 }

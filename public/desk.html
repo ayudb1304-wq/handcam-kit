@@ -86,7 +86,8 @@
       <span class="pill sel-pill" id="selPill" hidden><b id="selName"></b><span class="muted small">drag · R+drag turns · Delete</span></span>
       <span class="pill rec-chip" id="recChip" hidden><span class="dot rec"></span><span id="recTime">REC</span></span>
     </div>
-    <div id="inset" hidden><span class="pill small">What the camera saw</span></div>
+    <div id="inset" hidden><span class="pill small" id="insetLabel">What the camera saw</span></div>
+    <div id="inset2" hidden><span class="pill small" id="inset2Label">Compare</span></div>
     <div class="player" id="player" hidden data-tour="player">
       <button class="play" id="play" aria-label="Play"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg></button>
       <span class="take-name" id="playerName"></span>
@@ -112,7 +113,9 @@
 
     <section class="card panel" id="takePanel" hidden>
       <div class="panel-head"><span class="eyebrow">Selected take</span><span class="badge" id="takeLen"></span></div>
-      <select id="shot" aria-label="Which test shot is this?"><option value="">Name this take…</option></select>
+      <div class="row"><button class="btn quiet icon star" id="starBtn" title="Star the best take (the circled take)" aria-label="Star this take">☆</button><input class="field grow" id="takeName" placeholder="Name this take" aria-label="Take name" maxlength="60"></div>
+      <div class="row"><select id="compareSel" class="grow" aria-label="Compare with another take"><option value="">Compare with…</option></select></div>
+      <select id="shot" aria-label="Which test shot is this? (lab)"><option value="">Lab test shot…</option></select>
       <div class="export-box">
         <span class="eyebrow">Export</span>
         <div class="actions three">

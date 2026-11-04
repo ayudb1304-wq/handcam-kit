@@ -106,7 +106,7 @@ Two parts: shoot in the shape and lens the final video needs, then export it in 
 
 ---
 
-## Phase 4b — Rigs and take review · `todo`
+## Phase 4b — Rigs and take review · `built` (2026-11-05, checked in Chrome with a simulated phone; the desk-side ghost isn't visually checked yet)
 
 Steadier shots without smoothing, and the tools directors use to pick the take.
 
