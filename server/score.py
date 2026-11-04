@@ -7,6 +7,8 @@ degrees); the result's are estimated by phase correlation between consecutive fr
 Walking (forward/back, up/down): needs measure.mp4 next to TAKE.json (lab/tools/render.mjs or the desk makes it: the same
 camera path through a speckled copy of the set). Both it and the result are measured the same way, from dense
 optical flow fitted with zoom + shift per frame, and compared. "fwd" is how much bigger the view got, in %.
+Takes that barely turn (walks, crouches): their turn curve is just hand drift, too small to line up, so turn_corr is
+not given (null) and timing comes from the walking or up/down curve instead (timing_from says which).
 Known limits: fast whips with motion blur read smaller than they are; frames inside fast turns are skipped
 for walking; sideways walking (orbits) shows up inside the turn numbers, not on its own.
 Needs: pip install opencv-python-headless numpy
@@ -102,6 +104,40 @@ def flow_motion(path, width=320):
     return t, np.cumsum([0.0] + [o[1] for o in out]), np.cumsum([0.0] + [o[2] for o in out])
 
 
+# A take "turns" when its yaw moves at least this much in total, or this fast at some point. Below both, the yaw curve
+# is hand drift: lining a video up against it gives noise (lab/recipe.md rule 10: a walk scored 58% and +1.5 s).
+TURN_MIN_DEG, TURN_MIN_DEG_S = 15.0, 30.0
+
+
+def smooth(v, dt, secs=0.25):
+    n = max(3, int(round(secs / dt)) | 1)
+    return np.convolve(np.pad(v, n // 2, mode="edge"), np.ones(n) / n, mode="valid")
+
+
+def turns(grid, Ty):
+    dt = 1 / 24
+    rate = np.abs(np.gradient(smooth(Ty, dt), dt))
+    return float(np.ptp(Ty)) >= TURN_MIN_DEG or float(rate.max()) >= TURN_MIN_DEG_S
+
+
+def align_by_motion(grid, mt, m, qt, q, shifts):
+    """Shift (s) that best lines up the result's motion speed q with the truth's m (both cumulative curves):
+    correlation of their smoothed per-frame changes, so start/stop moments decide it, not the overall size."""
+    dt = 1 / 24
+    M = np.gradient(smooth(np.interp(grid, mt, m), dt), dt)
+    if np.std(M) < 1e-6:
+        return None
+    best, best_c = None, -2.0
+    for s in shifts:
+        Q = np.gradient(smooth(np.interp(grid, qt + s, q), dt), dt)
+        if np.std(Q) < 1e-6:
+            continue
+        c = float(np.corrcoef(Q, M)[0, 1])
+        if c > best_c:
+            best, best_c = s, c
+    return best
+
+
 def moves_vertically(take, pitch):
     heights = [s["p"][1] for s in take["samples"]]
     return max(heights) - min(heights) > 0.2 or float(np.ptp(pitch)) > 8
@@ -130,13 +166,30 @@ def score(take, result, measure=None):
     Ry, Rp = np.interp(grid, rt, ry), np.interp(grid, rt, rp)
     rms = lambda a, b: float(np.sqrt(np.mean((a - b) ** 2)))
     shifts = np.arange(-1.5, 1.501, 1 / 24)
-    best = min(shifts, key=lambda s: rms(np.interp(grid, rt + s, ry), Ty))
-    wt, fast = wobble(grid, Ty)
-    wr, _ = wobble(grid, np.interp(grid, rt + best, ry), fast)
-    walk = {}
+    turning = turns(grid, Ty)
+    timing_from = None
+    if turning:
+        best = min(shifts, key=lambda s: rms(np.interp(grid, rt + s, ry), Ty))
+        timing_from = "turn"
+    else:
+        best = 0.0  # replaced below by the walking / up-down line-up when measure.mp4 is there
+    flows = None
     if measure:
         mt, mf, mb = flow_motion(measure)
         qt, qf, qb = flow_motion(result)
+        flows = (mt, mf, mb, qt, qf, qb)
+        if not turning:
+            if abs(mf[-1]) > 5:  # walked: line up on forward motion
+                s_ = align_by_motion(grid, mt, mf, qt, qf, shifts)
+                if s_ is not None: best, timing_from = s_, "walk"
+            elif moves_vertically(take, tp):  # crouch / lift: line up on up-down motion
+                s_ = align_by_motion(grid, mt, mb, qt, qb, shifts)
+                if s_ is not None: best, timing_from = s_, "updown"
+    wt, fast = wobble(grid, Ty)
+    wr, _ = wobble(grid, np.interp(grid, rt + best, ry), fast)
+    walk = {}
+    if flows:
+        mt, mf, mb, qt, qf, qb = flows
         Mf, Mb = np.interp(grid, mt, mf), np.interp(grid, mt, mb)
         Qf, Qb = np.interp(grid, qt + best, qf), np.interp(grid, qt + best, qb)  # same time shift as the turn
         walk = {
@@ -151,8 +204,10 @@ def score(take, result, measure=None):
         "result": result,
         "length_s": round(dur, 2), "take_length_s": round(float(tt[-1]), 2),
         "turn_rms_deg": round(rms(Ry, Ty), 1),
-        "turn_corr": round(float(np.corrcoef(Ry, Ty)[0, 1]), 3) if np.std(Ty) > 0 else None,
-        "timing_offset_s": round(float(-best), 2),  # + means the AI is late
+        "turn_corr": round(float(np.corrcoef(Ry, Ty)[0, 1]), 3) if turning and np.std(Ty) > 0 else None,
+        "timing_offset_s": round(float(-best), 2) if timing_from else None,  # + means the AI is late
+        "timing_from": timing_from,  # turn | walk | updown | None (nothing to time it by)
+        "turns": turning,
         "turn_rms_after_shift_deg": round(rms(np.interp(grid, rt + best, ry), Ty), 1),
         "tilt_rms_deg": round(rms(Rp, Tp), 1),
         "take_wobble_deg": round(wt, 2),    # small shake in the take, outside fast moves

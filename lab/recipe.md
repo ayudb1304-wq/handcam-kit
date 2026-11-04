@@ -17,7 +17,7 @@
 
 8. **App path works (2026-11-05, H1/H4, first hand-shot takes, horror set).** Higgsfield public API `bytedance/seedance-2.5/reference-to-video` with the start image in `image_urls` (not a locked first frame) still followed the move. Whip (H4): 2 of 2 passed, timing +0.04 s, turn corr 0.997–0.998, no swing back, landed on the shed it had to invent. Walk (H1): all 3 walked in at the right moments (walk_corr 0.96–0.996), slightly short (walk_ratio 0.75–0.86), same under-walk as rule 6.
 9. **Hand shake survives** (H4): take wobble 0.32 deg, results 0.38–0.39 deg.
-10. **Scorer false fail on walk-only takes** (H1): with almost no turning (~10 deg drift), turn_corr is noise and the timing search pins at its ±1.5 s limit, so `judge` fails good videos and Make video spends an extra try (≈18 credits). Fix next: skip the turn/timing checks when the take barely turns, and judge timing from walking instead.
+10. **Scorer false fail on walk-only takes** (H1): with almost no turning (~10 deg drift), turn_corr is noise and the timing search pins at its ±1.5 s limit, so `judge` fails good videos and Make video spends an extra try (≈18 credits). **Fixed 2026-11-05:** a take "turns" only with ≥15° total yaw or ≥30°/s; otherwise turn_corr is null and timing comes from the walking (or up/down) speed curve (`timing_from` in score.py output). Re-scored H1: 58/58/89 → 83/79/81 (all above the 70% free line); timing −0.17 to −0.33 s, so Seedance starts walking slightly early (the speckled twin scored against itself gives 0.00 s, so it's not a bias). H4 whip unchanged (97/98).
 
 ## Not yet known
 - Hand-shot shots 2 (walk past), 3 (half circle), 5 (crouch/lower).
