@@ -41,6 +41,30 @@ Three pieces, one repo, one `npm run dev`.
 - **Lab** (recipe tests, not a product feature): each take can be named with one of the test shots (`SHOTS` in `protocol.js`, stored as `take.label`) and **Send to lab** posts `{ take, scene }` to `POST /api/lab/take`, which writes `lab/takes/<take id>/take.json` + `scene.json`. Accepted only from the laptop itself (`server/lab.js` `isLocal`), never through the tunnel. `npm run lab:push` commits and pushes `lab/takes/`. In the cloud, `lab/tools/render.mjs` re-renders any lab take with the same exporter.
 - Still to come (Phase 4): JSON and Blender buttons.
 
+## 4. Make video (`server/make/`, `recipes/`)
+
+The one place the server does real work (DECISIONS §25). The studio renders the take's grey reference + first frame and its speckled measuring twin in the browser, uploads them, and polls a job:
+
+```
+POST /api/make {take, scene, look, recipeId, demo}   → job (status uploading)
+PUT  /api/make/:id/files/{reference.mp4|measure.mp4|first-frame.png}
+POST /api/make/:id/start      → upload to the provider, make the start image → needs_approval
+POST /api/make/:id/approve {n} → make `candidates` versions → score each (server/score.py) → keep the best; one extra try if none passes
+POST /api/make/:id/redo-start {look} · POST /api/make/:id/more · GET /api/make/:id · GET /api/make/:id/media/:file
+```
+
+- **Recipes** (`recipes/*.json`, server-only): provider, endpoints, input templates (`{{look}}`, `{{startImageUrl}}`, `{{referenceUrl}}`, `{{firstFrameUrl}}`, `{{durationS}}`, `{{aspect}}`, `{{demo}}`), where the output URL is, versions to make, pass marks, cost estimate. `practice.json` (mock provider) and `seedance-2.5.json` (Higgsfield, draft).
+- **Providers**: `higgsfield.js` (docs.higgsfield.ai: `Authorization: Key id:secret`, presigned uploads, `Idempotency-Key` per generation, polling with backoff), `mock.js` (practice; for the demo take it returns the real example result in `public/demo/`).
+- **Jobs** live in `data/jobs/<id>/` (gitignored): `job.json` (written atomically) + files. Interrupted jobs resume after a restart (practice jobs fail instead).
+- Laptop-only (`isLocal`), like Send to lab, until there are accounts. Provider URLs and request ids never reach the browser.
+
+## 5. Pages
+
+- `/` → `public/index.html` + `site/`: the landing page (light, tiled). Product shots in `assets/shots/` are real screenshots of the studio.
+- `/desk` → `desk.html` + `studio/` (main, make, tour) + `shared/ui.css` (design system).
+- `/cam` → `cam.html` (phone).
+- Brand assets in `assets/` were generated with Higgsfield (GPT Image 2.5).
+
 ## Wire protocol (`public/shared/protocol.js` is canonical)
 
 All messages are JSON with a `t` field.

@@ -75,6 +75,18 @@ Pulled out of Phase 4 so the AI-video tests can start: every recipe test needs a
 
 ---
 
+## Make video + studio · `doing` (built 2026-11-04; waiting for the recipe and the laptop test)
+
+Built ahead of the recipe so it's plug and play when the recipe is final (DECISIONS §25-26).
+- Engine: recipes as server-side files, job runner (first frame → your OK → versions → move check → best), Higgsfield API adapter, practice mode, scorer in the app.
+- Studio redesign (Set → Shoot → Takes → Make video), result screen (your move and the AI video side by side, move match), demo take with a real example result, first-run tour.
+- Phone camera screen polish. Landing page.
+
+**Accept:** On the laptop, open `/desk`, take the tour, load the demo take, Make video in Practice: you approve the first frame and get the result with a move-match score (needs `pip3 install opencv-python-headless numpy`, otherwise "not checked"). Then shoot a real take with the phone and do the same. With `HF_API_KEY_ID/SECRET` in `.env`, choose Seedance 2.5 and get a real video.
+**Still needs you:** the final recipe (then set `"status": "final"` in `recipes/seedance-2.5.json`), pricing, and hosting/accounts for a public launch (Phase 5).
+
+---
+
 ## Phase 4 — Frame, lens and export · `todo`
 
 Two parts: shoot in the shape and lens the final video needs, then export it in forms AI video tools and Blender take directly.

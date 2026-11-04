@@ -18,7 +18,7 @@ Someone who has **never opened Blender** and does not want to. Every UI decision
 ## Stack (do not change without a note in DECISIONS.md)
 
 - Node 18+, plain JavaScript (ESM), no TypeScript, no bundler. `express` + `ws`. That's the whole backend.
-- Frontend: vanilla JS + **three.js from a CDN import map** (`public/shared/three.js` re‑exports it). No React, no build step. Pages are `public/desk.html` (laptop) and `public/cam.html` (phone).
+- Frontend: vanilla JS + **three.js from a CDN import map** (`public/shared/three.js` re‑exports it). No React, no build step. Pages are `public/index.html` (landing, `public/site/`), `public/desk.html` (the studio, `public/studio/`) and `public/cam.html` (phone). App styling comes from `public/shared/ui.css`.
 - Shared code goes in `public/shared/`. Protocol constants live in `public/shared/protocol.js` and are the only source of truth for message shapes.
 - Scene description is the JSON in `public/shared/scene-schema.json`. The LLM emits it; both pages render it; the exporter consumes it. Primitives only (box, cylinder, sphere, plane, stickfigure). No GLB loading in v1.
 - Exporters are standalone scripts in `exporters/`. Blender exporter must run with `blender --background --python exporters/blender_import.py -- take.json scene.json`.

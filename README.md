@@ -41,6 +41,15 @@ printf 'ANTHROPIC_API_KEY=%s\n' "$(pbpaste)" > .env
 
 Without a key, the app uses three built-in sets (parking lot, room, street corner).
 
+**Make video** works out of the box in *Practice* mode (no AI, no credits). For real videos with Seedance 2.5 through Higgsfield, add your Higgsfield API key ID and secret (from console.higgsfield.ai) to the same `.env`, and install the move-match scorer's two Python packages once:
+
+```bash
+printf 'HF_API_KEY_ID=%s\nHF_API_KEY_SECRET=%s\n' "your-key-id" "your-key-secret" >> .env
+pip3 install opencv-python-headless numpy
+```
+
+Open `http://localhost:3000/` for the landing page, `/desk` for the studio (first visit shows a short tour; **Try the demo take** works without a phone).
+
 Open `http://localhost:3000/desk` on your laptop. It shows a QR code.
 Your phone needs **HTTPS** to read the gyro (iOS rule). Easiest path, in a second terminal:
 

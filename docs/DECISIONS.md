@@ -106,3 +106,16 @@ Several products now turn a phone move into an AI-video camera move (Higgsfield'
 **Found (Nov 2026).** `#view { position: fixed; inset: 0 }` does not stretch a `<canvas>`: it is a replaced element, so it keeps its intrinsic size. With `setPixelRatio(2)` on a 2x/3x phone that intrinsic size is twice the screen, so the phone showed the top-left quarter of the view, zoomed 2x. Takes were still recorded correctly (the camera's real fov/aspect), so the desk replay, the export and the scorer were right; only what the operator framed with was wrong. Takes shot before this fix were framed on a zoomed preview.
 **Decision.** `width: 100%; height: 100%` on the canvas, with a comment. Any new full-screen canvas needs the same.
 
+## 25. The server now runs AI jobs (an exception to §7)
+**Context.** §7 keeps the relay dumb. Making a video needs secrets (the Higgsfield key), long polling, downloads and the scorer, none of which may run in the browser.
+**Decision.** `server/make/` runs Make video jobs; the relay itself stays dumb. Jobs are folders on disk (`data/jobs/`), not a database: one laptop, few jobs, and a folder is easy to inspect and delete. When HandCam is hosted for other people this becomes a queue plus storage plus accounts (Phase 5), behind the same routes.
+
+## 26. Recipes are data, on the server only
+**Context.** The recipe (model, settings, prompt wording, pass marks) is the product's edge and changes whenever a model updates.
+**Decision.** One JSON file per model in `recipes/`, never served to the browser (`publicJob` strips provider URLs and request ids too). Swapping or tuning a recipe needs no code change. Each recipe has `status: draft|final`; the studio labels drafts. Practice mode is just another recipe with the mock provider, so the whole flow is tested without credits.
+- The public Higgsfield API's Seedance 2.5 `reference-to-video` takes the picture as a reference image, not a locked first frame (the lab tested the connector's `omni_reference` with `start_image`). The draft recipe uses the API; re-test it there before calling it final.
+- Pass marks (turn match, timing, walking) and the 0-100 "move match" are a readable summary of `server/score.py`, not a new measurement. Calibrate on real hand-shot takes.
+
+## 27. Look: a dark studio, a light landing page, one brand
+The studio is dark (it's where you look at a lit set and video); the landing page is light and tiled, following the founder's GSCdaddy site (layout, pacing, motion), with HandCam's own copy. Both use Gabarito / Archivo / JetBrains Mono and the terracotta of the Higgsfield-made brand objects. The demo's AI clip is a real Seedance 2.5 result from the lab and is labelled "Example result" in practice mode. Landing pricing is marked draft.
+
