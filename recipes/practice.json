@@ -19,5 +19,5 @@
   "minDurationS": 3,
   "maxDurationS": 30,
   "pass": { "turnCorrMin": 0.95, "maxOffsetS": 0.3, "walkRatio": [0.6, 1.4], "walkCorrMin": 0.9 },
-  "cost": { "startImage": 0, "video": 0, "unit": "credits" }
+  "cost": { "startImage": 0, "video": 0, "unit": "USD" }
 }

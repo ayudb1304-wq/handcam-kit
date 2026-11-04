@@ -5,7 +5,7 @@ import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { fill, pick, judge, badness, matchPercent } from './recipe.js';
+import { fill, pick, judge, badness, matchPercent, pickQuality, pickVersions, videoCost, FREE_BELOW_MATCH } from './recipe.js';
 
 export const UPLOADS = Object.freeze({ 'reference.mp4': 'video/mp4', 'measure.mp4': 'video/mp4', 'first-frame.png': 'image/png' });
 const TERMINAL = new Set(['completed', 'failed', 'nsfw', 'canceled']);
@@ -29,10 +29,12 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   const say = (job, msg) => { job.log.push({ t: new Date().toISOString(), msg }); };
 
   /** Create a job and save take/scene; the browser then PUTs the UPLOADS and calls start(). */
-  async function create({ take, scene, look, recipeId, demo = false }) {
+  async function create({ take, scene, look, recipeId, demo = false, quality, versions }) {
     const recipe = recipes[recipeId];
     if (!recipe) throw Object.assign(new Error(`unknown recipe ${recipeId}`), { status: 400 });
     if (typeof look !== 'string' || look.trim().length < 3) throw Object.assign(new Error('Describe the look in a few words first.'), { status: 400 });
+    const resolution = pickQuality(recipe, quality);
+    const versionCount = pickVersions(recipe, versions);
     const id = `${new Date().toISOString().slice(0, 10)}-${randomUUID().slice(0, 8)}`;
     await mkdir(path(id), { recursive: true });
     await writeFile(path(id, 'take.json'), JSON.stringify(take));
@@ -41,7 +43,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     const job = {
       id, createdAt: new Date().toISOString(), recipeId, provider: recipe.provider, demo: Boolean(demo),
       look: look.trim(), take: { id: take.id, label: take.label || null, durationS: +(durationMs / 1000).toFixed(2) },
-      aspect: (take.view?.aspect ?? 0.5) < 1 ? '9:16' : '16:9',
+      aspect: (take.view?.aspect ?? 0.5) < 1 ? '9:16' : '16:9', resolution, versions: versionCount,
       durationS: Math.min(recipe.maxDurationS ?? 15, Math.max(recipe.minDurationS ?? 4, Math.round(durationMs / 1000))),
       status: 'uploading', urls: {}, startImages: [], candidates: [], best: null, outcome: null, error: null, log: [],
     };
@@ -73,7 +75,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   }
 
   function vars(job, extra = {}) {
-    return { look: job.look, aspect: job.aspect, durationS: job.durationS, demo: job.demo, firstFrameUrl: job.urls['first-frame.png'], referenceUrl: job.urls['reference.mp4'], ...extra };
+    return { look: job.look, aspect: job.aspect, durationS: job.durationS, resolution: job.resolution ?? '480p', demo: job.demo, firstFrameUrl: job.urls['first-frame.png'], referenceUrl: job.urls['reference.mp4'], ...extra };
   }
 
   async function makeStartImage(job, recipe, provider) {
@@ -142,18 +144,41 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     const best = [...pool].sort((a, b) => badness(a.score) - badness(b.score))[0];
     job.best = best?.n ?? null;
     job.outcome = !best ? null : job.checkError ? 'unchecked' : passed.length ? 'passed' : 'best_effort';
+    bill(job, recipe);
     return passed.length > 0;
+  }
+
+  /**
+   * Who pays for what. A version under FREE_BELOW_MATCH% move match is free: the customer is not charged for it
+   * (an unchecked version is charged: we can't show it failed). apiUsd is what the provider charged us for everything.
+   */
+  function bill(job, recipe) {
+    const made = job.candidates.filter((c) => c.file);
+    for (const c of made) c.free = c.match != null && c.match < FREE_BELOW_MATCH;
+    const per = videoCost(recipe, job.resolution, job.durationS);
+    const best = made.find((c) => c.n === job.best);
+    job.billing = {
+      videos: made.length,
+      charged: made.filter((c) => !c.free).length,
+      free: made.filter((c) => c.free).length,
+      apiUsd: +(job.startImages.filter((x) => x.file).length * (recipe.cost?.startImage ?? 0) + made.length * per).toFixed(2),
+      freeBelow: FREE_BELOW_MATCH,
+      tryAgain: Boolean(best?.free), // the kept one didn't follow: offer to make another
+    };
   }
 
   async function makeVideos(job, recipe, provider) {
     job.status = 'making';
-    say(job, `Making ${recipe.candidates} version${recipe.candidates > 1 ? 's' : ''}`);
+    const count = job.versions ?? recipe.candidates;
+    say(job, `Making ${count} version${count > 1 ? 's' : ''}`);
     await save(job);
     const fresh = [];
-    for (let i = 0; i < recipe.candidates; i++) fresh.push(await makeCandidate(job, recipe, provider));
+    for (let i = 0; i < count; i++) fresh.push(await makeCandidate(job, recipe, provider));
     await Promise.all(fresh.map((c) => finishCandidate(job, recipe, provider, c).then(() => save(job))));
     let ok = await scoreAndChoose(job, recipe);
-    for (let extra = 0; !ok && !job.checkError && extra < (recipe.extraTries ?? 0); extra++) {
+    // You choose how many versions (job.versions): no automatic extra tries. Older jobs keep the recipe's retry.
+    const extraTries = job.versions == null ? recipe.extraTries ?? 0 : 0;
+    for (let extra = 0; !ok && !job.checkError && extra < extraTries; extra++) {
       job.status = 'making';
       say(job, 'No version followed your move closely enough: making one more');
       await save(job);
@@ -163,7 +188,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     }
     if (job.best == null) throw new Error(job.candidates.map((c) => c.error).filter(Boolean)[0] || 'no video was made');
     job.status = 'done';
-    say(job, job.outcome === 'passed' ? 'Done: follows your move' : job.outcome === 'unchecked' ? 'Done (not checked)' : 'Done: closest version kept');
+    say(job, job.billing?.tryAgain ? `Done: under ${FREE_BELOW_MATCH}% move match, not charged` : job.outcome === 'passed' ? 'Done: follows your move' : job.outcome === 'unchecked' ? 'Done (not checked)' : 'Done: closest version kept');
     await save(job);
   }
 

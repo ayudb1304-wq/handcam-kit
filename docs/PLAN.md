@@ -124,6 +124,8 @@ Steadier shots without smoothing, and the tools directors use to pick the take.
 - **Phone-only mode is a headline feature**, not a fallback: `/cam` without a room shows the prompt box, builds the set, shoots, lists takes and exports, all on the phone. No laptop, no 3D software. (Every competitor needs a desktop or Blender; see COMPETITORS.md.)
 - Empty-state copy, onboarding hints on both pages (max three sentences each).
 - Error states: no HTTPS (explain, link to tunnel), motion permission denied, phone/desk disconnected (reconnect with backoff, rejoin the room, resend takes the desk never got).
+- **Before going live: never show customers our AI cost.** The studio's Make video cost line and result line show the real Higgsfield dollar cost (`costLine()` and `billLine` in `public/studio/make.js`; `job.billing.apiUsd`). That is for the founder only. For customers, show the price in our own unit (videos or credits from their plan, DECISIONS §30), never `$` of AI cost; keep `apiUsd` server-side for our own margin tracking.
+- Before charging: fix the walk-only false fail (lab/recipe.md rule 10) and make free (under 70%) versions preview-only or watermarked (DECISIONS §30).
 - Deploy to a URL. Constraints from DECISIONS §15: one always-on host for the WebSocket relay (or an external room store), and `/api/scene` protected (rate limit + per-browser quota or a passcode) before the URL is public. Update README.
 
 **Accept:** Hand the URL to someone who has never seen it, phone only. They describe a set, shoot a take and export the video in under 5 minutes with no help. Then repeat with phone + laptop (SPEC flow steps 1–6). Record what confused them in `DECISIONS.md`.

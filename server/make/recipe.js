@@ -20,6 +20,10 @@ export function checkRecipe(r) {
   if (!Number.isInteger(r.candidates) || r.candidates < 1 || r.candidates > 4) e.push('candidates must be 1 to 4');
   if (!Number.isInteger(r.extraTries ?? 0) || r.extraTries < 0 || r.extraTries > 3) e.push('extraTries must be 0 to 3');
   if (!r.pass || typeof r.pass !== 'object') e.push('pass marks missing');
+  if (r.qualities != null) { // { "480p": credits per video, ... }; the first one is the default
+    const q = Object.entries(r.qualities);
+    if (!q.length || !q.every(([k, v]) => /^\d{3,4}p$/.test(k) && Number.isFinite(v) && v >= 0)) e.push('qualities must look like { "480p": 0.167 } (USD per second of video)');
+  }
   return e;
 }
 
@@ -83,4 +87,31 @@ export async function loadRecipes(dir) {
     out[r.id] = r;
   }
   return out;
+}
+
+/** The quality to use: the one asked for if the recipe offers it, else the recipe's first (cheapest test) one. */
+export function pickQuality(recipe, asked) {
+  const q = Object.keys(recipe.qualities || {});
+  if (!q.length) return null;
+  if (asked == null || asked === '') return q[0];
+  if (!q.includes(asked)) throw Object.assign(new Error(`${recipe.label} can’t make ${asked}; choose ${q.join(', ')}`), { status: 400 });
+  return asked;
+}
+
+/** A version whose move match is below this is not charged, and the studio offers to try again. */
+export const FREE_BELOW_MATCH = 70;
+export const MAX_VERSIONS = 4;
+
+/** How many versions to make: the number asked for (1 to MAX_VERSIONS), else the recipe's default. */
+export function pickVersions(recipe, asked) {
+  if (asked == null || asked === '') return recipe.candidates;
+  const n = Number(asked);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_VERSIONS) throw Object.assign(new Error(`choose 1 to ${MAX_VERSIONS} versions`), { status: 400 });
+  return n;
+}
+
+/** What the AI provider charges us for one video of this length and quality (USD), from the recipe. */
+export function videoCost(recipe, resolution, seconds) {
+  const perSecond = recipe.qualities?.[resolution];
+  return perSecond != null ? perSecond * seconds : (recipe.cost?.video ?? 0);
 }

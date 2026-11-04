@@ -69,7 +69,10 @@ body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(-
 .time { font: 500 12px var(--mono); color: var(--fg-2); min-width: 92px; text-align: right; }
 
 /* Takes */
-.takes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.takes { list-style: none; margin: 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 8px;
+  /* fixed height, scrolls inside, so the panels below stay in view however many takes there are */
+  max-height: min(42vh, 360px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.takes .take { flex: none; }
 .take { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.015); cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
 .take:hover { border-color: var(--line-2); background: rgba(255,255,255,.035); }
 .take.sel { border-color: var(--accent); background: var(--accent-soft); }
@@ -86,6 +89,7 @@ body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(-
 
 /* Make video */
 .cost { display: flex; justify-content: space-between; gap: 8px; font: 12px var(--mono); color: var(--mute); padding: 8px 10px; border: 1px dashed var(--line-2); border-radius: 10px; }
+.cost #costEta { white-space: nowrap; }
 .timeline-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .timeline-steps li { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 8px 6px; border-radius: 10px; color: var(--faint); font-weight: 500; transition: color .2s, background .2s; }
 .timeline-steps li .ic { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line-2); display: grid; place-items: center; }

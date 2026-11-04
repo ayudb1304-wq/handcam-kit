@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { checkLabTake, isLocal } from '../lab.js';
 import { UPLOADS } from './jobs.js';
+import { FREE_BELOW_MATCH, MAX_VERSIONS } from './recipe.js';
 
 const MEDIA = /^(start-\d+\.(png|jpg)|video-\d+\.mp4|reference\.mp4|first-frame\.png)$/;
 
@@ -13,8 +14,8 @@ export function publicJob(job, recipe) {
   return {
     ...rest,
     startImages: job.startImages.map(({ n, status, file }) => ({ n, status, file })),
-    candidates: job.candidates.map(({ n, status, file, verdict, match, error, score }) => ({
-      n, status, file, verdict, match, error,
+    candidates: job.candidates.map(({ n, status, file, verdict, match, error, score, free }) => ({
+      n, status, file, verdict, match, error, free,
       score: score && { timing_offset_s: score.timing_offset_s, turn_corr: score.turn_corr, walk_ratio: score.walk_ratio ?? null },
     })),
     log: log.slice(-12),
@@ -28,7 +29,7 @@ export function makeRoutes({ jobs, recipes, ready }) {
 
   /** Which recipes exist and which can run here (Higgsfield needs keys in .env). The prompts stay on the server. */
   r.get('/config', (req, res) => {
-    res.json({ recipes: Object.values(recipes).map((x) => ({ id: x.id, label: x.label, status: x.status, provider: x.provider, cost: x.cost || null, candidates: x.candidates, ready: ready(x.provider) })) });
+    res.json({ freeBelowMatch: FREE_BELOW_MATCH, maxVersions: MAX_VERSIONS, recipes: Object.values(recipes).map((x) => ({ id: x.id, label: x.label, status: x.status, provider: x.provider, cost: x.cost || null, qualities: x.qualities || null, candidates: x.candidates, extraTries: x.extraTries ?? 0, minDurationS: x.minDurationS ?? 4, maxDurationS: x.maxDurationS ?? 15, ready: ready(x.provider) })) });
   });
 
   r.get('/', async (req, res) => {
@@ -36,12 +37,12 @@ export function makeRoutes({ jobs, recipes, ready }) {
   });
 
   r.post('/', async (req, res) => {
-    const { take, scene, look, recipeId, demo } = req.body || {};
+    const { take, scene, look, recipeId, demo, quality, versions } = req.body || {};
     const errors = checkLabTake({ take: { ...take, label: undefined }, scene });
     if (errors.length) return res.status(400).json({ error: errors.slice(0, 2).join('; ') });
     const recipe = recipes[recipeId];
     if (recipe && !ready(recipe.provider)) return res.status(400).json({ error: `${recipe.label} isn’t set up on this computer yet.` });
-    try { res.json({ job: publicJob(await jobs.create({ take, scene, look, recipeId, demo }), recipe), uploads: Object.keys(UPLOADS) }); }
+    try { res.json({ job: publicJob(await jobs.create({ take, scene, look, recipeId, demo, quality, versions }), recipe), uploads: Object.keys(UPLOADS) }); }
     catch (e) { res.status(e.status || 500).json({ error: e.message }); }
   });
 

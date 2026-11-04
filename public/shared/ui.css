@@ -65,6 +65,7 @@ a { color: var(--accent-2); }
 .btn.ghost:hover { background: rgba(255,255,255,.05); }
 .btn.quiet { --b: transparent; border-color: transparent; color: var(--fg-2); }
 .btn.quiet:hover { background: rgba(255,255,255,.06); color: var(--fg); }
+.btn.danger, .btn.danger:hover { color: var(--rec); border-color: var(--rec); background: rgba(255,77,77,.08); }
 .btn.lg { height: 46px; padding: 0 20px; font-size: 15px; border-radius: 12px; }
 .btn.sm { height: 30px; padding: 0 10px; font-size: 12.5px; border-radius: 8px; }
 .btn.icon { width: 38px; padding: 0; }

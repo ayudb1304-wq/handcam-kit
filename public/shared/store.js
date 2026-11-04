@@ -25,5 +25,6 @@ async function run(store, mode, fn) {
 export const putTake = (take) => run('takes', 'readwrite', s => s.put(take));
 /** All takes, newest first (ids start with an ISO timestamp). */
 export const allTakes = async () => (await run('takes', 'readonly', s => s.getAll())).sort((a, b) => b.id.localeCompare(a.id));
+export const deleteTake = (id) => run('takes', 'readwrite', s => s.delete(id));
 export const putScene = (scene) => run('scenes', 'readwrite', s => s.put(scene));
 export const getScene = (id) => run('scenes', 'readonly', s => s.get(id));

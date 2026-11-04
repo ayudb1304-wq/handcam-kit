@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fill, pick, judge, checkRecipe, loadRecipes, badness, matchPercent } from './make/recipe.js';
+import { fill, pick, judge, checkRecipe, loadRecipes, badness, matchPercent, pickQuality, pickVersions, videoCost } from './make/recipe.js';
 import { makeJobs } from './make/jobs.js';
 import { makeMock } from './make/providers/mock.js';
 import { makeHiggsfield } from './make/providers/higgsfield.js';
@@ -39,14 +39,14 @@ test('the shipped recipes load and are complete', async () => {
   assert.ok(checkRecipe({ id: 'x', provider: 'nope' }).length);
 });
 
-async function practiceJob({ scores }) {
+async function practiceJob({ scores, versions }) {
   const dir = await mkdtemp(join(tmpdir(), 'jobs-'));
   const recipes = await loadRecipes(new URL('../recipes', import.meta.url).pathname);
   let calls = 0;
   const score = async (takeJson, videos) => ({ scores: videos.map(() => scores[calls++] ?? good) });
   const jobs = makeJobs({ dir, recipes, providers: { mock: makeMock({ delay: { start: 5, video: 5 } }) }, score, pollMs: [5, 10] });
   const scene = await loadTemplate('parking-lot');
-  const job = await jobs.create({ take, scene, look: 'wet parking lot at night', recipeId: 'practice' });
+  const job = await jobs.create({ take, scene, look: 'wet parking lot at night', recipeId: 'practice', versions });
   for (const f of ['reference.mp4', 'measure.mp4', 'first-frame.png']) await writeFile(jobs.path(job.id, f), f);
   return { dir, jobs, job };
 }
@@ -67,23 +67,45 @@ test('practice job: start image, waits for approval, makes 2 versions, keeps the
     assert.equal(j.candidates.length, 2);
     assert.equal(j.best, 2, 'the run that followed the move wins');
     assert.equal(j.outcome, 'passed');
+    assert.deepEqual([j.candidates[0].free, j.candidates[1].free], [true, false], 'under 70% move match is free');
+    assert.equal(j.billing.charged, 1);
+    assert.equal(j.billing.tryAgain, false);
     const pub = publicJob(j, { id: 'practice' });
     assert.equal(pub.urls, undefined, 'provider URLs never reach the browser');
     assert.equal(pub.candidates[0].requestId, undefined);
   } finally { await rm(dir, { recursive: true }); }
 });
 
-test('if no version passes, one extra is made; if that fails too, the closest is kept and labelled', async () => {
-  const { dir, jobs, job } = await practiceJob({ scores: [bad, bad, { ...bad, turn_rms_after_shift_deg: 20 }] });
+test('you choose the number of versions: no automatic extra; if the kept one is under 70% it is free and Try again adds one', async () => {
+  const { dir, jobs, job } = await practiceJob({ scores: [bad, bad, { ...bad, turn_rms_after_shift_deg: 20 }], versions: 2 });
   try {
+    assert.equal(job.versions, 2);
     await jobs.start(job.id);
     await until(jobs, job.id, 'needs_approval');
     await jobs.approve(job.id, 1);
-    const j = await until(jobs, job.id, 'done');
+    let j = await until(jobs, job.id, 'done');
+    assert.equal(j.candidates.length, 2, 'no extra version made on its own');
+    assert.equal(j.outcome, 'best_effort');
+    assert.deepEqual({ charged: j.billing.charged, free: j.billing.free, tryAgain: j.billing.tryAgain }, { charged: 0, free: 2, tryAgain: true });
+    await jobs.more(job.id);
+    await new Promise((r) => setTimeout(r, 50));
+    j = await until(jobs, job.id, 'done');
     assert.equal(j.candidates.length, 3);
     assert.equal(j.best, 3);
-    assert.equal(j.outcome, 'best_effort');
+    assert.equal(j.candidates[2].match, 74);
+    assert.deepEqual({ charged: j.billing.charged, tryAgain: j.billing.tryAgain }, { charged: 1, tryAgain: false }, '74% is charged even though it misses the pass marks');
   } finally { await rm(dir, { recursive: true }); }
+});
+
+test('versions: 1 to 4 or the recipe default; video cost comes from the recipe in USD', async () => {
+  const recipes = await loadRecipes(new URL('../recipes', import.meta.url).pathname);
+  const sd = recipes['seedance-2.5'];
+  assert.equal(pickVersions(sd), sd.candidates);
+  assert.equal(pickVersions(sd, '3'), 3);
+  assert.throws(() => pickVersions(sd, 5), /1 to 4/);
+  assert.throws(() => pickVersions(sd, 0), /1 to 4/);
+  assert.equal(+videoCost(sd, '480p', 6).toFixed(2), 1.0, 'matches the measured $1.00 for a 6 s 480p video');
+  assert.equal(videoCost(recipes.practice, undefined, 6), 0);
 });
 
 test('a job refuses to start without its files, and needs words for the look', async () => {
@@ -126,4 +148,15 @@ test('higgsfield adapter: key header, idempotency key, presigned upload, status,
   } finally { await rm(dir, { recursive: true }); }
   const none = makeHiggsfield({ env: {}, fetchImpl });
   await assert.rejects(none.submit('x', {}, 'k'), /HF_API_KEY_ID/);
+});
+
+test('quality: the recipe’s first quality is the default, others must be on its list, and it reaches the video request', async () => {
+  const recipes = await loadRecipes(new URL('../recipes', import.meta.url).pathname);
+  const sd = recipes['seedance-2.5'];
+  assert.equal(pickQuality(sd), '480p');
+  assert.equal(pickQuality(sd, '1080p'), '1080p');
+  assert.throws(() => pickQuality(sd, '4k'), /480p, 720p, 1080p/);
+  assert.equal(pickQuality(recipes.practice, '1080p'), null); // practice has no qualities: ignored
+  assert.equal(fill(sd.video.input, { look: 'x', aspect: '9:16', durationS: 6, resolution: '720p', startImageUrl: 'a', referenceUrl: 'b' }).resolution, '720p');
+  assert.ok(checkRecipe({ ...sd, qualities: { big: 1 } }).some((e) => /qualities/.test(e)));
 });

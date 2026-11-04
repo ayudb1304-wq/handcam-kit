@@ -4,7 +4,7 @@ import { OrbitControls } from '../shared/three.js';
 import { MSG, SHOTS, connectRelay } from '../shared/protocol.js';
 import { renderScene, addDefaultLights } from '../shared/scene-render.js';
 import { OneEuroQuat } from '../shared/one-euro.js';
-import { putTake, allTakes, putScene, getScene } from '../shared/store.js';
+import { putTake, allTakes, deleteTake, putScene, getScene } from '../shared/store.js';
 import { sampleAt } from '../shared/frames.js';
 import { setupMake } from './make.js';
 import { setupTour } from './tour.js';
@@ -16,7 +16,7 @@ export function toast(text, ms = 3200) {
   setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, ms);
 }
 
-let make = { onTake() {} }; // replaced by setupMake() below; takes can arrive before it runs
+let make = { onTake() {}, hasVideo: () => false }; // replaced by setupMake() below; takes can arrive before it runs
 
 // --- progress steps (top bar) ------------------------------------------------
 const progress = { set: false, shoot: false, takes: false, make: false };
@@ -205,9 +205,11 @@ function renderList() {
     li.innerHTML = `<span class="t-name"></span><svg viewBox="0 0 92 34" preserveAspectRatio="none"><path d="${curvePath(take, 92, 34)}" fill="none" stroke="${take === current ? '#f0a07d' : '#8b8780'}" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="t-meta"></span>`;
     li.querySelector('.t-name').textContent = nice(take);
     if (take.labSent) li.querySelector('.t-name').insertAdjacentHTML('beforeend', ' <span class="badge ok">lab</span>');
+    if (make.hasVideo(take.id)) li.querySelector('.t-name').insertAdjacentHTML('beforeend', ' <span class="badge accent">video</span>');
     li.querySelector('.t-meta').textContent = `${takeTime(take)} · ${secs(duration(take))} s`;
     li.onclick = () => selectTake(take);
     takesEl.append(li);
+    if (take === current) requestAnimationFrame(() => li.scrollIntoView({ block: 'nearest' }));
   }
   if (list.length) markStep('takes');
 }
@@ -225,6 +227,7 @@ export async function takeScene(take) {
   return getScene(take.sceneId).catch(() => null);
 }
 async function selectTake(take) {
+  if (armed) disarmDelete();
   current = take; playing = false; playhead = 0;
   player.hidden = !take;
   $('takePanel').hidden = !take;
@@ -309,6 +312,26 @@ $('toLab').onclick = async () => {
   finally { btn.disabled = false; }
 };
 
+// Delete asks twice: the first press arms it for a few seconds, the second deletes. No browser dialog.
+let armed = null;
+function disarmDelete() { clearTimeout(armed); armed = null; $('deleteTake').textContent = 'Delete take'; $('deleteTake').classList.remove('danger'); }
+$('deleteTake').onclick = async () => {
+  const take = current;
+  if (!take) return;
+  if (take.demo) return toast('The demo take can’t be deleted.');
+  if (!armed) {
+    $('deleteTake').textContent = 'Press again to delete';
+    $('deleteTake').classList.add('danger');
+    armed = setTimeout(disarmDelete, 3000);
+    return;
+  }
+  disarmDelete();
+  try { await deleteTake(take.id); } catch (e) { return toast(`Could not delete: ${e.message}`, 5000); }
+  takes.delete(take.id);
+  await selectTake(null);
+  toast(take.labSent ? 'Take deleted. The copy already sent to the lab stays there.' : 'Take deleted.');
+};
+
 // --- demo take: try everything without a phone ---------------------------------------------
 async function loadDemo() {
   const take = await (await fetch('/demo/take.json')).json();
@@ -320,7 +343,7 @@ async function loadDemo() {
 $('demoBtn').onclick = $('demoBtn2').onclick = loadDemo;
 
 // --- Make video + tour ---------------------------------------------------------------
-make = setupMake({ getTake: () => current, takeScene, toast, onDone: () => markStep('make') });
+make = setupMake({ getTake: () => current, takeScene, toast, onDone: () => markStep('make'), onJobs: () => renderList() });
 const tour = setupTour({ loadDemo });
 $('helpBtn').onclick = () => tour.start();
 $('replayTour').onclick = () => { $('settings').hidden = true; tour.start(); };

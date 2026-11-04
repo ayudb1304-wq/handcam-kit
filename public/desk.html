@@ -109,6 +109,7 @@
       <div class="actions">
         <button class="btn ghost" id="exportBtn" title="Grey video of this take + its first frame">Export grey video</button>
         <button class="btn ghost" id="toLab" title="Save take + set into lab/takes for recipe tests">Send to lab</button>
+        <button class="btn quiet" id="deleteTake" title="Remove this take from this computer">Delete take</button>
       </div>
       <span class="note" id="takeNote"></span>
     </section>
@@ -120,6 +121,7 @@
         <p style="margin:6px 0 12px">Describe the look. We turn your move into a real video, and check that it moves like you did.</p>
         <textarea class="field" id="look" rows="3" placeholder="Wet parking lot at night, orange street light, man in a grey hoodie, shot on an old phone"></textarea>
         <div class="row" style="margin-top:10px"><select id="recipe" class="grow" aria-label="Video model"></select></div>
+        <div class="row" style="margin-top:8px;gap:8px"><select id="quality" class="grow" style="min-width:0" aria-label="Video quality" title="Higher quality costs more" hidden></select><select id="versions" class="grow" style="min-width:0" aria-label="How many versions to make" title="More versions: more chances one follows your move, and more cost"></select></div>
         <div class="cost" style="margin-top:10px"><span id="costText">Pick a take first</span><span id="costEta"></span></div>
         <button class="btn primary lg" id="makeBtn" style="margin-top:12px;width:100%" disabled>Make video</button>
       </div>

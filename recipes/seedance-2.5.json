@@ -20,7 +20,7 @@
       "image_urls": ["{{startImageUrl}}"],
       "video_urls": ["{{referenceUrl}}"],
       "duration": "{{durationS}}",
-      "resolution": "480p",
+      "resolution": "{{resolution}}",
       "aspect_ratio": "{{aspect}}",
       "generate_audio": false,
       "prompt": "Handheld phone footage. The reference image sets the look of the scene and the first frame: {{look}}. The reference video shows only the camera movement: follow the camera movement of the reference video exactly, including its timing, small shakes and corrections. Do not copy the grey look of the reference video; keep the scene photoreal like the reference image. People stay where they are unless the reference shows them moving. Do not add any camera movement that is not in the reference."
@@ -32,5 +32,6 @@
   "minDurationS": 4,
   "maxDurationS": 15,
   "pass": { "turnCorrMin": 0.95, "maxOffsetS": 0.3, "walkRatio": [0.7, 1.3], "walkCorrMin": 0.9 },
-  "cost": { "startImage": 1, "video": 18, "unit": "Higgsfield credits (estimate)" }
+  "qualities": { "480p": 0.167, "720p": 0.389, "1080p": 0.889 },
+  "cost": { "startImage": 0.04, "unit": "USD", "basis": "Higgsfield API billing 2026-11-04: 480p video $0.88 for 5 s, $1.00 for 6 s; start image $0.04. 720p/1080p scaled by Higgsfield's own price ratios (42/18, 96/18), not yet measured. qualities = USD per second of video." }
 }
