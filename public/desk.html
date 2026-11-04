@@ -76,6 +76,15 @@
       <div class="link" id="link"></div>
       <div class="warn-box" id="httpsWarn" hidden>Phone motion needs <b>https</b>. Run <code>npm run tunnel</code>, then restart with <code>PUBLIC_URL=https://… npm run dev</code>.</div>
     </section>
+
+    <section class="card panel" id="seqPanel" data-tour="sequence">
+      <div class="panel-head"><span class="eyebrow">05 · Sequence</span><span class="badge" id="seqLen">empty</span></div>
+      <h3>Shots</h3>
+      <p id="seqEmpty">Put takes in order and trim them: they play back to back as an animatic.</p>
+      <ol class="shots" id="shots"></ol>
+      <div class="row"><button class="btn ghost sm grow" id="addShot">Add shot</button><button class="btn primary sm grow" id="playSeq">Play sequence</button></div>
+      <div class="actions three"><button class="btn ghost sm" id="seqVideo" title="All shots cut together as one grey video">Video</button><button class="btn ghost sm" id="seqJson">JSON</button><button class="btn ghost sm" id="seqBlender" title="One camera per shot, cut with markers">Blender</button></div>
+    </section>
   </aside>
 
   <!-- Centre: the set -->

@@ -10,6 +10,7 @@ import { setupMake } from './make.js';
 import { setupTour } from './tour.js';
 import { setupEditor } from './editor.js';
 import { setupExport } from './export.js';
+import { setupSequence } from './sequence.js';
 
 const $ = (id) => document.getElementById(id);
 export function toast(text, ms = 3200) {
@@ -177,6 +178,7 @@ function useScene(scene) {
   relay.send({ t: MSG.SCENE, scene });
   keepScene(scene);
   if (scene.prompt && !$('prompt').value) $('prompt').value = scene.prompt;
+  sequence?.load(scene);
   $('editWords').hidden = false;
   markStep('set');
 }
@@ -270,7 +272,7 @@ function curvePath(take, w, h, pad = 3) {
 // --- takes: list, select, scrub, play ------------------------------------------------------
 const takesEl = $('takes'), player = $('player'), scrub = $('scrub');
 const takes = new Map(); // id -> take
-let current = null, playhead = 0, playing = false;
+let current = null, playhead = 0, playing = false, seqSwitching = false;
 const duration = (take) => take.samples.at(-1)?.ts ?? 0;
 const secs = (ms) => (ms / 1000).toFixed(1);
 const nice = (take) => take.name || (take.label ? take.label.replace(/^\d /, (m) => `Shot ${m}· `) : take.demo ? 'Demo take' : 'Take');
@@ -309,6 +311,7 @@ function renderList() {
 function receiveTake(take) {
   if (!take?.id || !Array.isArray(take.samples) || !take.samples.length) return;
   takes.set(take.id, take);
+  sequence?.refreshTakes();
   putTake(take).catch((e) => console.warn('could not save take', e));
   toast(`New take · ${secs(duration(take))} s`);
   selectTake(take);
@@ -407,6 +410,7 @@ $('deleteTake').onclick = async () => {
   disarmDelete();
   try { await deleteTake(take.id); } catch (e) { return toast(`Could not delete: ${e.message}`, 5000); }
   takes.delete(take.id);
+  sequence.refreshTakes();
   await selectTake(null);
   toast(take.labSent ? 'Take deleted. The copy already sent to the lab stays there.' : 'Take deleted.');
 };
@@ -435,6 +439,7 @@ $('takeName').addEventListener('change', () => {
   const v = $('takeName').value.trim().slice(0, 60);
   if (v) current.name = v; else delete current.name;
   saveTake(current); renderList(); $('playerName').textContent = nice(current);
+  sequence.refreshTakes();
 });
 let compareTake = null, compareSet = null;
 const compareStage = povStage(), compareCam = new THREE.PerspectiveCamera(60, 9 / 16, 0.05, 200);
@@ -460,6 +465,9 @@ async function setCompare(take) {
   scrub.max = Math.max(1, Math.round(playLength()));
 }
 $('compareSel').onchange = () => setCompare(takes.get($('compareSel').value) || null);
+
+// --- Phase 5b sequence -----------------------------------------------------------------------
+var sequence = setupSequence({ takes, getLiveScene: () => liveScene, takeScene, toast, nice });
 
 // --- Phase 4 export panel -----------------------------------------------------------------
 var exporter = setupExport({ getTake: () => current, takeScene, toast });
@@ -490,6 +498,12 @@ const insetEl = $('inset'), size = new THREE.Vector2();
 let lastT = performance.now();
 function frame(t) {
   const dt = t - lastT; lastT = t;
+  const seqAt = sequence.tick(dt);
+  if (seqAt) { // Phase 5b: the animatic picks the take and the time; the player just shows it
+    if (current !== seqAt.take && !seqSwitching) { seqSwitching = true; selectTake(seqAt.take).finally(() => { seqSwitching = false; }); }
+    playing = false; playhead = seqAt.ms;
+    $('playerName').textContent = seqAt.label;
+  }
   if (current) {
     if (playing) { playhead += dt; if (playhead >= playLength()) { playhead = playLength(); playing = false; } }
     const s = sampleAt(current.samples, playhead);

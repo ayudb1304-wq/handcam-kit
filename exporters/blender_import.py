@@ -3,6 +3,7 @@ HandCam -> Blender importer (Phase 4).
 
 Usage (from the unzipped "Blender" export folder, or with paths):
     blender --background --python import.py -- take.json scene.json [handcam.blend]
+    blender --background --python import.py -- sequence.json scene.json [handcam.blend]   (Phase 5b)
     blender --background --python exporters/blender_import.py -- take.json scene.json [out.blend]
 Without Blender, `python3 blender_import.py` runs the axis self-test.
 
@@ -110,7 +111,6 @@ def hex_rgba(h, default="#8a8f99"):
 def run_in_blender(take_path, scene_path, out_path=None):
     import os
     import bpy
-    from mathutils import Quaternion
 
     here = os.path.dirname(os.path.abspath(take_path))
     take = _load(take_path)
@@ -130,31 +130,22 @@ def run_in_blender(take_path, scene_path, out_path=None):
 
     objects = build_scene(bpy, scene, figures)
 
-    # --- camera: one key per sample, lens per sample ------------------------------------------
-    aspect = (take.get("view") or {}).get("aspect") or (16 / 9)
-    fov = (take.get("view") or {}).get("fov") or 60
-    cam_data = bpy.data.cameras.new("HandCam")
-    cam_data.sensor_width = 36.0
-    cam_data.sensor_fit = "AUTO"  # 36 mm across the long side of the frame
-    cam_data.lens = lens_from_fov(fov, aspect)
-    cam = bpy.data.objects.new("HandCam", cam_data)
-    bpy.context.collection.objects.link(cam)
-    bscene.camera = cam
-    cam.rotation_mode = "QUATERNION"
-
-    samples = (camera_copy or {}).get("samples") or take["samples"]
-    for s in samples:
-        frame = 1 + s["ts"] / 1000.0 * fps  # subframe keys: exactly when the sample was taken
-        loc, q = three_to_blender(s["p"], s["q"])
-        cam.location = loc
-        cam.rotation_quaternion = Quaternion(q)
-        cam.keyframe_insert("location", frame=frame)
-        cam.keyframe_insert("rotation_quaternion", frame=frame)
-        if s.get("f"):
-            cam_data.lens = s["f"]
-            cam_data.keyframe_insert("lens", frame=frame)
-    _linear(cam)
-    _linear(cam_data)
+    if "shots" in take:  # Phase 5b: a sequence — one camera per shot, cut with markers bound to each camera
+        shots, end_frame = take["shots"], 1
+        for i, shot in enumerate(shots):
+            shot_take = _load(os.path.join(here, shot["take"]))
+            cam = _camera(bpy, shot.get("name") or f"Shot {i + 1}", shot_take, shot_take["samples"], fps,
+                          start_frame=shot["start_frame"], t_in=shot["in"], t_out=shot["out"])
+            marker = bscene.timeline_markers.new(cam.name, frame=int(shot["start_frame"]))
+            marker.camera = cam
+            if i == 0:
+                bscene.camera = cam
+            end_frame = shot["start_frame"] + (shot["out"] - shot["in"]) / 1000.0 * fps
+        samples = []
+    else:
+        samples = (camera_copy or {}).get("samples") or take["samples"]
+        bscene.camera = _camera(bpy, "HandCam", take, samples, fps)
+        end_frame = 1 + samples[-1]["ts"] / 1000.0 * fps
 
     # --- the set's own motion, baked by the desk ------------------------------------------------
     if motion:
@@ -175,13 +166,42 @@ def run_in_blender(take_path, scene_path, out_path=None):
                 _show_pose(ob, pose, frame)
             _linear(ob)
 
-    end = samples[-1]["ts"] / 1000.0
-    if motion:
-        end = max(end, motion.get("frames", 0) / motion.get("fps", fps))
+    if motion and "shots" not in take:
+        end_frame = max(end_frame, 1 + motion.get("frames", 0) * fps / motion.get("fps", fps))
     bscene.frame_start = 1
-    bscene.frame_end = int(1 + end * fps) + 1
+    bscene.frame_end = int(end_frame) + 1
     bpy.ops.wm.save_as_mainfile(filepath=out_path)
-    print(f"saved {out_path}: {len(samples)} camera keys, {len(objects)} set objects")
+    print(f"saved {out_path}: {len(samples) or len(take.get('shots', []))} camera keys/shots, {len(objects)} set objects")
+
+
+def _camera(bpy, name, take, samples, fps, start_frame=1, t_in=None, t_out=None):
+    """A camera with one key per recorded sample (only those in [t_in, t_out] for a shot), lens per sample."""
+    from mathutils import Quaternion
+    aspect = (take.get("view") or {}).get("aspect") or (16 / 9)
+    fov = (take.get("view") or {}).get("fov") or 60
+    cam_data = bpy.data.cameras.new(name)
+    cam_data.sensor_width = 36.0
+    cam_data.sensor_fit = "AUTO"  # 36 mm across the long side of the frame
+    cam_data.lens = lens_from_fov(fov, aspect)
+    cam = bpy.data.objects.new(name, cam_data)
+    bpy.context.collection.objects.link(cam)
+    cam.rotation_mode = "QUATERNION"
+    t0 = t_in or 0.0
+    for s in samples:
+        if t_in is not None and (s["ts"] < t_in - 1e-6 or s["ts"] > t_out + 1e-6):
+            continue
+        frame = start_frame + (s["ts"] - t0) / 1000.0 * fps  # subframe keys: exactly when the sample was taken
+        loc, q = three_to_blender(s["p"], s["q"])
+        cam.location = loc
+        cam.rotation_quaternion = Quaternion(q)
+        cam.keyframe_insert("location", frame=frame)
+        cam.keyframe_insert("rotation_quaternion", frame=frame)
+        if s.get("f"):
+            cam_data.lens = s["f"]
+            cam_data.keyframe_insert("lens", frame=frame)
+    _linear(cam)
+    _linear(cam_data)
+    return cam
 
 
 def _linear(idblock):
