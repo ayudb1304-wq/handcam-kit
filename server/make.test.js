@@ -160,3 +160,75 @@ test('quality: the recipe’s first quality is the default, others must be on it
   assert.equal(fill(sd.video.input, { look: 'x', aspect: '9:16', durationS: 6, resolution: '720p', startImageUrl: 'a', referenceUrl: 'b' }).resolution, '720p');
   assert.ok(checkRecipe({ ...sd, qualities: { big: 1 } }).some((e) => /qualities/.test(e)));
 });
+
+// ---- Phase 5c: paywalls on Make video, as a customer sees them (docs/PRICING-PLAN.md) ----
+import express from 'express';
+import { makeRoutes } from './make/routes.js';
+import { makeAccounts } from './accounts.js';
+import { loadPricing, refundDue } from './billing.js';
+import { makeQueue } from './make/queue.js';
+
+test('queue: at most `slots` at once, higher priority first when busy, then first come first served', async () => {
+  const q = makeQueue({ slots: 1 }), order = [];
+  let release;
+  const first = q.run(0, () => new Promise((r) => { release = r; order.push('a'); }));
+  assert.equal(q.busy, true);
+  const low = q.run(0, async () => order.push('low'));
+  const high = q.run(2, async () => order.push('high'));
+  const low2 = q.run(0, async () => order.push('low2'));
+  await new Promise((r) => setTimeout(r, 0)); // the first one starts on the next tick
+  release();
+  await Promise.all([first, low, high, low2]);
+  assert.deepEqual(order, ['a', 'high', 'low', 'low2']);
+});
+
+test('customer Make video: trial videos are spent, watermarked, refunded when free; running out says so before anything is made', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pay-make-'));
+  const pricing = loadPricing(new URL('../config/pricing.json', import.meta.url).pathname);
+  const recipes = await loadRecipes(new URL('../recipes', import.meta.url).pathname);
+  const accounts = await makeAccounts({ dir: join(dir, 'acct'), pricing });
+  const scores = [bad, good];
+  let calls = 0;
+  const jobs = makeJobs({
+    dir: join(dir, 'jobs'), recipes, providers: { mock: makeMock({ delay: { start: 5, video: 5 } }) }, pollMs: [5, 10],
+    score: async (t, videos) => ({ scores: videos.map(() => scores[calls++] ?? good) }),
+    onSettle: async (job) => { const back = refundDue(job); if (back > 0) { await accounts.refund(job.userId, job.charge.from, back); job.charge.refunded += back; } },
+  });
+  const marked = [];
+  const app = express();
+  app.use(express.json({ limit: '5mb' }));
+  app.use('/api/make', makeRoutes({ jobs, recipes, ready: () => true, accounts, pricing, chargePractice: true, preview: async () => {}, watermark: async (src, out) => { marked.push(src); await writeFile(out, 'wm'); } }));
+  const server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
+  const base = `http://127.0.0.1:${server.address().port}/api/make`;
+  try {
+    const u = await accounts.signup({ email: 't@x.co', password: 'longenough' });
+    const headers = { cookie: accounts.cookieFor(u, { secure: false }).split(';')[0], 'x-forwarded-for': '1.2.3.4', 'content-type': 'application/json' }; // a visitor, not the founder's laptop
+    const call = async (path, body, method = 'POST') => { const r = await fetch(`${base}${path}`, { method, headers, body: body && JSON.stringify(body) }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
+    const scene = await loadTemplate('parking-lot');
+    const cfg = await call('/config', undefined, 'GET');
+    assert.equal(cfg.body.ent.videos.trial, 2);
+    assert.equal(cfg.body.recipes.find((x) => x.id === 'seedance-2.5').ownKey, false, 'own key needs a paid plan and a saved key');
+
+    const tooMany = await call('/', { take, scene, look: 'wet night', recipeId: 'practice', versions: 3 });
+    assert.deepEqual([tooMany.status, tooMany.body.code], [402, 'balance'], 'refused before anything is rendered');
+    assert.equal((await jobs.list()).length, 0, 'and nothing left behind');
+
+    const made = await call('/', { take, scene, look: 'wet night', recipeId: 'practice', versions: 2 });
+    assert.equal(made.status, 200);
+    const id = made.body.job.id;
+    for (const f of ['reference.mp4', 'measure.mp4', 'first-frame.png']) await writeFile(jobs.path(id, f), f);
+    await call(`/${id}/start`);
+    await until(jobs, id, 'needs_approval');
+    const ok = await call(`/${id}/approve`, { n: 1, versions: 2 });
+    assert.equal(ok.body.account.videos.trial, 0, 'both trial videos reserved');
+    const j = await until(jobs, id, 'done');
+    assert.equal(j.watermark, true);
+    assert.equal(accounts.get(u.id).trial, 1, 'the free version (under 70%) gave its video back');
+    const pub = (await call(`/${id}`, undefined, 'GET')).body.job;
+    assert.equal(pub.candidates[0].file, 'preview-1.jpg', 'free version: preview only');
+    assert.equal(pub.candidates[1].file, 'wm-2.mp4', 'trial video: the watermarked copy');
+    assert.equal((await fetch(`${base}/${id}/media/video-2.mp4`, { headers })).status, 403, 'never the clean file');
+    assert.equal((await fetch(`${base}/${id}/media/wm-2.mp4`, { headers })).status, 200);
+    assert.equal(marked.length, 1);
+  } finally { server.close(); await rm(dir, { recursive: true }); }
+});

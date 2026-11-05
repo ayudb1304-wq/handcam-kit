@@ -96,7 +96,9 @@ export function setupExport({ getTake, takeScene, toast }) {
     toast('Saved take + set as JSON');
   });
   $('blenderBtn').onclick = () => withScene((take, scene) => busy($('blenderBtn'), 'Blender', async () => {
-    const script = await (await fetch('/exporters/blender_import.py')).text();
+    const sr = await fetch('/exporters/blender_import.py');
+    if (!sr.ok) throw new Error((await sr.json().catch(() => ({}))).error || 'Blender export isn’t available.');
+    const script = await sr.text();
     download(`handcam-${take.id}-blender.zip`, new Blob([zip(blenderFiles(take, scene, { smoothing: smoothing(), script }))], { type: 'application/zip' }));
     toast('Saved the Blender folder (zip). README inside has the one command.');
   }));

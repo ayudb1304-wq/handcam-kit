@@ -132,6 +132,19 @@ Steadier shots without smoothing, and the tools directors use to pick the take.
 
 ---
 
+## Phase 5c — Plans and paywalls · `built` (2026-11-05, server tested with a fake Dodo, screens checked in Chrome; waiting for a Dodo test-mode run)
+
+From the "SaaS Pricing Strategy" doc, re-costed against the real API bill. Everything is in [`PRICING-PLAN.md`](PRICING-PLAN.md); numbers in `config/pricing.json`; why it looks the way it does: DECISIONS §38.
+
+- Free (2 watermarked 480p trial videos), Indie $19 (5 videos/month), Creator $49 (15), Studio $129 (40), yearly at ~20% off, Lifetime $129 once (own key, first 200), top-ups 5 for $15 / 15 for $42 on paid plans.
+- JSON and Blender export, own Higgsfield key, top-ups and the queue priority are plan features. Grey video export stays free.
+- Dodo subscriptions: checkout, upgrade now (prorated), downgrade at period end, cancel at period end, undo, customer portal, failed card (plan videos pause), refunds and chargebacks.
+- Landing pricing and the studio's plans/account screens draw from `GET /api/plans`.
+
+**Accept:** with a Dodo test key and the webhook set up: run `npm run dodo:setup`, then sign up on the hosted link with a fresh email. Make a video with the 2 free videos: it is 480p and has the HandCam label. Choose Indie monthly with the test card: the pill shows Indie · 5 (+ any trial left) and JSON/Blender export unlock. Upgrade to Creator: you're charged the difference and see 15 minus what you used. Switch down to Indie: it says when. Cancel: it says until when; Keep my plan undoes it. In Dodo's dashboard, refund a top-up: its unspent videos disappear.
+
+---
+
 ## Phase 5b — Shots and sequences · `built` (2026-11-05, checked in Chrome; Blender sequence import untested without Blender)
 
 Plan a whole scene, not just one move.

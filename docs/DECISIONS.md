@@ -149,3 +149,18 @@ Adding a store to the `handcam` database needs a version upgrade, and an upgrade
 
 ## 37. True walking is a bridge, not a second app
 Phase 6 adds `window.handcamPose(p, q)` to the phone page. The iPhone wrapper (`ios/`, ARKit, a WKWebView on the same page) and Android Chrome's WebXR both feed it; the page keeps rendering the set itself, re-anchors heading and position as before, applies the speed scale and rigs, and lets the sticks add on top. So there's one camera path to keep right, and the page works unchanged without a tracker.
+
+## 38. Plans: subscriptions with monthly videos, re-costed from the strategy doc
+**Context.** The founder chose the structure in the "SaaS Pricing Strategy for HandCam Kit" doc: Free / Indie / Creator / Studio, Lifetime, top-ups, gates on Blender export, a watermarked trial, own-key AI. That doc assumed an AI render costs $0.25–0.35; our bill says ~$1.36 per charged video (§29–30), so its allowances (15 / 60 / 200) would lose money.
+**Decision.** Prices and plan names as in the doc; monthly videos scaled to 5 / 15 / 40 so each plan earns 55–61% at full use and ~71–75% at typical use. Full table and every lifecycle rule: `docs/PRICING-PLAN.md`. Things that look odd:
+- **The unit stays "videos"**, not credits (§30, PLAN Phase 5). One video = a 480p version up to 8 s.
+- **Plan videos reset from the subscription's start day, computed on each request** (`plans.cycleOf`), not by a renewal webhook or a timer. Yearly plans reset monthly the same way; a missed webhook can't freeze or gift a month. Dodo's billing dates only decide the paid-through date.
+- **An upgrade keeps this month's used videos**, so the difference is available at once; a downgrade is scheduled with Dodo's `effective_at: next_billing_date`; cancelling keeps the plan to the paid-through date.
+- **Videos come back to where they came from** (trial, top-up or plan, last taken first). If that month is over they come back as top-ups, so nobody loses a video they didn't get.
+- **Top-ups stay usable after a plan ends** (the doc said subscribers only). Buying them needs a plan or Lifetime; spending them doesn't. Forfeiting paid videos invites chargebacks. Old pack balances (Phase 5) became top-ups.
+- **A job paid partly with trial videos is watermarked as a whole** and must be 480p. The watermark is burnt into a copy by ffmpeg on first request (`server/watermark.js`); the clean file stays for scoring and the founder.
+- **JSON export is gated in the studio only**: takes live in the browser, so a server can't withhold them. Blender export is gated for real by withholding the importer script. The grey video export stays free on every plan: it's how the SPEC's five-minute stranger test ends.
+- **Own key (BYOK) is Higgsfield only** (the doc mentioned Replicate/Fal/Runway; our recipes run on Higgsfield). Keys are AES-256-GCM encrypted with a key derived from `SESSION_SECRET`; own-key jobs use no videos, work while `REAL_AI` is off, skip our queue slots, and every version is a full download.
+- **Studio's 4K upscale, ProRes and team workspace are shown as "soon"**, not sold as included: none is built (teams are a SPEC non-goal for v1).
+- **Commercial use is listed for Creator and Studio only**, as in the doc. It is display text until the Terms say it.
+- **Dodo's API shapes were read from its SDK's type definitions** (dodopayments 2.61.1) because the docs site is blocked from the cloud session. The flow is tested against a fake Dodo, not yet against Dodo's test mode.

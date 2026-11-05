@@ -11,7 +11,7 @@ import { setupTour } from './tour.js';
 import { setupEditor } from './editor.js';
 import { setupExport } from './export.js';
 import { setupSequence } from './sequence.js';
-import { signIn, buyVideos, paymentReturnMessage } from '../shared/account.js';
+import { signIn, openAccount, openPlans, needPlan, getAccount, paymentReturnMessage } from '../shared/account.js';
 
 const $ = (id) => document.getElementById(id);
 export function toast(text, ms = 3200) {
@@ -480,22 +480,48 @@ var exporter = setupExport({ getTake: () => current, takeScene, toast });
 // --- Make video + tour ---------------------------------------------------------------
 make = setupMake({ getTake: () => current, takeScene, toast, onDone: () => markStep('make'), onJobs: () => renderList(), onAccount: showAccount });
 
-// --- Phase 5: account pill (sign in / balance → buy) ---------------------------------------------------
+// --- Phase 5, 5c: account pill and paid features (docs/PRICING-PLAN.md) ---------------------------------
 let acctCfg = {};
+const DATA_EXPORTS = '#jsonBtn, #blenderBtn, #seqJson, #seqBlender';
+const canExportData = () => !!(acctCfg.admin || acctCfg.ent?.features?.exportData);
 function showAccount(account, cfg = acctCfg) {
   acctCfg = cfg;
   const pill = $('acctPill');
   pill.hidden = !!cfg.admin && !account; // the founder on the laptop needs no account
-  pill.textContent = account ? `${account.videos} video${account.videos === 1 ? '' : 's'}` : 'Sign in';
-  pill.title = account ? `${account.email}: buy more videos` : 'Sign in or create an account';
+  const v = account?.videos;
+  pill.textContent = !account ? 'Sign in' : account.status === 'on_hold' ? `${account.name} · payment failed` : `${account.name} · ${v.total} video${v.total === 1 ? '' : 's'}`;
+  pill.title = account ? `${account.email}: your plan and videos` : 'Sign in or create an account';
   $('signOut').hidden = !account;
+  for (const b of document.querySelectorAll(DATA_EXPORTS)) { b.classList.toggle('locked', !canExportData()); if (!canExportData()) b.title = 'Comes with a paid plan'; }
 }
+const reloadAccount = () => make.reload();
 $('acctPill').onclick = async () => {
-  if (acctCfg.account) return buyVideos({ packs: acctCfg.pricing?.packs, balance: acctCfg.account.videos });
-  if (await signIn()) make.reload();
+  if (acctCfg.account) return openAccount({ account: acctCfg.account, onChange: reloadAccount });
+  if (await signIn()) reloadAccount();
 };
+// JSON and Blender export come with a paid plan: stop the click before the export code sees it, and say why.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest?.(DATA_EXPORTS) || canExportData()) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  needPlan({ account: acctCfg.account, reason: 'JSON and Blender export come with a paid plan. The grey video export stays free.', onChange: reloadAccount });
+}, true);
 $('signOut').onclick = async () => { await fetch('/api/account/logout', { method: 'POST' }); location.reload(); };
 { const msg = paymentReturnMessage(); if (msg) setTimeout(() => toast(msg, 6000), 800); }
+// From the landing page's "Choose Creator" (?plan=creator&interval=year): sign in if needed, then the plans.
+{
+  const q = new URLSearchParams(location.search), want = q.get('plan');
+  if (want) {
+    if (q.get('interval') === 'year') { try { localStorage.setItem('handcam.interval', 'year'); } catch {} }
+    q.delete('plan'); q.delete('interval');
+    history.replaceState(null, '', `${location.pathname}${q.toString() ? `?${q}` : ''}`);
+    setTimeout(async () => {
+      let { account } = await getAccount();
+      if (!account && !(account = await signIn({ reason: 'Create your account, then choose your plan. Your first two real videos are free.' }))) return;
+      reloadAccount();
+      openPlans({ account, onChange: reloadAccount });
+    }, 600);
+  }
+}
 const tour = setupTour({ loadDemo });
 $('helpBtn').onclick = () => tour.start();
 $('replayTour').onclick = () => { $('settings').hidden = true; tour.start(); };

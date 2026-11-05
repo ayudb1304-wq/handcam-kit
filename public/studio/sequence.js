@@ -187,7 +187,9 @@ export function setupSequence({ takes, getLiveScene, takeScene, toast, nice, onC
   };
   $('seqBlender').onclick = async () => {
     const got = await cutsWithScenes(); if (!got) return;
-    const script = await (await fetch('/exporters/blender_import.py')).text();
+    const sr = await fetch('/exporters/blender_import.py');
+    if (!sr.ok) return toast((await sr.json().catch(() => ({}))).error || 'Blender export isn’t available.', 5000);
+    const script = await sr.text();
     download(`handcam-sequence-${stamp()}-blender.zip`, new Blob([zip(sequenceBlenderFiles(got.cuts, got.scenes, { script }))], { type: 'application/zip' }));
     toast('Saved the Blender folder for the sequence (zip).');
   };

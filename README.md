@@ -90,12 +90,16 @@ This starts a free Cloudflare tunnel and the server, then prints the links to se
 
 Keep the window open and the laptop awake while they test; Ctrl+C stops it. The link changes each time.
 
-Your friend is a **customer**: they create an account (their first real video is free), see prices in **videos**, and never see what the AI costs you. You, on this laptop at `http://localhost:3000/desk`, are the **founder**: no account needed, real AI, real costs in dollars.
+Your friend is a **customer**: they create an account (their first two real videos are free), see prices in **videos**, and never see what the AI costs you. You, on this laptop at `http://localhost:3000/desk`, are the **founder**: no account needed, real AI, real costs in dollars.
 
-## Accounts, videos and payments (Phase 5)
+## Accounts, plans and payments (Phase 5, 5c)
 
-- Accounts and balances live in `data/accounts.json` (gitignored). Prices are placeholders in `config/pricing.json`.
-- Payments use **Dodo Payments**. In `.env`: `DODO_PAYMENTS_API_KEY=dodo_test_…` (Dodo dashboard → Test Mode → Developer → API Keys), then `npm run dodo:setup` once to create the packs as Dodo products. Test card: `4242 4242 4242 4242`, any future date, CVC `123`. Optional: `DODO_WEBHOOK_SECRET` (Developer → Webhooks, endpoint `https://<your link>/api/pay/webhook`, event `payment.succeeded`); without it, payments are confirmed when the buyer returns from checkout.
+- Plans: **Free, Indie, Creator, Studio** (monthly or yearly), **Lifetime**, and **top-ups**. What each includes, and what happens on upgrade, downgrade, cancellation, renewal, a failed card or a refund: [`docs/PRICING-PLAN.md`](docs/PRICING-PLAN.md). Every price and allowance is in `config/pricing.json`.
+- Accounts live in `data/accounts.json` (gitignored).
+- Payments use **Dodo Payments**. In `.env`: `DODO_PAYMENTS_API_KEY=dodo_test_…` (Dodo dashboard → Test Mode → Developer → API Keys), then `npm run dodo:setup` once: it creates each plan (monthly and yearly subscriptions), the top-ups and Lifetime as Dodo products. Test card: `4242 4242 4242 4242`, any future date, CVC `123`.
+- **Webhook (needed for plans):** Dodo → Developer → Webhooks, endpoint `https://<your link>/api/pay/webhook`, events `subscription.*`, `payment.succeeded`, `refund.succeeded`, `dispute.*`; put its secret in `DODO_WEBHOOK_SECRET`. Renewals, failed cards and cancellations only reach HandCam this way. Customers manage their card and invoices in Dodo's customer portal (Account → Manage billing).
+- Free trial videos are watermarked with `ffmpeg` (installed in the Dockerfile; on a Mac: `brew install ffmpeg`).
+- `MAKE_SLOTS` (default 6): AI versions running at once on your Higgsfield key; when it's full, Creator and Studio go first. `SIGNUP_LIMIT` (default 5): new accounts per hour per IP.
 - `REAL_AI=on` lets customers make real AI videos (spends your Higgsfield API money). Off by default: customers get Practice.
 - `ADMIN_EMAILS=you@example.com` makes that account a founder account on a hosted server.
 - Testing switches: `LOCAL_IS_CUSTOMER=1` (see localhost as a customer), `PRACTICE_CHARGES=1` (Practice uses videos like real ones).

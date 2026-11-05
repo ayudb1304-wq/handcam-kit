@@ -70,20 +70,62 @@
     requestAnimationFrame(tick);
   }
 
-  // Pricing: monthly / yearly
-  const toggle = $('#toggle');
-  if (toggle) {
-    const knob = $('.knob', toggle), btns = $$('button', toggle);
-    const set = (b) => {
-      btns.forEach((x) => x.classList.toggle('on', x === b));
-      knob.style.left = `${b.offsetLeft}px`; knob.style.width = `${b.offsetWidth}px`;
-      const key = b.dataset.b;
-      for (const el of $$('[data-m]')) el.textContent = el.dataset[key];
-    };
-    btns.forEach((b) => b.addEventListener('click', () => set(b)));
-    document.fonts?.ready.then(() => set(btns.find((b) => b.classList.contains('on'))));
-    set(btns[0]);
+  // Pricing: drawn from /api/plans (config/pricing.json is the only place prices live), monthly / yearly toggle
+  const plansEl = $('#plans');
+  const tick = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8.2" stroke-width="1.6"/><path d="M6.4 10.3l2.4 2.3 4.8-5"/></svg>';
+  const money = (n) => `$${Number(n) % 1 ? Number(n).toFixed(2) : Number(n)}`;
+  const safe = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function planRows(p, cat) {
+    const f = p.features, rows = [];
+    rows.push(p.id === 'free' ? `${cat.trial?.videos ?? 2} real AI videos to try (${cat.trial?.quality || '480p'}, watermarked)` : `${p.videosPerMonth} real AI videos a month`);
+    rows.push(p.id === 'free' ? 'Unlimited sets, takes and Practice videos' : 'Everything in Free');
+    rows.push(f.exportData ? 'JSON and Blender export' : 'Grey video export, phone-only mode');
+    if (p.id !== 'free') rows.push('480p to 1080p, no watermark');
+    if (f.byok) rows.push('Use your own Higgsfield key');
+    if (f.priority >= 2) rows.push('First in the queue when busy'); else if (f.priority === 1) rows.push('Priority when busy');
+    if (f.commercial) rows.push('Commercial use');
+    if (f.topups && cat.topups?.length) rows.push(`Top-ups from ${money(Math.min(...cat.topups.map((t) => t.usd)))}, never expire`);
+    return rows.map((r) => `<li>${tick}${safe(r)}</li>`).join('') + (p.soon || []).map((x) => `<li class="soon">${tick}${safe(x)}<em>soon</em></li>`).join('');
   }
+  function drawPlans(cat) {
+    plansEl.innerHTML = cat.plans.map((p, i) => {
+      const m = p.id === 'free' ? '$0' : money(p.price.month), y = p.id === 'free' ? '$0' : money(Math.round(p.price.year / 12));
+      const bm = p.id === 'free' ? 'Free forever' : 'Billed monthly', by = p.id === 'free' ? 'Free forever' : `${money(p.price.year)} billed yearly`;
+      const href = p.id === 'free' ? '/cam' : `/desk?plan=${encodeURIComponent(p.id)}`;
+      return `<div class="plan${p.popular ? ' pop' : ''}" style="--i:${i}"><div class="top"><h4>${safe(p.name)}</h4>${p.popular ? '<span class="tag">Most popular</span>' : ''}</div>
+        <span class="sub">${safe(p.tagline)}</span><div class="price"><span data-m="${m}" data-y="${y}">${m}</span>${p.id === 'free' ? '' : '<small>/month</small>'}</div>
+        <span class="bill" data-m="${bm}" data-y="${by}">${bm}</span><ul class="checks">${planRows(p, cat)}</ul>
+        <a class="btn ${p.popular ? 'dark' : 'soft'}" href="${href}">${p.id === 'free' ? 'Start on your phone' : `Choose ${safe(p.name)}`}</a></div>`;
+    }).join('');
+    const life = $('#lifetime');
+    if (cat.lifetime && life) {
+      life.hidden = false;
+      life.innerHTML = `<div><b>${safe(cat.lifetime.name)} · ${money(cat.lifetime.usd)} once</b><span>${safe(cat.lifetime.tagline)}. JSON and Blender export and top-ups forever; AI videos on your own Higgsfield key.${cat.lifetime.limited ? ' Limited to the first early adopters.' : ''}</span></div>
+        ${cat.lifetime.soldOut ? '<span class="btn soft" aria-disabled="true">Sold out</span>' : '<a class="btn soft" href="/desk?plan=lifetime">Get Lifetime</a>'}`;
+    }
+  }
+  const toggle = $('#toggle');
+  let billing = 'm';
+  function setBilling(b) {
+    if (!toggle) return;
+    const btns = $$('button', toggle), knob = $('.knob', toggle), on = btns.find((x) => x.dataset.b === b) || btns[0];
+    billing = on.dataset.b;
+    btns.forEach((x) => { x.classList.toggle('on', x === on); x.setAttribute('aria-selected', String(x === on)); });
+    knob.style.left = `${on.offsetLeft}px`; knob.style.width = `${on.offsetWidth}px`;
+    for (const el of $$('[data-m]')) el.textContent = el.dataset[billing];
+    for (const a of $$('.plan a[href^="/desk?plan="]')) {
+      const u = new URL(a.href);
+      if (billing === 'y') u.searchParams.set('interval', 'year'); else u.searchParams.delete('interval');
+      a.href = `${u.pathname}${u.search}`;
+    }
+  }
+  if (toggle) {
+    $$('button', toggle).forEach((b) => b.addEventListener('click', () => setBilling(b.dataset.b)));
+    document.fonts?.ready.then(() => setBilling(billing));
+    setBilling('m');
+  }
+  if (plansEl) fetch('/api/plans').then((r) => r.json()).then((cat) => { drawPlans(cat); setBilling(billing); })
+    .catch(() => { plansEl.innerHTML = '<p class="fine">Plans couldn’t load. <a href="/desk">Open the studio</a> to see them.</p>'; });
 
   // FAQ accordion
   for (const q of $$('.q')) {

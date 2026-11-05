@@ -1,10 +1,12 @@
-// What Make video costs a customer, in videos (Phase 5). Prices live in config/pricing.json (placeholders until the
-// pricing research is back). Customers never see our AI cost in dollars (PLAN Phase 5, DECISIONS §30).
+// What Make video costs a customer, in videos. Prices and plans live in config/pricing.json (docs/PRICING-PLAN.md).
+// Customers never see our AI cost in dollars (PLAN Phase 5, DECISIONS §30).
 import { readFileSync } from 'node:fs';
+import { checkPricing } from './plans.js';
 
 export function loadPricing(path) {
   const p = JSON.parse(readFileSync(path, 'utf8'));
-  if (!p.qualityUnits || !Array.isArray(p.packs)) throw new Error(`${path}: needs qualityUnits and packs`);
+  const errors = checkPricing(p);
+  if (errors.length) throw new Error(`${path}: ${errors.join('; ')}`);
   return p;
 }
 

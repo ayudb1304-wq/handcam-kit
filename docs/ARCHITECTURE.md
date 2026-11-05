@@ -58,7 +58,22 @@ POST /api/make/:id/redo-start {look} · POST /api/make/:id/more · GET /api/make
 - **Jobs** live in `data/jobs/<id>/` (gitignored): `job.json` (written atomically) + files. Interrupted jobs resume after a restart (practice jobs fail instead).
 - Laptop-only (`isLocal`), like Send to lab, until there are accounts. Provider URLs and request ids never reach the browser.
 
-## 5. Pages
+## 5. Accounts, plans and payments (Phase 5, 5c)
+
+```
+config/pricing.json ─► server/plans.js (pure: entitlements, months, spend order, plan direction)
+                         ▲
+server/accounts.js (accounts.json: sub, allowance, topup, trial, lifetime, hold, byok) ◄── server/payments.js ◄── Dodo
+                         ▲                                                                  (checkout, change-plan, portal, webhooks)
+server/make/routes.js (spend on approve, refund on settle, watermark, own key, priority) ─► make/queue.js
+```
+
+- **What an account may do** is never stored: `plans.entitlements(user, pricing, now)` works it out from the stored subscription and the clock (plan videos left this month, top-ups, trial, features). The month starts on the subscription's start day and is recomputed on every request, so yearly plans reset monthly and no timer or webhook is needed for it.
+- **Dodo is the source of truth for subscriptions.** Every webhook and the checkout return page re-read the subscription with `GET /subscriptions/{id}` and store it (`accounts.syncSubscription`); `GET /api/account` re-reads one whose paid-through date has passed, in case a webhook was missed.
+- **Gates**: Make video (`POST /api/make` checks, approve/"Try again" spends, settle refunds to the source), the Blender importer route, top-up checkout, own key. JSON export is gated in the studio only (it never touches the server).
+- `GET /api/plans` is the catalogue for the landing page and the studio: prices and what's included, never costs.
+
+## 6. Pages
 
 - `/` → `public/index.html` + `site/`: the landing page (light, tiled). Product shots in `assets/shots/` are real screenshots of the studio.
 - `/desk` → `desk.html` + `studio/` (main, make, tour) + `shared/ui.css` (design system).

@@ -1,6 +1,6 @@
 // Make video panel: look → (render grey move + measuring twin) → server job → approve first frame → result.
 // The server does the AI work and the checking (server/make). This file only renders and uploads.
-import { signIn, buyVideos } from '../shared/account.js';
+import { signIn, buyTopups, openPlans } from '../shared/account.js';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ACTIVE = new Set(['uploading', 'preparing', 'start_image', 'making', 'checking']);
@@ -30,17 +30,23 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
     // same length rule as the server: whole seconds, within the recipe's limits
     const secs = Math.min(r.maxDurationS ?? 15, Math.max(r.minDurationS ?? 4, Math.round((take.samples?.at(-1)?.ts ?? 0) / 1000)));
     const n = Number(vsel.value) || r.candidates;
+    const own = ownKey();
+    $('ownKeyRow').hidden = !r.ownKey || !r.ourKey; // only a choice when both ways are open; own-key-only recipes always use it
     $('costEta').textContent = free ? '≈ 20 s' : qsel.value === '1080p' ? '≈ 5–10 min' : '≈ 3–5 min';
     if (cfg.admin) { // founder on the laptop: the real AI cost (never shown to customers: PLAN Phase 5)
       const video = r.qualities?.[qsel.value] != null ? r.qualities[qsel.value] * secs : r.cost?.video ?? 0;
       const total = (r.cost?.startImage ?? 0) + n * video;
       $('costText').textContent = free ? 'Practice · free · no AI' : `≈ ${usd(total)} · ${n} × ${secs} s video${n > 1 ? ', best kept' : ''}`;
+    } else if (own) {
+      $('costText').innerHTML = 'On your own Higgsfield key · uses none of your videos';
     } else {
+      // customers: the price in videos from their plan, top-ups or trial (docs/PRICING-PLAN.md), never our AI cost
       const unit = free ? 0 : (cfg.pricing?.qualityUnits?.[qsel.value] ?? 1) * (secs > (cfg.pricing?.longTakeSeconds ?? 8) ? 2 : 1);
-      const have = cfg.account?.videos;
+      const v = cfg.ent?.videos, need = n * unit;
+      const trialOnly = v && unit && v.left + v.topup < need; // the free trial videos would pay: 480p and watermarked
       $('costText').innerHTML = free ? 'Practice · free · no AI'
-        : `Uses up to <b>${n * unit}</b> video${n * unit === 1 ? '' : 's'}${have != null ? ` · you have ${have} <a href="#" id="buyLink">buy</a>` : ''}`;
-      $('buyLink')?.addEventListener('click', (e) => { e.preventDefault(); buyVideos({ packs: cfg.pricing?.packs, balance: have }); });
+        : `Uses up to <b>${need}</b> video${need === 1 ? '' : 's'}${v ? ` · you have ${v.total} <a href="#" id="buyLink">${cfg.ent.features.topups ? 'buy more' : 'plans'}</a>` : ''}${trialOnly && v.total >= need ? ` · <span title="Your free videos are ${cfg.ent.trialQuality} with a small HandCam label">free trial: ${cfg.ent.trialQuality}, watermarked</span>` : ''}`;
+      $('buyLink')?.addEventListener('click', (e) => { e.preventDefault(); topUp(); });
     }
     $('recipeStatus').hidden = r.status === 'final';
     $('recipeStatus').textContent = r.status;
@@ -67,6 +73,13 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
     if (!vsel.value) vsel.value = '2';
   }
   vsel.onchange = () => { store.set('handcam.versions', vsel.value); costLine(); };
+
+  /** Use the customer's own Higgsfield key for this video? (paid plans with a saved key; required when real AI is off for customers) */
+  const ownKey = () => { const r = recipe(); return !!r?.ownKey && (!r.ourKey || $('ownKey').checked); };
+  $('ownKey').onchange = () => { store.set('handcam.ownKey', $('ownKey').checked ? '1' : ''); costLine(); };
+  $('ownKey').checked = store.get('handcam.ownKey') === '1';
+  const reloadAll = () => loadConfig();
+  const topUp = (reason = '') => (cfg.ent?.features?.topups ? buyTopups({ account: cfg.account, onChange: reloadAll, reason }) : openPlans({ account: cfg.account, onChange: reloadAll, reason: reason || 'A plan comes with real AI videos every month.' }));
 
   async function loadConfig() {
     const res = await fetch('/api/make/config');
@@ -95,8 +108,9 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
   }).catch(() => { blocked = 'Make video is unavailable'; costLine(); });
   /** Sign in (or top up) and carry on: used when the server says 401 / 402. */
   async function needAccount(out) {
-    if (out?.code === 'signin') { if (await signIn({ reason: 'Sign in to make real videos. Your first one is free.' })) await loadConfig(); return true; }
-    if (out?.code === 'balance') { buyVideos({ packs: cfg.pricing?.packs, balance: cfg.account?.videos }); return true; }
+    if (out?.code === 'signin') { if (await signIn({ reason: 'Sign in to make real videos. Your first two are free.' })) await loadConfig(); return true; }
+    if (out?.code === 'balance') { topUp(out.error); return true; }
+    if (out?.code === 'quality' || out?.code === 'plan' || out?.code === 'byok') { if (out.code === 'byok') toast(out.error, 6000); else openPlans({ account: cfg.account, onChange: reloadAll, reason: out.error }); return true; }
     return false;
   }
 
@@ -115,7 +129,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const ref = await exportTake(take, scene, { onProgress: (f) => step(`Preparing your move ${Math.round(f * 50)}%`) });
       const twin = await exportTake(take, scene, { decorate: speckle, onProgress: (f) => step(`Preparing your move ${50 + Math.round(f * 50)}%`) });
       const { labSent, ...cleanTake } = take;
-      const res = await fetch('/api/make', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: cleanTake, scene, look, recipeId: r.id, demo: !!take.demo, quality: qsel.hidden ? undefined : qsel.value, versions: Number(vsel.value) || undefined }) });
+      const res = await fetch('/api/make', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: cleanTake, scene, look, recipeId: r.id, demo: !!take.demo, quality: qsel.hidden ? undefined : qsel.value, versions: Number(vsel.value) || undefined, byok: r.ownKey ? ownKey() : undefined }) });
       const out = await res.json();
       if (!res.ok) { if (await needAccount(out)) return; throw new Error(out.error); }
       const files = { 'reference.mp4': ref.mp4, 'measure.mp4': twin.mp4, 'first-frame.png': ref.png };
@@ -133,8 +147,8 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
   async function post(id, action, body) {
     const r = await fetch(`/api/make/${id}/${action}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
     const out = await r.json();
-    if (!r.ok) { if (await needAccount(out)) throw new Error(out.code === 'balance' ? `${out.error} Or choose fewer versions.` : 'Signed in: press it again.'); throw new Error(out.error); }
-    if (out.account) { cfg.account = out.account; onAccount(out.account, cfg); }
+    if (!r.ok) { if (await needAccount(out)) throw new Error(out.code === 'signin' ? 'Signed in: press it again.' : out.code === 'balance' ? `${out.error} Or choose fewer versions.` : out.error); throw new Error(out.error); }
+    if (out.account) { cfg.account = out.account; cfg.ent = out.account; onAccount(out.account, cfg); }
     return out;
   }
   function poll() {
@@ -177,7 +191,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const b = j.billing;
       const paidUnits = j.charge ? b?.charged * j.charge.unit : null;
       const billLine = b && (j.provider !== 'mock' || j.charge)
-        ? `<p class="note" style="margin:10px 0 0">${paidUnits != null ? `Used ${paidUnits} video${paidUnits === 1 ? '' : 's'}` : `Charged for ${b.charged} of ${b.videos} version${b.videos > 1 ? 's' : ''}`}${b.free ? ` · ${b.free} version${b.free > 1 ? 's' : ''} free (under ${b.freeBelow}% move match)` : ''}${b.apiUsd != null ? ` · AI cost ≈ ${usd(b.apiUsd)}` : ''}</p>` : '';
+        ? `<p class="note" style="margin:10px 0 0">${j.byok ? 'Made on your own Higgsfield key' : paidUnits != null ? `Used ${paidUnits} video${paidUnits === 1 ? '' : 's'}${j.watermark ? ' (free trial: watermarked)' : ''}` : `Charged for ${b.charged} of ${b.videos} version${b.videos > 1 ? 's' : ''}`}${b.free ? ` · ${b.free} version${b.free > 1 ? 's' : ''} free (under ${b.freeBelow}% move match)` : ''}${b.apiUsd != null ? ` · AI cost ≈ ${usd(b.apiUsd)}` : ''}</p>` : '';
       const retry = b?.tryAgain
         ? `<div class="warn-box" style="margin:12px 0 0"><b>It didn’t follow your move closely enough.</b> Under ${b.freeBelow}% move match, so it isn’t charged. Make another version?
             <div style="margin-top:8px"><button class="btn primary sm" data-act="again">Try again</button></div></div>` : '';

@@ -15,6 +15,9 @@ import { makeJobs } from './make/jobs.js';
 import { makeRoutes } from './make/routes.js';
 import { makeMock } from './make/providers/mock.js';
 import { makeHiggsfield, higgsfieldReady } from './make/providers/higgsfield.js';
+import { makeQueue } from './make/queue.js';
+import { watermark } from './watermark.js';
+import { publicCatalogue } from './plans.js';
 import { runScore } from './make/score.js';
 import { spawn } from 'node:child_process';
 import { makeAccounts } from './accounts.js';
@@ -35,9 +38,9 @@ const flag = (v) => /^(1|on|true|yes)$/i.test(String(v || ''));
 
 const app = express();
 app.set('trust proxy', true); // behind cloudflared / Render: req.protocol is https when the visitor's is
-// ---- accounts + payments (Phase 5) ----
+// ---- accounts, plans and payments (Phase 5, 5c: docs/PRICING-PLAN.md) ----
 const pricing = loadPricing(join(ROOT_DIR, 'config', 'pricing.json'));
-const accounts = await makeAccounts({ dir: DATA_DIR, secret: process.env.SESSION_SECRET, freeVideos: pricing.freeVideosOnSignup ?? 1, adminEmails: (process.env.ADMIN_EMAILS || '').split(',') });
+const accounts = await makeAccounts({ dir: DATA_DIR, secret: process.env.SESSION_SECRET, pricing, adminEmails: (process.env.ADMIN_EMAILS || '').split(',') });
 const dodoMode = process.env.DODO_MODE === 'live' ? 'live' : 'test';
 const dodo = makeDodo({ apiKey: process.env.DODO_PAYMENTS_API_KEY, mode: dodoMode });
 const products = await productIds(pricing, dodoMode, join(ROOT_DIR, 'config', `dodo-products.${dodoMode}.json`));
@@ -47,8 +50,14 @@ app.use('/api/pay', pay.api); // before express.json: the webhook needs the raw 
 app.use(pay.pages);
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(join(__dirname, '..', 'public'), { extensions: ['html'] }));
-// The Blender importer, so the desk can put it in the Blender export zip (Phase 4).
-app.get('/exporters/blender_import.py', (req, res) => res.type('text/x-python').sendFile(join(__dirname, '..', 'exporters', 'blender_import.py')));
+// The Blender importer, so the desk can put it in the Blender export zip (Phase 4). JSON and Blender export come with
+// a paid plan (Phase 5c); the importer is the part the server can actually withhold.
+app.get('/exporters/blender_import.py', (req, res) => {
+  if (!isLocal(req) && !accounts.ent(accounts.userFrom(req)).features.exportData) {
+    return res.status(403).json({ error: 'Blender and JSON export come with a paid plan.', code: accounts.userFrom(req) ? 'plan' : 'signin' });
+  }
+  res.type('text/x-python').sendFile(join(__dirname, '..', 'exporters', 'blender_import.py'));
+});
 
 // A single default room per server process keeps Phase 0 simple. Desk can ask for a fresh one.
 const DEFAULT_ROOM = makeRoomCode();
@@ -65,9 +74,33 @@ app.get('/api/info', (req, res) => {
 // ---- account routes ----
 const secure = (req) => req.protocol === 'https';
 const authLimit = rateLimit({ perHour: 30 });
-app.get('/api/account', (req, res) => res.json({ account: accounts.pub(accounts.userFrom(req)), local: isLocal(req) }));
+const signupLimit = rateLimit({ perHour: Number(process.env.SIGNUP_LIMIT || 5) }); // each new account gets trial videos: slow down farming
+app.get('/api/account', async (req, res) => {
+  const user = await pay.refreshIfStale(accounts.userFrom(req)); // a missed webhook must not keep or lose a plan
+  res.json({ account: accounts.pub(user), local: isLocal(req), founder: isLocal(req) || accounts.isAdmin(user) });
+});
+// What's for sale (prices and what each plan includes, never our costs): the landing page and the studio draw from it.
+app.get('/api/plans', (req, res) => {
+  const c = publicCatalogue(pricing);
+  if (c.lifetime) c.lifetime.soldOut = !!pricing.lifetime.limit && accounts.lifetimeCount() >= pricing.lifetime.limit;
+  res.json({ ...c, payments: dodo.ready });
+});
+// The customer's own Higgsfield key (paid plans): stored encrypted, never sent back (only its last 4 characters).
+app.post('/api/account/byok', async (req, res) => {
+  const user = accounts.userFrom(req);
+  if (!user) return res.status(401).json({ error: 'Sign in first.', code: 'signin' });
+  if (!accounts.ent(user).features.byok) return res.status(403).json({ error: 'Using your own AI key comes with a paid plan.', code: 'plan' });
+  try { await accounts.setByok(user.id, req.body || {}); res.json({ account: accounts.pub(accounts.get(user.id)) }); }
+  catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+app.delete('/api/account/byok', async (req, res) => {
+  const user = accounts.userFrom(req);
+  if (!user) return res.status(401).json({ error: 'Sign in first.', code: 'signin' });
+  await accounts.clearByok(user.id);
+  res.json({ account: accounts.pub(accounts.get(user.id)) });
+});
 app.post('/api/account/signup', async (req, res) => {
-  if (!authLimit(clientIp(req))) return res.status(429).json({ error: 'Too many tries. Wait a little and try again.' });
+  if (!authLimit(clientIp(req)) || (!isLocal(req) && !signupLimit(clientIp(req)))) return res.status(429).json({ error: 'Too many tries. Wait a little and try again.' });
   try {
     const u = await accounts.signup(req.body || {});
     res.setHeader('Set-Cookie', accounts.cookieFor(u, { secure: secure(req) }));
@@ -116,19 +149,31 @@ const recipes = await loadRecipes(join(ROOT, 'recipes'));
 const providers = { mock: makeMock({ demoDir: join(ROOT, 'public', 'demo') }), higgsfield: makeHiggsfield() };
 const providerReady = (p) => p === 'mock' || (p === 'higgsfield' && higgsfieldReady());
 const { refundDue } = await import('./billing.js');
+// A job on the customer's own key runs on their Higgsfield account; without a saved key it fails with a clear reason.
+const noKey = () => { throw new Error('Your Higgsfield key isn’t saved any more: add it again in your account.'); };
+const providerFor = (job) => {
+  if (!job.byok) return providers[job.provider];
+  const env = job.userId && accounts.byokEnv(job.userId);
+  return env ? makeHiggsfield({ env }) : { name: 'higgsfield', upload: noKey, submit: noKey, status: noKey, download: noKey };
+};
 const jobs = makeJobs({
-  dir: join(DATA_DIR, 'jobs'), recipes, providers, score: runScore,
-  // give back what the customer doesn't owe: free (under the move-match line) and failed versions
+  dir: join(DATA_DIR, 'jobs'), recipes, providers, score: runScore, providerFor,
+  queue: makeQueue({ slots: Number(process.env.MAKE_SLOTS || 6) }), // AI versions at once on our key; higher plans first when busy
+  // give back what the customer doesn't owe (free and failed versions), to where it came from
   onSettle: async (job) => {
     const back = refundDue(job);
-    if (back > 0 && job.userId) { await accounts.adjust(job.userId, back, `refund ${job.id} (free or failed versions)`); job.charge.refunded += back; }
+    if (back > 0 && job.userId) {
+      job.charge.from ||= { month: 0, topup: job.charge.reserved, trial: 0, cycle: null }; // jobs from before plans paid from the old balance (now top-ups)
+      await accounts.refund(job.userId, job.charge.from, back, `refund ${job.id} (free or failed versions)`);
+      job.charge.refunded += back;
+    }
   },
 });
 const preview = (src, out) => new Promise((resolve, reject) => {
   const p = spawn(process.env.HANDCAM_PYTHON || 'python3', [join(__dirname, 'preview.py'), src, out], { stdio: 'ignore' });
   p.on('error', reject); p.on('close', (c) => (c === 0 ? resolve() : reject(new Error(`preview exit ${c}`))));
 });
-app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, preview, realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
+app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, preview, watermark, realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
 jobs.resume().catch((e) => console.warn('could not resume make jobs:', e.message));
 
 // ---- WebSocket relay -------------------------------------------------------
@@ -180,6 +225,6 @@ server.listen(PORT, () => {
   console.log(`HandCam relay  →  http://localhost:${PORT}/desk   (LAN: http://${lanIp()}:${PORT})`);
   console.log(process.env.ANTHROPIC_API_KEY ? `scenes: Claude (${process.env.ANTHROPIC_MODEL || DEFAULT_MODEL})` : 'scenes: templates only (set ANTHROPIC_API_KEY for AI blockouts)');
   console.log(`make video: ${Object.values(recipes).map((r) => `${r.label}${providerReady(r.provider) ? '' : ' (needs HF_API_KEY_ID/SECRET)'}`).join(', ')}`);
-  console.log(`accounts: ${DATA_DIR}   payments: ${dodo.ready ? `Dodo ${dodoMode}${Object.values(products).every(Boolean) ? '' : ' (packs not set up: npm run dodo:setup)'}` : 'off (set DODO_PAYMENTS_API_KEY)'}   real AI for customers: ${flag(process.env.REAL_AI) ? 'on' : 'off'}`);
+  console.log(`accounts: ${DATA_DIR}   payments: ${dodo.ready ? `Dodo ${dodoMode}${Object.values(products).every(Boolean) ? '' : ' (plans not set up: npm run dodo:setup)'}` : 'off (set DODO_PAYMENTS_API_KEY)'}   real AI for customers: ${flag(process.env.REAL_AI) ? 'on' : 'off'}`);
   console.log(`room ${DEFAULT_ROOM}${PUBLIC_URL ? `   public: ${PUBLIC_URL}` : '   (set PUBLIC_URL to your https tunnel for phone testing)'}`);
 });

@@ -24,13 +24,13 @@ test('refund: only versions at or above the line are paid; a failed job is fully
   assert.equal(refundDue({ status: 'done' }), 0);
 });
 
-test('accounts: signup gives the free video, login checks the password, sessions are signed, balance never negative', async () => {
+test('accounts: login checks the password, sessions are signed and survive a restart', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'acct-'));
   try {
-    const a = await makeAccounts({ dir, freeVideos: 1, adminEmails: ['boss@x.com'] });
+    const a = await makeAccounts({ dir, pricing, adminEmails: ['boss@x.com'] });
     const u = await a.signup({ email: ' Friend@Example.com ', password: 'longenough', name: 'Fr' });
     assert.equal(u.email, 'friend@example.com');
-    assert.equal(u.videos, 1);
+    assert.equal(u.trial, pricing.trial.videos);
     await assert.rejects(a.signup({ email: 'friend@example.com', password: 'longenough' }), /already/);
     await assert.rejects(a.signup({ email: 'x@y.z', password: 'short' }), /8 characters/);
     await assert.rejects(a.login({ email: 'friend@example.com', password: 'wrongwrong' }), /Wrong email or password/);
@@ -38,14 +38,10 @@ test('accounts: signup gives the free video, login checks the password, sessions
     const cookie = a.cookieFor(u, { secure: false }).split(';')[0];
     assert.equal(a.userFrom({ headers: { cookie } }).id, u.id);
     assert.equal(a.userFrom({ headers: { cookie: cookie.slice(0, -2) + 'xx' } }), null, 'a tampered cookie is refused');
-    await assert.rejects(a.adjust(u.id, -2, 'too much'), (e) => e.status === 402);
-    assert.equal(await a.adjust(u.id, -1, 'one video'), 0);
-    assert.equal(await a.creditPayment('pay_1', { userId: u.id, videos: 10, packId: 'pack10' }), true);
-    assert.equal(await a.creditPayment('pay_1', { userId: u.id, videos: 10, packId: 'pack10' }), false, 'credited once per payment');
-    assert.equal(a.get(u.id).videos, 10);
+    await a.addTopup(u.id, 10, 'test');
     await a.flush();
-    const again = await makeAccounts({ dir });
-    assert.equal(again.get(u.id).videos, 10, 'saved to disk');
+    const again = await makeAccounts({ dir, pricing });
+    assert.equal(again.get(u.id).topup, 10, 'saved to disk');
     assert.equal(again.userFrom({ headers: { cookie } }).id, u.id, 'the session key is kept');
   } finally { await rm(dir, { recursive: true }); }
 });

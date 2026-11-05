@@ -11,34 +11,46 @@ export const UPLOADS = Object.freeze({ 'reference.mp4': 'video/mp4', 'measure.mp
 const TERMINAL = new Set(['completed', 'failed', 'nsfw', 'canceled']);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000], onSettle = async () => {} }) {
+/**
+ * providerFor(job): the provider a job runs on (default: providers[job.provider]); index.js uses it to run a job on the
+ * customer's own Higgsfield key. queue: { run(priority, fn), busy } decides when each version may start (queue.js).
+ */
+export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000], onSettle = async () => {}, providerFor = null, queue = null }) {
   const running = new Set();
+  const writes = new Map(); // one job.json write at a time per job: versions finish in parallel
 
   const path = (id, f = '') => join(dir, id, f);
   async function load(id) {
     if (!/^[a-z0-9-]{8,64}$/.test(id)) return null;
     try { return JSON.parse(await readFile(path(id, 'job.json'), 'utf8')); } catch { return null; }
   }
-  async function save(job) {
-    job.updatedAt = new Date().toISOString();
-    const tmp = path(job.id, 'job.json.tmp');
-    await writeFile(tmp, JSON.stringify(job, null, 2));
-    await rename(tmp, path(job.id, 'job.json')); // atomic: a crash never leaves half a job.json
-    return job;
+  function save(job) {
+    const next = (writes.get(job.id) || Promise.resolve()).then(async () => {
+      job.updatedAt = new Date().toISOString();
+      const tmp = path(job.id, 'job.json.tmp');
+      await writeFile(tmp, JSON.stringify(job, null, 2));
+      await rename(tmp, path(job.id, 'job.json')); // atomic: a crash never leaves half a job.json
+    });
+    writes.set(job.id, next.catch(() => {}));
+    return next.then(() => job);
+  }
+  /** Run one version's work when the queue lets it (higher plans first when busy). Own-key jobs don't wait for our slots. */
+  function lane(job, fn) {
+    if (!queue || job.byok) return fn();
+    if (queue.busy) say(job, 'Busy right now: waiting for a free slot');
+    return queue.run(job.priority ?? 0, fn);
   }
   const say = (job, msg) => { job.log.push({ t: new Date().toISOString(), msg }); };
 
   /** Create a job and save take/scene; the browser then PUTs the UPLOADS and calls start(). */
-  async function create({ take, scene, look, recipeId, demo = false, quality, versions, userId = null, unitFor = () => 0 }) {
+  /** check(job): a last look before anything is written (routes.js: can this account afford it?). Throw to refuse. */
+  async function create({ take, scene, look, recipeId, demo = false, quality, versions, userId = null, unitFor = () => 0, priority = 0, byok = false, check = () => {} }) {
     const recipe = recipes[recipeId];
     if (!recipe) throw Object.assign(new Error(`unknown recipe ${recipeId}`), { status: 400 });
     if (typeof look !== 'string' || look.trim().length < 3) throw Object.assign(new Error('Describe the look in a few words first.'), { status: 400 });
     const resolution = pickQuality(recipe, quality);
     const versionCount = pickVersions(recipe, versions);
     const id = `${new Date().toISOString().slice(0, 10)}-${randomUUID().slice(0, 8)}`;
-    await mkdir(path(id), { recursive: true });
-    await writeFile(path(id, 'take.json'), JSON.stringify(take));
-    await writeFile(path(id, 'scene.json'), JSON.stringify(scene));
     const durationMs = take.samples.at(-1).ts;
     const job = {
       id, createdAt: new Date().toISOString(), recipeId, provider: recipe.provider, demo: Boolean(demo),
@@ -46,10 +58,14 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       aspect: (take.view?.aspect ?? 0.5) < 1 ? '9:16' : '16:9', resolution, versions: versionCount,
       durationS: Math.min(recipe.maxDurationS ?? 15, Math.max(recipe.minDurationS ?? 4, Math.round(durationMs / 1000))),
       status: 'uploading', urls: {}, startImages: [], candidates: [], best: null, outcome: null, error: null, log: [],
-      userId,
+      userId, priority, byok: Boolean(byok),
     };
     const unit = unitFor(job); // videos per version for this account (0: free, e.g. practice or the founder's laptop)
     if (unit > 0) job.charge = { unit, reserved: 0, refunded: 0 };
+    check(job);
+    await mkdir(path(id), { recursive: true });
+    await writeFile(path(id, 'take.json'), JSON.stringify(take));
+    await writeFile(path(id, 'scene.json'), JSON.stringify(scene));
     say(job, 'Job created');
     return save(job);
   }
@@ -181,8 +197,8 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     say(job, `Making ${count} version${count > 1 ? 's' : ''}`);
     await save(job);
     const fresh = [];
-    for (let i = 0; i < count; i++) fresh.push(await makeCandidate(job, recipe, provider));
-    await Promise.all(fresh.map((c) => finishCandidate(job, recipe, provider, c).then(() => save(job))));
+    for (let i = 0; i < count; i++) fresh.push(lane(job, async () => { const c = await makeCandidate(job, recipe, provider); await finishCandidate(job, recipe, provider, c); await save(job); }));
+    await Promise.all(fresh);
     let ok = await scoreAndChoose(job, recipe);
     // You choose how many versions (job.versions): no automatic extra tries. Older jobs keep the recipe's retry.
     const extraTries = job.versions == null ? recipe.extraTries ?? 0 : 0;
@@ -190,8 +206,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       job.status = 'making';
       say(job, 'No version followed your move closely enough: making one more');
       await save(job);
-      const c = await makeCandidate(job, recipe, provider);
-      await finishCandidate(job, recipe, provider, c);
+      await lane(job, async () => { const c = await makeCandidate(job, recipe, provider); await finishCandidate(job, recipe, provider, c); });
       ok = await scoreAndChoose(job, recipe);
     }
     if (job.best == null) throw new Error(job.candidates.map((c) => c.error).filter(Boolean)[0] || 'no video was made');
@@ -202,7 +217,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   }
 
   // ---- public steps ----------------------------------------------------------------
-  const ctx = (job) => ({ recipe: recipes[job.recipeId], provider: providers[job.provider] });
+  const ctx = (job) => ({ recipe: recipes[job.recipeId], provider: providerFor ? providerFor(job) : providers[job.provider] });
 
   async function upload(job) {
     const { provider } = ctx(job);
@@ -257,8 +272,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
         const { recipe, provider } = ctx(job);
         try {
           job.status = 'making'; say(job, 'Making one more version'); await save(job);
-          const c = await makeCandidate(job, recipe, provider);
-          await finishCandidate(job, recipe, provider, c);
+          await lane(job, async () => { const c = await makeCandidate(job, recipe, provider); await finishCandidate(job, recipe, provider, c); });
           await scoreAndChoose(job, recipe);
           job.status = 'done'; await save(job); await settle(job);
         } catch (e) { await fail(job, e); }

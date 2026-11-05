@@ -1,11 +1,38 @@
 {
-  "_note": "PLACEHOLDER prices until the pricing research is back (docs/PRICING-RESEARCH-PROMPT.md, DECISIONS §29-30, §34). Customers see videos, never our AI cost.",
+  "_note": "Plans and paywalls: docs/PRICING-PLAN.md (why these numbers), DECISIONS §38. Customers see videos, never our AI cost. To change what an existing plan includes, add a new plan id instead of editing it: subscribers keep the plan they bought.",
   "currency": "USD",
-  "freeVideosOnSignup": 1,
   "qualityUnits": { "480p": 1, "720p": 2, "1080p": 5 },
   "longTakeSeconds": 8,
-  "packs": [
-    { "id": "pack10", "name": "10 videos", "videos": 10, "usd": 29 },
-    { "id": "pack30", "name": "30 videos", "videos": 30, "usd": 79 }
+  "trial": { "videos": 2, "quality": "480p", "watermark": true },
+  "plans": [
+    {
+      "id": "free", "name": "Free", "rank": 0, "tagline": "Try the whole studio",
+      "price": { "month": 0, "year": 0 }, "videosPerMonth": 0,
+      "features": { "exportData": false, "byok": false, "topups": false, "priority": 0, "commercial": false }
+    },
+    {
+      "id": "indie", "name": "Indie", "rank": 1, "tagline": "Shoot moves, export to Blender",
+      "price": { "month": 19, "year": 180 }, "videosPerMonth": 5,
+      "features": { "exportData": true, "byok": true, "topups": true, "priority": 0, "commercial": false }
+    },
+    {
+      "id": "creator", "name": "Creator", "rank": 2, "tagline": "Direct AI video with your hand", "popular": true,
+      "price": { "month": 49, "year": 468 }, "videosPerMonth": 15,
+      "features": { "exportData": true, "byok": true, "topups": true, "priority": 1, "commercial": true }
+    },
+    {
+      "id": "studio", "name": "Studio", "rank": 3, "tagline": "Daily previs and client work",
+      "price": { "month": 129, "year": 1236 }, "videosPerMonth": 40,
+      "features": { "exportData": true, "byok": true, "topups": true, "priority": 2, "commercial": true },
+      "soon": ["4K upscale", "ProRes export", "Team workspace"]
+    }
+  ],
+  "lifetime": {
+    "id": "lifetime", "name": "Lifetime Tracker", "usd": 129, "limit": 200, "tagline": "Early adopters: pay once, use your own AI key",
+    "features": { "exportData": true, "byok": true, "topups": true, "priority": 0, "commercial": false }
+  },
+  "topups": [
+    { "id": "topup5", "name": "5 videos", "videos": 5, "usd": 15 },
+    { "id": "topup15", "name": "15 videos", "videos": 15, "usd": 42 }
   ]
 }
