@@ -3,6 +3,7 @@
 // The laptop must stay on and awake while they test. Your friend is a customer: they sign up, see prices in videos,
 // and never see your AI costs; you on this laptop (localhost) are the founder.
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 const PORT = process.env.PORT || '3000';
 const kids = [];
@@ -13,10 +14,14 @@ console.log('Starting a public https link (Cloudflare tunnel)…');
 const tunnel = spawn('npx', ['-y', 'cloudflared', 'tunnel', '--url', `http://localhost:${PORT}`], { stdio: ['ignore', 'pipe', 'pipe'] });
 kids.push(tunnel);
 let started = false;
-const onOut = (buf) => {
+const onOut = async (buf) => {
   const url = String(buf).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/)?.[0];
   if (!url || started) return;
   started = true;
+  // payments: point the Dodo webhook at this link (renewals, failed cards and refunds arrive there), then start the server
+  const { pointWebhook } = await import('./dodo-webhook.mjs');
+  if (existsSync('.env') && process.loadEnvFile) process.loadEnvFile('.env');
+  try { await pointWebhook(url); } catch (e) { console.warn(`webhook not updated (${e.message}); plan renewals won't reach HandCam on this link`); }
   const server = spawn(process.execPath, ['server/index.js'], { stdio: 'inherit', env: { ...process.env, PORT, PUBLIC_URL: url } });
   kids.push(server);
   server.on('exit', (c) => { console.log(`server stopped (${c})`); stop(); });

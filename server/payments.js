@@ -14,6 +14,9 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { INTERVALS, planById, planDirection, subscriptionState } from './plans.js';
 
+/** Dodo's CancellationFeedback values (docs: PATCH /subscriptions). */
+export const CANCEL_REASONS = ['too_expensive', 'missing_features', 'switched_service', 'unused', 'customer_service', 'low_quality', 'too_complex', 'other'];
+
 export const DODO_BASE = { test: 'https://test.dodopayments.com', live: 'https://live.dodopayments.com' };
 
 /** Standard Webhooks: v1 = base64(HMAC-SHA256(key, `${id}.${timestamp}.${body}`)), key = base64-decoded secret after "whsec_". */
@@ -237,7 +240,9 @@ export function makePayRoutes({ dodo, accounts, pricing, products, publicBase, w
 
   async function cancel(req, res, user) {
     try {
-      await dodo.updateSubscription(user.sub.id, { cancel_at_next_billing_date: true, ...(req.body?.feedback && { cancellation_feedback: String(req.body.feedback) }) });
+      // Dodo accepts only its own reasons here (anything else is a 422 that would block the cancel): drop the rest
+      const why = String(req.body?.feedback || '');
+      await dodo.updateSubscription(user.sub.id, { cancel_at_next_billing_date: true, ...(CANCEL_REASONS.includes(why) && { cancellation_feedback: why }) });
       await syncSubscription(user.sub.id, user.id);
       await answer(res, user);
     } catch (x) { dodoError(res, x, 'cancel the plan'); }

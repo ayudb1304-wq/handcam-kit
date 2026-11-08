@@ -45,7 +45,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const v = cfg.ent?.videos, need = n * unit;
       const trialOnly = v && unit && v.left + v.topup < need; // the free trial videos would pay: 480p and watermarked
       $('costText').innerHTML = free ? 'Practice · free · no AI'
-        : `Uses up to <b>${need}</b> video${need === 1 ? '' : 's'}${v ? ` · you have ${v.total} <a href="#" id="buyLink">${cfg.ent.features.topups ? 'buy more' : 'plans'}</a>` : ''}${trialOnly && v.total >= need ? ` · <span title="Your free videos are ${cfg.ent.trialQuality} with a small HandCam label">free trial: ${cfg.ent.trialQuality}, watermarked</span>` : ''}`;
+        : `Uses up to <b>${need}</b> video${need === 1 ? '' : 's'}${v ? ` · you have ${v.total} · <a href="#" id="buyLink">${cfg.ent.features.topups ? 'Buy more' : 'See plans'}</a>` : ''}${trialOnly && v.total >= need ? ` · <span title="Your free videos are ${cfg.ent.trialQuality} with a small HandCam label">free trial: ${cfg.ent.trialQuality}, watermarked</span>` : ''}`;
       $('buyLink')?.addEventListener('click', (e) => { e.preventDefault(); topUp(); });
     }
     $('recipeStatus').hidden = r.status === 'final';

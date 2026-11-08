@@ -11,7 +11,8 @@
     "tunnel": "npx -y cloudflared tunnel --url http://localhost:3000",
     "lab:push": "git add lab/takes && git commit -m \"lab: takes from the desk\" && git push",
     "dodo:setup": "node scripts/dodo-setup.mjs",
-    "share": "node scripts/share.mjs"
+    "share": "node scripts/share.mjs",
+    "dodo:webhook": "node scripts/dodo-webhook.mjs"
   },
   "engines": {
     "node": ">=18"

@@ -149,10 +149,28 @@ export async function openPlans({ account = null, reason = '', from = 'desk', on
     const sure = up
       ? `Switch to ${p.name} ${interval === 'year' ? 'yearly' : 'monthly'} now? You pay the difference for the rest of this period today, and this month’s videos go up to ${p.videosPerMonth} at once (the ones you’ve used still count).`
       : `Switch to ${p.name} ${interval === 'year' ? 'yearly' : 'monthly'} on ${date(live.paidThrough)}? You keep your current plan and its videos until then.`;
-    if (!confirm(sure)) return;
-    btn.disabled = true;
-    try { await postJson('/api/pay/change', { plan: planId, interval }); close(); onChange(); }
-    catch (x) { render(x.message); }
+    // confirm inside the window (no browser pop-up), then show the result here too
+    body.innerHTML = `<span class="eyebrow">Plans</span><h3>${up ? 'Upgrade' : 'Switch'} to ${esc(p.name)}?</h3><p class="acct-why">${esc(sure)}</p>
+      <div class="row" style="gap:8px"><button class="btn primary" data-yes>${up ? 'Upgrade now' : `Switch on ${esc(date(live.paidThrough))}`}</button><button class="btn ghost" data-back>Back</button></div>
+      <div class="acct-err" id="planErr"></div>`;
+    body.querySelector('[data-back]').onclick = () => render();
+    body.querySelector('[data-yes]').onclick = async (e) => {
+      e.target.disabled = true; e.target.textContent = up ? 'Upgrading…' : 'Saving…';
+      try {
+        const out = await postJson('/api/pay/change', { plan: planId, interval });
+        if (!up || out.account?.sub?.plan === planId) { close(); onChange(); return; }
+        // an upgrade is charged first: Dodo confirms the payment a few seconds later, then the plan switches
+        body.innerHTML = `<span class="eyebrow">Plans</span><h3>Upgrading to ${esc(p.name)}…</h3><p class="acct-why">We’re confirming the payment for the difference. This usually takes under a minute; you can close this window.</p><div class="spinner"></div>`;
+        onChange();
+        for (let i = 0; i < 40; i++) {
+          await new Promise((r) => setTimeout(r, 3000));
+          const now = (await getAccount()).account;
+          if (now?.sub?.plan === planId) { body.innerHTML = `<span class="eyebrow">Plans</span><h3>You’re on ${esc(p.name)}</h3><p class="acct-why">${plural(now.videos?.left ?? 0)} left this month.</p><button class="btn primary" data-done>Done</button>`; body.querySelector('[data-done]').onclick = close; onChange(); return; }
+          if (!document.body.contains(el)) { onChange(); return; } // window closed: the page refreshes the account itself
+        }
+        body.querySelector('.acct-why').textContent = 'The payment is taking longer than usual. Your plan will switch as soon as it goes through.';
+      } catch (x) { body.querySelector('#planErr').textContent = x.message; e.target.disabled = false; e.target.textContent = 'Try again'; }
+    };
   }
   render();
 }
