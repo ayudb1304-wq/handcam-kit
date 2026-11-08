@@ -30,5 +30,5 @@ services:
         sync: false
       - key: HF_API_KEY_SECRET
         sync: false
-      - key: REAL_AI             # "on" lets customers make real AI videos (spends your Higgsfield API money)
-        value: "off"
+      - key: REAL_AI             # "on" lets customers make real AI videos (spends your Higgsfield API money, ~$1 per 480p version)
+        value: "on"
