@@ -104,6 +104,10 @@ Your friend is a **customer**: they create an account (their first two real vide
 - `ADMIN_EMAILS=you@example.com` makes that account a founder account on a hosted server.
 - Testing switches: `LOCAL_IS_CUSTOMER=1` (see localhost as a customer), `PRACTICE_CHARGES=1` (Practice uses videos like real ones).
 
-## Hosting later (always on, ~$7/month)
+## Live (always on): https://handcam.onrender.com
+
+Deployed 2026-11-08 on Render from `render.yaml` (Hobby workspace, Starter instance, 1 GB disk at `/var/data`). Every push to `main` redeploys it. Secrets are set in the Render dashboard (Environment), not in the repo. The Dodo webhook points at `https://handcam.onrender.com/api/pay/webhook`; `DODO_WEBHOOK_HOME` in your local `.env` stops `npm run share` from moving it. The founder on Render is the `ADMIN_EMAILS` account (sign up with that email).
+
+## Hosting details (always on, ~$7/month)
 
 `render.yaml` + `Dockerfile` run HandCam on [Render](https://render.com): a **Hobby** workspace ($0, not Pro) with a **Starter** instance and a 1 GB disk for accounts and videos. New → Blueprint → this repo, fill in the secret env vars, deploy, then set `PUBLIC_URL` to the service's https address. Any host that runs one always-on Docker container with a disk works the same (DECISIONS §15).
