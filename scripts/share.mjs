@@ -11,6 +11,8 @@ const stop = () => { for (const k of kids) k.kill('SIGINT'); process.exit(0); };
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
 
 console.log('Starting a public https link (Cloudflare tunnel)…');
+// macOS: keep the laptop awake while sharing (display may dim; the Mac won't sleep). Ends with this script.
+if (process.platform === 'darwin') kids.push(spawn('caffeinate', ['-ims', '-w', String(process.pid)], { stdio: 'ignore' }));
 const tunnel = spawn('npx', ['-y', 'cloudflared', 'tunnel', '--url', `http://localhost:${PORT}`], { stdio: ['ignore', 'pipe', 'pipe'] });
 kids.push(tunnel);
 let started = false;
