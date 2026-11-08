@@ -11,7 +11,7 @@ import { setupTour } from './tour.js';
 import { setupEditor } from './editor.js';
 import { setupExport } from './export.js';
 import { setupSequence } from './sequence.js';
-import { signIn, openAccount, openPlans, needPlan, getAccount, paymentReturnMessage } from '../shared/account.js';
+import { signIn, openAccount, openPlans, needPlan, getAccount, paymentReturnMessage, signOut, finishSignIn, newPassword } from '../shared/account.js';
 
 const $ = (id) => document.getElementById(id);
 export function toast(text, ms = 3200) {
@@ -505,8 +505,14 @@ document.addEventListener('click', (e) => {
   e.preventDefault(); e.stopImmediatePropagation();
   needPlan({ account: acctCfg.account, reason: 'JSON and Blender export come with a paid plan. The grey video export stays free.', onChange: reloadAccount });
 }, true);
-$('signOut').onclick = async () => { await fetch('/api/account/logout', { method: 'POST' }); location.reload(); };
+$('signOut').onclick = () => signOut();
 { const msg = paymentReturnMessage(); if (msg) setTimeout(() => toast(msg, 6000), 800); }
+// back from Google or an email link (Supabase): finish the sign-in, then show the account
+finishSignIn().then(({ account, recovery, error }) => {
+  if (error) toast(error, 6000);
+  if (account) { reloadAccount(); toast(`Signed in as ${account.email}`); }
+  if (recovery) newPassword();
+});
 // From the landing page's "Choose Creator" (?plan=creator&interval=year): sign in if needed, then the plans.
 {
   const q = new URLSearchParams(location.search), want = q.get('plan');

@@ -1,5 +1,6 @@
-// Accounts, sessions, plans and videos (Phase 5, 5c). One JSON file under DATA_DIR, written atomically, kept in
-// memory: one server, a few hundred users at most for now. No database, no new dependency (DECISIONS §34, §38).
+// Accounts, sessions, plans and videos (Phase 5, 5c, 5d). Kept in memory (one server); saved to Supabase Postgres when
+// `store` is given (server/supa.js: the source of truth, only changed accounts are written), and always mirrored to a
+// JSON file under DATA_DIR. Without Supabase (local dev) the file is the store (DECISIONS §34, §38, §40).
 // Passwords: scrypt from node:crypto. Sessions: an HMAC-signed cookie, no server-side session table.
 // What an account may do is worked out by plans.js from what is stored here; the rules are in docs/PRICING-PLAN.md.
 import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
@@ -16,10 +17,16 @@ const okEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 200;
 const err = (message, status, code) => Object.assign(new Error(message), { status, code });
 const plural = (n, w = 'video') => `${n} ${w}${n === 1 ? '' : 's'}`;
 
-export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now = () => new Date() }) {
+export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now = () => new Date(), store = null, log = console }) {
   await mkdir(dir, { recursive: true });
   const file = join(dir, 'accounts.json');
-  const db = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : { users: {}, payments: {} };
+  const local = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : { users: {}, payments: {} };
+  let db = local, imported = false;
+  if (store) {
+    const remote = await store.load();
+    if (Object.keys(remote.users).length || !Object.keys(local.users || {}).length) db = remote;
+    else imported = true; // first start with Supabase: bring the accounts that were in the file over
+  }
   db.users ||= {}; db.payments ||= {}; db.refunds ||= {};
   for (const u of Object.values(db.users)) migrate(u);
   // the cookie key: from env, else one made once and kept next to the accounts
@@ -32,15 +39,32 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
   const admins = new Set(adminEmails.map(normEmail).filter(Boolean));
   const keyBox = createHmac('sha256', key).update('handcam-byok-v1').digest(); // encrypts customers' own AI keys
 
+  // what the database last got, per row: save() writes only rows that changed since
+  const sent = new Map();
+  const mark = () => {
+    for (const u of Object.values(db.users)) sent.set(`u:${u.id}`, JSON.stringify(u));
+    for (const [id, p] of Object.entries(db.payments)) sent.set(`p:${id}`, JSON.stringify(p));
+    for (const [id, r] of Object.entries(db.refunds)) sent.set(`r:${id}`, JSON.stringify(r));
+  };
+  if (!imported) mark();
   let saving = Promise.resolve();
-  function save() { // serialised atomic writes: a crash never leaves half a file
+  function save() { // serialised: database first (changed rows only), then the atomic file mirror
     saving = saving.then(async () => {
+      if (store) {
+        const users = [], pays = [];
+        for (const u of Object.values(db.users)) { const j = JSON.stringify(u); if (sent.get(`u:${u.id}`) !== j) { users.push(u); sent.set(`u:${u.id}`, j); } }
+        for (const [id, x] of Object.entries(db.payments)) { const j = JSON.stringify(x); if (sent.get(`p:${id}`) !== j) { pays.push([id, x]); sent.set(`p:${id}`, j); } }
+        for (const [id, x] of Object.entries(db.refunds)) { const j = JSON.stringify(x); if (sent.get(`r:${id}`) !== j) { pays.push([`refund:${id}`, x]); sent.set(`r:${id}`, j); } }
+        try { await store.saveUsers(users); await store.savePayments(pays); }
+        catch (e) { for (const u of users) sent.delete(`u:${u.id}`); for (const [id] of pays) sent.delete(id.startsWith('refund:') ? `r:${id.slice(7)}` : `p:${id}`); throw e; } // retried on the next save
+      }
       const tmp = `${file}.tmp`;
       await writeFile(tmp, JSON.stringify(db, null, 1));
       await rename(tmp, file);
-    }).catch((e) => console.warn('could not save accounts:', e.message));
+    }).catch((e) => log.warn('could not save accounts:', e.message));
     return saving;
   }
+  if (imported) { await save(); log.log(`accounts: moved ${Object.keys(db.users).length} account(s) from ${file} to Supabase`); }
   const byEmail = (email) => Object.values(db.users).find((u) => u.email === email) || null;
   const must = (id) => db.users[id] || (() => { throw err('no such account', 404); })();
   const note = (u, entry) => {
@@ -102,9 +126,31 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
       await save();
       return db.users[id];
     },
+    /**
+     * Someone Supabase Auth vouches for (Google, or a confirmed email). Their HandCam account by Supabase id, else the
+     * account with that email (now linked to them), else a new Free account with the trial videos.
+     */
+    async fromAuth({ authId, email, name = '' }) {
+      email = normEmail(email);
+      if (!authId || !okEmail(email)) throw err('Sign-in didn’t give an email. Try again.', 400);
+      let u = Object.values(db.users).find((x) => x.authId === authId) || byEmail(email);
+      if (u) {
+        if (u.authId && u.authId !== authId) throw err('That email belongs to a different sign-in. Use the one you signed up with.', 409);
+        if (!u.authId || (name && !u.name)) { u.authId = authId; if (name && !u.name) u.name = String(name).slice(0, 60); note(u, { why: 'signed in with Supabase' }); await save(); }
+        return { user: u, created: false };
+      }
+      const id = randomBytes(9).toString('base64url');
+      const trial = pricing.trial?.videos ?? 0;
+      db.users[id] = { id, authId, email, name: String(name || '').trim().slice(0, 60), created: now().toISOString(), trial, topup: 0, sub: null, allowance: null, lifetime: null, hold: null, ledger: [] };
+      note(db.users[id], { trial, why: 'welcome' });
+      await save();
+      return { user: db.users[id], created: true };
+    },
+
     async login({ email, password }) {
       const u = byEmail(normEmail(email));
       const fail = () => err('Wrong email or password.', 401);
+      if (u && !u.hash) throw err('This account signs in with Google or with the email sign-in. Use those instead.', 401);
       if (!u) { await hash(password); throw fail(); } // same time either way
       const { hash: h } = await hash(password, u.salt);
       const a = Buffer.from(h, 'hex'), b = Buffer.from(u.hash, 'hex');

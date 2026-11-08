@@ -21,6 +21,7 @@ import { publicCatalogue } from './plans.js';
 import { runScore } from './make/score.js';
 import { spawn } from 'node:child_process';
 import { makeAccounts } from './accounts.js';
+import { makeSupabase } from './supa.js';
 import { loadPricing } from './billing.js';
 import { makeDodo, makePayRoutes, productIds } from './payments.js';
 import { rateLimit, clientIp } from './limits.js';
@@ -40,7 +41,9 @@ const app = express();
 app.set('trust proxy', true); // behind cloudflared / Render: req.protocol is https when the visitor's is
 // ---- accounts, plans and payments (Phase 5, 5c: docs/PRICING-PLAN.md) ----
 const pricing = loadPricing(join(ROOT_DIR, 'config', 'pricing.json'));
-const accounts = await makeAccounts({ dir: DATA_DIR, secret: process.env.SESSION_SECRET, pricing, adminEmails: (process.env.ADMIN_EMAILS || '').split(',') });
+// Supabase (Phase 5d): sign-in and the accounts database. Without its env vars HandCam keeps working on the file.
+const supa = makeSupabase({ url: process.env.SUPABASE_URL, publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY, secretKey: process.env.SUPABASE_SECRET_KEY });
+const accounts = await makeAccounts({ store: supa.store, dir: DATA_DIR, secret: process.env.SESSION_SECRET, pricing, adminEmails: (process.env.ADMIN_EMAILS || '').split(',') });
 const dodoMode = process.env.DODO_MODE === 'live' ? 'live' : 'test';
 const dodo = makeDodo({ apiKey: process.env.DODO_PAYMENTS_API_KEY, mode: dodoMode });
 const products = await productIds(pricing, dodoMode, join(ROOT_DIR, 'config', `dodo-products.${dodoMode}.json`));
@@ -113,6 +116,22 @@ app.post('/api/account/login', async (req, res) => {
     const u = await accounts.login(req.body || {});
     res.setHeader('Set-Cookie', accounts.cookieFor(u, { secure: secure(req) }));
     res.json({ account: accounts.pub(u) });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+// Sign-in through Supabase Auth (Google, email + password): the browser sends its access token once, we check it with
+// Supabase and hand out HandCam's own session cookie. Both config values are public (publishable key).
+app.get('/api/auth/config', (req, res) => res.json({ supabase: supa.publicConfig() }));
+app.post('/api/account/supabase', async (req, res) => {
+  if (!authLimit(clientIp(req))) return res.status(429).json({ error: 'Too many tries. Wait a little and try again.' });
+  try {
+    const who = await supa.userFromToken(String(req.body?.access_token || ''));
+    if (!who) return res.status(401).json({ error: 'That sign-in didn’t work. Try again.' });
+    if (!who.verified) return res.status(403).json({ error: 'Confirm your email first: open the link Supabase sent you.', code: 'confirm' });
+    const known = accounts.byEmail(who.email);
+    if (!known && !isLocal(req) && !signupLimit(clientIp(req))) return res.status(429).json({ error: 'Too many new accounts from here. Try again later.' });
+    const { user, created } = await accounts.fromAuth({ authId: who.id, email: who.email, name: who.name });
+    res.setHeader('Set-Cookie', accounts.cookieFor(user, { secure: secure(req) }));
+    res.json({ account: accounts.pub(user), created });
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 app.post('/api/account/logout', (req, res) => { res.setHeader('Set-Cookie', accounts.clearCookie({ secure: secure(req) })); res.json({ ok: true }); });
@@ -225,6 +244,7 @@ server.listen(PORT, () => {
   console.log(`HandCam relay  →  http://localhost:${PORT}/desk   (LAN: http://${lanIp()}:${PORT})`);
   console.log(process.env.ANTHROPIC_API_KEY ? `scenes: Claude (${process.env.ANTHROPIC_MODEL || DEFAULT_MODEL})` : 'scenes: templates only (set ANTHROPIC_API_KEY for AI blockouts)');
   console.log(`make video: ${Object.values(recipes).map((r) => `${r.label}${providerReady(r.provider) ? '' : ' (needs HF_API_KEY_ID/SECRET)'}`).join(', ')}`);
+  console.log(`sign-in: ${supa.authReady ? 'Supabase (Google, email)' : 'built-in email + password'}   database: ${supa.dbReady ? 'Supabase' : 'file only'}`);
   console.log(`accounts: ${DATA_DIR}   payments: ${dodo.ready ? `Dodo ${dodoMode}${Object.values(products).every(Boolean) ? '' : ' (plans not set up: npm run dodo:setup)'}` : 'off (set DODO_PAYMENTS_API_KEY)'}   real AI for customers: ${flag(process.env.REAL_AI) ? 'on' : 'off'}`);
   console.log(`room ${DEFAULT_ROOM}${PUBLIC_URL ? `   public: ${PUBLIC_URL}` : '   (set PUBLIC_URL to your https tunnel for phone testing)'}`);
 });

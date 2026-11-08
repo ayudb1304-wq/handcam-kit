@@ -154,3 +154,9 @@ select { appearance: none; padding-right: 32px; background-image: linear-gradien
 .btn.locked::after { content: '🔒'; font-size: 11px; margin-left: 2px; opacity: .8; }
 @media (max-width: 900px) { .plan-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .plan-grid { grid-template-columns: 1fr; } .life { flex-direction: column; align-items: stretch; } }
+
+/* Phase 5d: Continue with Google */
+.btn.google { display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff; color: #1f1f1f; border: 1px solid #dadce0; font-weight: 600; }
+.btn.google:hover { background: #f7f8f8; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--mute); font-size: 12px; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line-2); }
