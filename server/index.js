@@ -30,7 +30,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENV_FILE = join(__dirname, '..', '.env');
 if (existsSync(ENV_FILE)) process.loadEnvFile ? process.loadEnvFile(ENV_FILE) : console.warn('.env found but this Node is too old to load it; export the variables instead');
 const PORT = Number(process.env.PORT || 3000);
-const PUBLIC_URL = process.env.PUBLIC_URL || '';
+const PUBLIC_URL = process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || ''; // Render sets RENDER_EXTERNAL_URL itself
 
 const ROOT_DIR = join(__dirname, '..');
 const DATA_DIR = process.env.DATA_DIR || join(ROOT_DIR, 'data'); // Render: a persistent disk, e.g. /var/data
@@ -44,7 +44,7 @@ const accounts = await makeAccounts({ dir: DATA_DIR, secret: process.env.SESSION
 const dodoMode = process.env.DODO_MODE === 'live' ? 'live' : 'test';
 const dodo = makeDodo({ apiKey: process.env.DODO_PAYMENTS_API_KEY, mode: dodoMode });
 const products = await productIds(pricing, dodoMode, join(ROOT_DIR, 'config', `dodo-products.${dodoMode}.json`));
-const publicBase = (req) => (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+const publicBase = (req) => (PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
 const pay = makePayRoutes({ dodo, accounts, pricing, products, publicBase, webhookSecret: process.env.DODO_WEBHOOK_SECRET });
 app.use('/api/pay', pay.api); // before express.json: the webhook needs the raw body for its signature
 app.use(pay.pages);

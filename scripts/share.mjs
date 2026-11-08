@@ -23,7 +23,9 @@ const onOut = async (buf) => {
   // payments: point the Dodo webhook at this link (renewals, failed cards and refunds arrive there), then start the server
   const { pointWebhook } = await import('./dodo-webhook.mjs');
   if (existsSync('.env') && process.loadEnvFile) process.loadEnvFile('.env');
-  try { await pointWebhook(url); } catch (e) { console.warn(`webhook not updated (${e.message}); plan renewals won't reach HandCam on this link`); }
+  // once HandCam lives on Render, the webhook belongs to the Render address: DODO_WEBHOOK_HOME in .env stops share moving it
+  if (process.env.DODO_WEBHOOK_HOME) console.log(`webhook: stays on ${process.env.DODO_WEBHOOK_HOME} (DODO_WEBHOOK_HOME); payments made through this link are still confirmed on return`);
+  else try { await pointWebhook(url); } catch (e) { console.warn(`webhook not updated (${e.message}); plan renewals won't reach HandCam on this link`); }
   const server = spawn(process.execPath, ['server/index.js'], { stdio: 'inherit', env: { ...process.env, PORT, PUBLIC_URL: url } });
   kids.push(server);
   server.on('exit', (c) => { console.log(`server stopped (${c})`); stop(); });
