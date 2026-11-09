@@ -242,3 +242,18 @@ test('product references go after the step’s own pictures, with a note to keep
   assert.equal(withRefs(input, []), input, 'no references: the request is unchanged');
   assert.deepEqual(input.image_urls, ['start.png'], 'the recipe input is not changed in place');
 });
+
+test('Seedance takes up to 10 s: a longer take is refused with the reason, never cut silently', async () => {
+  const recipes = await loadRecipes(new URL('../recipes', import.meta.url).pathname);
+  assert.equal(recipes['seedance-2.5'].maxDurationS, 10);
+  const { MAX_TAKE_S } = await import('../public/shared/protocol.js');
+  assert.ok(MAX_TAKE_S <= recipes['seedance-2.5'].maxDurationS, 'the phone stops before the model’s limit');
+  const dir = await mkdtemp(join(tmpdir(), 'maxdur-'));
+  const scene = await loadTemplate('parking-lot');
+  const jobs = makeJobs({ dir, recipes, providers: {}, score: async () => ({}) });
+  const long = { ...take, samples: Array.from({ length: 700 }, (_, i) => ({ ts: i * 16.67, q: [0, 0, 0, 1], p: [0, 1.6, 7] })) }; // 11.7 s
+  await assert.rejects(jobs.create({ take: long, scene, look: 'night', recipeId: 'seedance-2.5' }), /11\.7 s.*up to 10 s/);
+  const ok = { ...take, samples: Array.from({ length: 600 }, (_, i) => ({ ts: i * 16.67, q: [0, 0, 0, 1], p: [0, 1.6, 7] })) }; // 9.98 s
+  assert.equal((await jobs.create({ take: ok, scene, look: 'night', recipeId: 'seedance-2.5' })).durationS, 10);
+  await rm(dir, { recursive: true, force: true });
+});

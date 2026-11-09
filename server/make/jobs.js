@@ -64,11 +64,13 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     const versionCount = pickVersions(recipe, versions);
     const id = `${new Date().toISOString().slice(0, 10)}-${randomUUID().slice(0, 8)}`;
     const durationMs = take.samples.at(-1).ts;
+    const maxS = recipe.maxDurationS ?? 15;
+    if (Math.round(durationMs / 1000) > maxS) throw Object.assign(new Error(`This take is ${(durationMs / 1000).toFixed(1)} s. ${recipe.label} takes up to ${maxS} s: shoot it again a little shorter.`), { status: 400 });
     const job = {
       id, createdAt: new Date().toISOString(), recipeId, provider: recipe.provider, demo: Boolean(demo),
       look: look.trim(), take: { id: take.id, label: take.label || null, durationS: +(durationMs / 1000).toFixed(2) },
       aspect: (take.view?.aspect ?? 0.5) < 1 ? '9:16' : '16:9', resolution, versions: versionCount,
-      durationS: Math.min(recipe.maxDurationS ?? 15, Math.max(recipe.minDurationS ?? 4, Math.round(durationMs / 1000))),
+      durationS: Math.min(maxS, Math.max(recipe.minDurationS ?? 4, Math.round(durationMs / 1000))),
       status: 'uploading', urls: {}, startImages: [], candidates: [], best: null, outcome: null, error: null, log: [],
       userId, priority, byok: Boolean(byok), ...(refs && { refs: true }),
     };

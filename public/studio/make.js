@@ -46,6 +46,11 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
     if (blocked) { $('costText').textContent = blocked; $('costEta').textContent = ''; btn.disabled = true; return; }
     if (!take) { $('costText').textContent = 'Pick a take first'; $('costEta').textContent = ''; btn.disabled = true; return; }
     if (!r) return;
+    const takeS = (take.samples?.at(-1)?.ts ?? 0) / 1000;
+    if (Math.round(takeS) > (r.maxDurationS ?? 15)) { // same rule as the server: too long for this model, never cut silently
+      $('costText').textContent = `This take is ${takeS.toFixed(1)} s. ${r.label} takes up to ${r.maxDurationS} s: shoot it again a little shorter.`;
+      $('costEta').textContent = ''; btn.disabled = true; return;
+    }
     const free = r.provider === 'mock' && !cfg.chargePractice;
     // same length rule as the server: whole seconds, within the recipe's limits
     const secs = Math.min(r.maxDurationS ?? 15, Math.max(r.minDurationS ?? 4, Math.round((take.samples?.at(-1)?.ts ?? 0) / 1000)));

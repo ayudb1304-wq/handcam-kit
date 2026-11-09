@@ -156,7 +156,7 @@
 
 <script type="module">
 import * as THREE from './shared/three.js';
-import { MSG, connectRelay } from './shared/protocol.js';
+import { MSG, MAX_TAKE_S, connectRelay } from './shared/protocol.js';
 import { orientationToQuaternion, requestMotionPermission, screenAngle } from './shared/orientation.js';
 import { renderScene, povStage, animateScene, motionLength } from './shared/scene-render.js';
 import { frameAt } from './shared/motion.js';
@@ -445,7 +445,7 @@ function setRec(on) {
   frameBtn.disabled = on; rigBtn.disabled = on;
   if (on && rig === 'dolly') { const f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); f.y = 0; dollyDir = f.lengthSq() > 1e-6 ? f.normalize() : null; }
   if (!on) dollyDir = null;
-  if (on) { samples = []; recStart = null; lastSampleT = -Infinity; lastSay = 0; rates.sensor = rates.frames = 0; rehearseStart = null; rehearseBtn.classList.remove('on'); say('● 0:00', true); }
+  if (on) { samples = []; recStart = null; lastSampleT = -Infinity; lastSay = 0; rates.sensor = rates.frames = 0; rehearseStart = null; rehearseBtn.classList.remove('on'); say(`● 0:00 / ${clock(MAX_TAKE_S * 1000)}`, true); }
   else finishTake();
 }
 recBtn.onclick = () => setRec(!recording);
@@ -483,7 +483,7 @@ const clock = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) 
 // the screen manages: a phone in Low Power Mode or a heavy set draws only 30 frames a second, and one sample per frame
 // lost half of a fast whip (DECISIONS §16, revised). Values are exactly what the view uses: unfiltered, never smoothed.
 const sq = new THREE.Quaternion();
-let lastSampleT = -Infinity, lastSay = 0;
+let lastSampleT = -Infinity, lastSay = 0, stopping = false;
 const rates = { sensor: 0, frames: 0 };
 /** Rotation samples follow the sensor unless a tracker (ARKit/WebXR) or a ride drives the camera: then frames do. */
 const sensorSampling = () => !ride && !(ext && !ext.off);
@@ -497,6 +497,10 @@ function recordSample(t, qq, pos) {
   if (recStart === null) recStart = t;
   const ts = t - recStart;
   if (samples.length && ts <= samples.at(-1).ts) return; // the same moment twice
+  if (ts > MAX_TAKE_S * 1000) { // the longest take: stop by itself (after this reading, not inside the sensor event)
+    if (!stopping) { stopping = true; setTimeout(() => { stopping = false; if (recording) { setRec(false); say(`Stopped at ${MAX_TAKE_S} s, the longest take`); } }, 0); }
+    return;
+  }
   lastSampleT = t;
   samples.push({ ts, q: [qq.x, qq.y, qq.z, qq.w], p: pos.toArray(), f: lens });
 }
@@ -536,7 +540,7 @@ function frame(t) {
     rates.frames++;
     // a frame records only when the sensor isn't (a tracker, a ride) or has gone quiet for 40 ms
     if (haveOrientation && (!sensorSampling() || t - lastSampleT > 40)) recordSample(t, q, camera.position);
-    if (recStart !== null && t - lastSay > 500) { lastSay = t; say(`● ${clock(t - recStart)}`, true); }
+    if (recStart !== null && t - lastSay > 500) { lastSay = t; say(`● ${clock(t - recStart)} / ${clock(MAX_TAKE_S * 1000)}`, true); }
   }
   if (haveOrientation && t - lastSample >= SAMPLE_MS) {
     lastSample = t;

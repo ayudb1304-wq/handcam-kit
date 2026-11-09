@@ -200,3 +200,6 @@ Locks live in their own `locks.json` per job (the video pipeline writes `job.jso
 ## 47. Product references to the AI: built, off for customers until tested
 The product photo and logo can go to the AI as extra reference images after the first frame (`withRefs` in jobs.js, with a note to keep the product exactly). Whether Qwen-Image edit and Seedance 2.5 reference-to-video actually keep a product this way needs real generations, so it is on only for the founder (`refs` in `/api/make/config`; `REFS_FOR_CUSTOMERS=on` opens it) and labelled "testing" in the studio. The note text can be overridden per recipe (`refsNote`, private). Logo lock does not depend on it.
 
+
+## 48. Takes stop at 10 seconds
+Seedance 2.5 accepts at most 10 s of reference video, so the phone stops recording by itself at `MAX_TAKE_S` (10 s, `public/shared/protocol.js`) and shows "● 0:07 / 0:10" while recording. The Seedance recipe's `maxDurationS` is 10, and a longer take (older takes) is refused with its length and the limit, in the studio and on the server, instead of being cut silently (a 21 s take sent as 15 s scored 32% move match).

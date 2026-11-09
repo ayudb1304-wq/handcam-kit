@@ -15,6 +15,9 @@ export const MSG = Object.freeze({
 
 export const ROLES = Object.freeze(['cam', 'desk']);
 
+/** The longest take, in seconds: the phone stops recording here. Seedance 2.5 takes at most 10 s of reference video. */
+export const MAX_TAKE_S = 10;
+
 /** Optional take.label: which standard test shot a take is (lab recipe tests), or 'other'. */
 export const SHOTS = Object.freeze(['1 slow walk', '2 walk past', '3 half circle', '4 whip', '5 crouch', 'other']);
 
