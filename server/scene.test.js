@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { validateScene } from './validate-scene.js';
-import { matchTemplate, listTemplates, loadTemplate, buildScene, DEFAULT_MODEL, firstJsonObject } from './scene.js';
+import { matchTemplate, listTemplates, loadTemplate, buildScene, makeSceneCache, promptKey, DEFAULT_MODEL, firstJsonObject } from './scene.js';
 
 const ACCEPT_PROMPT = 'parking lot at night, one car, a guy stuck between two cars';
 const minimal = () => ({ units: 'm', spawn: { p: [0, 1.6, 6] }, objects: [{ id: 'ground', type: 'plane', size: [20, 20] }] });
@@ -176,4 +176,24 @@ test('the first JSON object is read even with prose or a second object after it'
   assert.equal(firstJsonObject('Here: {"a":{"b":"}"}} and also {"c":1}'), '{"a":{"b":"}"}}');
   assert.equal(firstJsonObject('```json\n{"x":"a \\" }"}\n```'), '{"x":"a \\" }"}');
   assert.throws(() => firstJsonObject('{"a":1'), /cut off/);
+});
+
+test('same words, same set: a remembered set costs no second Claude call, and survives a restart', async () => {
+  const { mkdtemp } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const file = join(await mkdtemp(join(tmpdir(), 'scenecache-')), 'scene-cache.json');
+  let calls = 0;
+  const fetchImpl = async () => { calls++; return llmReply(minimal())(); };
+  const env = { ANTHROPIC_API_KEY: 'k' };
+  const a = await buildScene('Office, two people at a desk', { env, fetchImpl, cache: makeSceneCache(file) });
+  const b = await buildScene('  office two people at a DESK! ', { env, fetchImpl, cache: makeSceneCache(file) }); // new cache = a restart
+  assert.equal(calls, 1, 'second build came from the cache');
+  assert.equal(b.source, 'llm');
+  assert.deepEqual(b.scene.objects, a.scene.objects);
+  assert.notEqual(b.scene.id, undefined);
+  assert.equal(promptKey('Office, two people at a desk'), 'office two people at a desk');
+  const c = await buildScene('a different room', { env, fetchImpl, cache: makeSceneCache(file) });
+  assert.equal(calls, 2, 'different words still reach Claude');
+  assert.equal(c.source, 'llm');
 });

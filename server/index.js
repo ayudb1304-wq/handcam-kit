@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { MSG, ROLES, makeRoomCode } from '../public/shared/protocol.js';
-import { buildScene, DEFAULT_MODEL } from './scene.js';
+import { buildScene, makeSceneCache, DEFAULT_MODEL } from './scene.js';
 import { validateScene } from './validate-scene.js';
 import { checkLabTake, isLocal, saveLabTake } from './lab.js';
 import { loadRecipes } from './make/recipe.js';
@@ -146,6 +146,7 @@ app.post('/api/account/logout', (req, res) => { res.setHeader('Set-Cookie', acco
 
 // Scene from a sentence: Claude if ANTHROPIC_API_KEY is set, else (or on failure) a keyword-matched template.
 // Rate-limited per visitor before the URL is public (each build spends our Claude key): DECISIONS §15.
+const sceneCache = makeSceneCache(join(DATA_DIR, 'scene-cache.json')); // same words, same set, one Claude call
 const sceneLimitAnon = rateLimit({ perHour: Number(process.env.SCENE_LIMIT_ANON || 15) });
 const sceneLimitUser = rateLimit({ perHour: Number(process.env.SCENE_LIMIT_USER || 80) });
 app.post('/api/scene', async (req, res) => {
@@ -155,7 +156,7 @@ app.post('/api/scene', async (req, res) => {
     if (!ok) return res.status(429).json({ error: user ? 'That’s a lot of sets for one hour. Try again a bit later.' : 'Sign in to build more sets this hour.', code: user ? 'limit' : 'signin' });
   }
   const current = req.body?.current && !validateScene(req.body.current).length ? req.body.current : undefined;
-  res.json(await buildScene(req.body?.prompt, { current }));
+  res.json(await buildScene(req.body?.prompt, { current, cache: sceneCache }));
 });
 
 // Send to lab: save a take + its set under lab/takes/ for recipe tests. Laptop only, never via the tunnel.

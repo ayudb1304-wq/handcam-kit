@@ -1,6 +1,6 @@
 // Scene from a sentence. Claude when ANTHROPIC_API_KEY is set, otherwise (or on any failure) a template.
 // Kept out of index.js so tests can import it without starting the server.
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { validateScene } from './validate-scene.js';
@@ -110,13 +110,35 @@ export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImp
   return scene;
 }
 
+// ---- remembered sets ------------------------------------------------------------
+// The same words build the same set: a new set from Claude is kept under its normalised prompt, so the studio's
+// suggestion buttons (and anyone retyping the same words) cost one Claude call ever, not one per click.
+export const promptKey = (prompt) => String(prompt || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+/** A small prompt -> scene store, kept in a JSON file (DATA_DIR) so it survives restarts. Oldest entries go first. */
+export function makeSceneCache(file, { max = 400, log = console } = {}) {
+  let map = null;
+  const ready = (async () => {
+    try { map = new Map(Object.entries(JSON.parse(await readFile(file, 'utf8')))); } catch { map = new Map(); }
+  })();
+  return {
+    async get(key) { await ready; return map.get(key) || null; },
+    async set(key, scene) {
+      await ready;
+      map.delete(key); map.set(key, scene);
+      while (map.size > max) map.delete(map.keys().next().value);
+      try { await mkdir(dirname(file), { recursive: true }); await writeFile(file, JSON.stringify(Object.fromEntries(map))); }
+      catch (e) { log.warn(`[scene] could not save the set cache: ${e.message}`); }
+    },
+  };
+}
+
 // ---- the one entry point used by /api/scene --------------------------------
 /**
  * → { scene, source: 'llm'|'template'|'edit', note? }. Never throws for a bad prompt or a dead API.
  * With `current` (Phase 3 "edit with words") Claude changes that set instead of making a new one; without a key, or if
  * the edit fails, the current set comes back unchanged with a note (a template would throw the user's set away).
  */
-export async function buildScene(prompt, { env = process.env, fetchImpl, log = console, current } = {}) {
+export async function buildScene(prompt, { env = process.env, fetchImpl, log = console, current, cache } = {}) {
   prompt = String(prompt || '').slice(0, 2000);
   if (current && typeof current === 'object') {
     if (!env.ANTHROPIC_API_KEY) return { scene: current, source: 'edit', unchanged: true, note: 'Changing the set with words needs the AI blockout (ANTHROPIC_API_KEY). Drag objects instead.' };
@@ -129,10 +151,13 @@ export async function buildScene(prompt, { env = process.env, fetchImpl, log = c
     }
   }
   let scene, source = 'template', note;
-  if (env.ANTHROPIC_API_KEY && prompt.trim()) {
+  const key = promptKey(prompt), kept = cache && key ? await cache.get(key) : null;
+  if (kept) { scene = structuredClone(kept); source = 'llm'; } // built before: no Claude call
+  else if (env.ANTHROPIC_API_KEY && prompt.trim()) {
     try {
       scene = await llmScene(prompt, { apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, fetchImpl });
       source = 'llm';
+      if (cache && key) await cache.set(key, structuredClone(scene));
     } catch (e) {
       note = `AI blockout failed, using a template (${e.message})`;
       log.warn(`[scene] ${note}`);

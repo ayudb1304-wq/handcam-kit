@@ -611,7 +611,12 @@ if (SOLO) {
     let last = null;
     try { const id = localStorage.getItem('handcam.soloScene'); if (id) last = await getScene(id); } catch {}
     if (last) { setScene(last); $id('soloPrompt').value = last.prompt || ''; }
-    else soloBuild('parking lot at night, a man standing by a car');
+    else { // first visit: the ready-made demo set, no Claude call (Build makes your own)
+      const s = await (await fetch('/demo/scene.json')).json();
+      s.setId ||= s.id; setScene(s); putScene(s).catch(() => {});
+      try { localStorage.setItem('handcam.soloScene', s.id); } catch {}
+      say('Starter set ready. Tap Re-anchor, then ●');
+    }
   })();
 }
 

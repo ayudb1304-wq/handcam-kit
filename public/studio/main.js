@@ -546,7 +546,7 @@ else {
   let last = null;
   try { const id = localStorage.getItem('handcam.lastSceneId'); if (id) last = await getScene(id); } catch {}
   if (last) useScene(last); // the set you were working on, as you left it
-  else build($('prompt').value.trim() || 'parking lot');
+  else useScene(await (await fetch('/demo/scene.json')).json()); // first visit: the ready-made demo set, no Claude call
 }
 tour.maybeAutoStart(params.has('tour') || params.has('demo'));
 
