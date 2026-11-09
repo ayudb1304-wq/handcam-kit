@@ -1,6 +1,8 @@
 // Make video panel: look → (render grey move + measuring twin) → server job → approve first frame → result.
 // The server does the AI work and the checking (server/make). This file only renders and uploads.
 import { signIn, buyTopups, openPlans } from '../shared/account.js';
+import { logoToPng, blobOf } from '../shared/image.js';
+import { getKit, setLogo } from '../shared/refs.js';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ACTIVE = new Set(['uploading', 'preparing', 'start_image', 'making', 'checking']);
@@ -21,8 +23,26 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
   function showForm() { clearTimeout(timer); job = null; box.hidden = true; form.hidden = false; costLine(); }
 
   const recipe = () => recipes.find((r) => r.id === sel.value);
+  /** The product as it really is, for this take's set: its photo (from building the set) and the brand's logo. */
+  async function productRefs(take) {
+    const scene = take && (await takeScene(take));
+    const [kit, brand] = await Promise.all([getKit(scene?.setId || scene?.id), getKit('__brand')]);
+    return { subject: kit.subject[0] || null, logo: brand.logo || null };
+  }
+  let refsFor = null;
+  async function showRefs(take) {
+    const row = $('refsRow');
+    if (!cfg.refs || !take || recipe()?.provider === 'mock') { row.hidden = true; refsFor = null; return; }
+    if (refsFor === take.id) return;
+    refsFor = take.id;
+    const { subject, logo } = await productRefs(take).catch(() => ({}));
+    row.hidden = !subject && !logo;
+    $('refThumbs').innerHTML = [subject, logo].filter(Boolean).map((p) => `<img src="${p.dataUrl}" alt="">`).join('');
+    $('refsText').textContent = subject ? `Keep my product exactly as in my photo${logo ? ', with my logo' : ''}` : 'Keep my logo exactly as it is';
+  }
   function costLine() {
     const r = recipe(), take = getTake();
+    showRefs(take).catch(() => {});
     if (blocked) { $('costText').textContent = blocked; $('costEta').textContent = ''; btn.disabled = true; return; }
     if (!take) { $('costText').textContent = 'Pick a take first'; $('costEta').textContent = ''; btn.disabled = true; return; }
     if (!r) return;
@@ -129,13 +149,17 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const ref = await exportTake(take, scene, { onProgress: (f) => step(`Preparing your move ${Math.round(f * 50)}%`) });
       const twin = await exportTake(take, scene, { decorate: speckle, onProgress: (f) => step(`Preparing your move ${50 + Math.round(f * 50)}%`) });
       const { labSent, ...cleanTake } = take;
-      const res = await fetch('/api/make', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: cleanTake, scene, look, recipeId: r.id, demo: !!take.demo, quality: qsel.hidden ? undefined : qsel.value, versions: Number(vsel.value) || undefined, byok: r.ownKey ? ownKey() : undefined }) });
+      const refs = !$('refsRow').hidden && $('useRefs').checked ? await productRefs(take) : null;
+      const res = await fetch('/api/make', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: cleanTake, scene, look, recipeId: r.id, demo: !!take.demo, quality: qsel.hidden ? undefined : qsel.value, versions: Number(vsel.value) || undefined, byok: r.ownKey ? ownKey() : undefined, refs: !!refs || undefined }) });
       const out = await res.json();
       if (!res.ok) { if (await needAccount(out)) return; throw new Error(out.error); }
       const files = { 'reference.mp4': ref.mp4, 'measure.mp4': twin.mp4, 'first-frame.png': ref.png };
+      if (out.refUploads && refs?.subject) files['ref-subject.jpg'] = blobOf(refs.subject.dataUrl);
+      if (out.refUploads && refs?.logo) files['ref-logo.png'] = blobOf(refs.logo.dataUrl);
       let i = 0;
+      const count = Object.keys(files).length;
       for (const [name, blob] of Object.entries(files)) {
-        step(`Uploading ${++i}/3…`);
+        step(`Uploading ${++i}/${count}…`);
         const u = await fetch(`/api/make/${out.job.id}/files/${name}`, { method: 'PUT', body: blob });
         if (!u.ok) throw new Error((await u.json().catch(() => ({}))).error || `upload failed (${u.status})`);
       }
@@ -235,6 +259,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       <div class="row wrap"><div class="versions grow">${j.candidates.filter((x) => x.file).map((x) => `<button class="version${x.n === c.n ? ' sel' : ''}" data-v="${x.n}">${x.verdict?.pass ? '✓' : x.verdict?.pass === false ? '⚠' : '·'} V${x.n}${x.match != null ? ` · ${x.match}%` : ''}${x.free ? ' · free' : ''}</button>`).join('')}</div>
         <button class="btn ghost" data-act="more">Make another version</button>
         ${c.preview ? '<span class="note">Preview only: this version was free.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="cinehand-${j.id}-v${c.n}.mp4">Download</a>`}</div>
+      ${c.preview ? '' : lockBoxHtml(j, c)}
       <p class="note">Move match compares the camera’s turns, timing and walking in the AI video with your take. It’s measured, not guessed: the score is the same every time for the same video.</p>
     </div>`;
     m.hidden = false;
@@ -251,6 +276,166 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
     };
     for (const v of m.querySelectorAll('[data-v]')) v.onclick = () => { close(); openResult(j, Number(v.dataset.v)); };
     m.querySelector('[data-act=more]').onclick = async () => { close(); try { show((await post(j.id, 'more')).job); } catch (e) { toast(e.message, 5000); } };
+    if (!c.preview) wireLockBox(m, j, c, (fresh) => { close(); openResult(fresh, n); });
+  }
+
+  // ---- logo lock: the brand's exact logo on the product, in every frame (server/logolock.py) ----
+  function lockBoxHtml(j, c) {
+    const l = j.locks?.[c.n];
+    let body;
+    if (!j.hasLogo) body = `<label class="btn ghost sm">Add your logo (PNG or SVG)<input type="file" data-act="logofile" accept="image/png,image/svg+xml,.svg,.png" hidden></label><button class="btn quiet sm" data-act="mylogo" hidden>Use my last logo</button>`;
+    else if (l?.status === 'working') body = '<span class="note"><span class="spinner"></span> Locking your logo onto every frame… about a minute.</span>';
+    else if (l?.status === 'done') body = `<div class="seg" role="group" aria-label="Show"><button class="seg-b sel" data-act="showlock">With your logo</button><button class="seg-b" data-act="showai">AI video</button></div>
+        <a class="btn primary sm" href="/api/make/${j.id}/media/${l.file}" download="cinehand-${j.id}-v${c.n}-logo.mp4">Download with logo</a>
+        <button class="btn quiet sm" data-act="place">Place again</button>
+        <span class="note">${l.oldLogo ? 'You changed the logo since: place it again to update. ' : ''}${l.locked < 0.9 ? `Hidden in ${Math.round((1 - l.locked) * 100)}% of the frames, where the product left the picture or changed too much to follow.` : 'Held in every frame.'}</span>`;
+    else body = `${l?.status === 'failed' ? `<span class="warn-box">${esc(l.error)}</span>` : ''}<button class="btn primary sm" data-act="place">Place your logo</button>
+        <label class="btn quiet sm">Change logo<input type="file" data-act="logofile" accept="image/png,image/svg+xml,.svg,.png" hidden></label>`;
+    return `<div class="lock-box"><div><b>Logo lock</b> <span class="muted small">Your exact logo on the product in every frame. It is never redrawn, so it can’t change shape.</span></div><div class="row wrap">${body}</div></div>`;
+  }
+
+  function wireLockBox(m, j, c, reopen) {
+    const l = j.locks?.[c.n];
+    const upload = async (logo) => {
+      const r = await fetch(`/api/make/${j.id}/logo`, { method: 'PUT', headers: { 'content-type': 'image/png' }, body: blobOf(logo.dataUrl) });
+      const out = await r.json();
+      if (!r.ok) throw new Error(out.error || 'Could not add the logo.');
+      return out.job;
+    };
+    for (const inp of m.querySelectorAll('[data-act=logofile]')) inp.onchange = async (e) => {
+      const f = e.target.files?.[0]; e.target.value = '';
+      if (!f) return;
+      try {
+        const logo = await logoToPng(f);
+        const fresh = await upload(logo);
+        setLogo('__brand', { dataUrl: logo.dataUrl, width: logo.width, height: logo.height, name: f.name, at: Date.now() }).catch(() => {}); // next time: one tap
+        placeLogo(fresh, c, reopen);
+      } catch (x) { toast(x.message, 5000); }
+    };
+    const mine = m.querySelector('[data-act=mylogo]');
+    if (mine) getKit('__brand').then((k) => {
+      if (!k.logo) return;
+      mine.hidden = false;
+      mine.onclick = async () => { try { placeLogo(await upload(k.logo), c, reopen); } catch (x) { toast(x.message, 5000); } };
+    });
+    m.querySelector('[data-act=place]')?.addEventListener('click', () => placeLogo(j, c, reopen));
+    const v = m.querySelector('#rv1');
+    if (l?.status === 'done' && v) {
+      const src = (file) => { const t = v.currentTime, playing = !v.paused; v.src = `/api/make/${j.id}/media/${file}`; v.currentTime = t; if (playing) v.play(); };
+      const [a, b] = [m.querySelector('[data-act=showlock]'), m.querySelector('[data-act=showai]')];
+      a.onclick = () => { src(l.file); a.classList.add('sel'); b.classList.remove('sel'); };
+      b.onclick = () => { src(c.file); b.classList.add('sel'); a.classList.remove('sel'); };
+      src(l.file);
+    }
+    if (l?.status === 'working') { // check back until it's done
+      const t = setInterval(async () => {
+        if (m.hidden) return clearInterval(t);
+        try {
+          const fresh = (await (await fetch(`/api/make/${j.id}`)).json()).job;
+          if (fresh.locks?.[c.n]?.status !== 'working') { clearInterval(t); reopen(fresh); }
+        } catch {}
+      }, 3000);
+    }
+  }
+
+  /** Place the logo on the first frame: drag it, pull its four corners onto the product's surface, then lock. */
+  async function placeLogo(j, c, reopen) {
+    const m = $('resultModal');
+    const prev = j.locks?.[c.n]?.quad;
+    m.innerHTML = `<div class="card modal-card">
+      <div class="modal-head"><div class="grow"><span class="eyebrow">Logo lock · version ${c.n}</span><h2>Put your logo on the product</h2>
+        <p class="muted" style="margin:6px 0 0">This is the first frame. Drag the logo onto the product, then pull its four corners so it lies flat on the surface (the label, the box side). It will stay there in every frame.</p></div>
+        <button class="btn quiet icon" data-act="close" aria-label="Close">✕</button></div>
+      <div class="place-stage" id="placeStage"><img class="place-frame" id="placeFrame" src="/api/make/${j.id}/media/frame-${c.n}.jpg" alt="First frame"><img class="place-logo" id="placeLogo" src="/api/make/${j.id}/media/logo.png?${Date.now()}" alt="Your logo"><svg class="place-svg" id="placeSvg"><polygon id="placePoly"></polygon></svg></div>
+      <div class="row wrap"><label class="small"><input type="checkbox" id="placeCover" checked> Paint over the AI’s own logo underneath</label><span class="grow"></span>
+        <label class="btn quiet sm">Change logo<input type="file" id="placeLogoFile" accept="image/png,image/svg+xml,.svg,.png" hidden></label>
+        <button class="btn ghost" data-act="back">Back</button><button class="btn primary" data-act="lock">Lock logo</button></div>
+    </div>`;
+    m.hidden = false;
+    m.querySelector('[data-act=close]').onclick = () => { m.hidden = true; m.innerHTML = ''; };
+    m.querySelector('[data-act=back]').onclick = () => reopen(j);
+    $('placeLogoFile').onchange = async (e) => { // a different logo: same place, new picture
+      const f = e.target.files?.[0]; e.target.value = '';
+      if (!f) return;
+      try {
+        const lg = await logoToPng(f);
+        const r = await fetch(`/api/make/${j.id}/logo`, { method: 'PUT', headers: { 'content-type': 'image/png' }, body: blobOf(lg.dataUrl) });
+        const out = await r.json();
+        if (!r.ok) throw new Error(out.error || 'Could not add the logo.');
+        setLogo('__brand', { dataUrl: lg.dataUrl, width: lg.width, height: lg.height, name: f.name, at: Date.now() }).catch(() => {});
+        j = out.job;
+        logo.src = `/api/make/${j.id}/media/logo.png?${Date.now()}`;
+        logo.onload = () => { la = (logo.naturalHeight || 1) / (logo.naturalWidth || 1); draw(); };
+      } catch (x) { toast(x.message, 5000); }
+    };
+    const stage = $('placeStage'), frame = $('placeFrame'), logo = $('placeLogo'), svg = $('placeSvg'), poly = $('placePoly');
+    await Promise.all([frame, logo].map((im) => (im.complete && im.naturalWidth ? null : new Promise((r) => { im.onload = r; im.onerror = r; }))));
+    const fw = frame.naturalWidth || 1, fh = frame.naturalHeight || 1;
+    let la = (logo.naturalHeight || 1) / (logo.naturalWidth || 1);
+    // corners in frame fractions: last placement, else where the logo is recognised, else the middle
+    let q = prev;
+    if (!q) {
+      try { q = (await (await fetch(`/api/make/${j.id}/lock-find`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ n: c.n }) })).json()).quad; } catch {}
+    }
+    if (!q) { const w = 0.22, h = (w * fw * la) / fh; q = [[0.5 - w / 2, 0.5 - h / 2], [0.5 + w / 2, 0.5 - h / 2], [0.5 + w / 2, 0.5 + h / 2], [0.5 - w / 2, 0.5 + h / 2]]; }
+    const handles = q.map((_, i) => { const d = document.createElement('div'); d.className = 'place-handle'; d.dataset.i = i; stage.append(d); return d; });
+    function draw() {
+      const W = frame.clientWidth, H = frame.clientHeight, px = q.map(([x, y]) => [x * W, y * H]);
+      logo.style.width = '100px'; logo.style.height = `${100 * la}px`;
+      logo.style.transform = quadTransform(100, 100 * la, px);
+      handles.forEach((h, i) => { h.style.left = `${px[i][0]}px`; h.style.top = `${px[i][1]}px`; });
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.style.width = `${W}px`; svg.style.height = `${H}px`;
+      poly.setAttribute('points', px.map((p) => p.join(',')).join(' '));
+    }
+    let drag = null;
+    const at = (e) => { const r = frame.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
+    stage.onpointerdown = (e) => {
+      const i = e.target.dataset?.i;
+      if (i == null && e.target !== poly) return;
+      drag = { i: i == null ? null : Number(i), from: at(e), q0: q.map((p) => [...p]) };
+      stage.setPointerCapture(e.pointerId); e.preventDefault();
+    };
+    stage.onpointermove = (e) => {
+      if (!drag) return;
+      const [x, y] = at(e), dx = x - drag.from[0], dy = y - drag.from[1];
+      const next = drag.q0.map((p, k) => (drag.i == null || drag.i === k ? [p[0] + dx, p[1] + dy] : p));
+      if (convex(next)) { q = next; draw(); }
+    };
+    stage.onpointerup = stage.onpointercancel = () => { drag = null; };
+    new ResizeObserver(draw).observe(frame);
+    draw();
+    m.querySelector('[data-act=lock]').onclick = async (e) => {
+      e.target.disabled = true;
+      try { reopen((await post(j.id, 'lock', { n: c.n, quad: q, cover: $('placeCover').checked ? 'auto' : 'off' })).job); }
+      catch (x) { toast(x.message, 5000); e.target.disabled = false; }
+    };
+  }
+
+  /** Is the quad convex and the right way round (no bow ties)? */
+  function convex(q) {
+    let sign = 0;
+    for (let i = 0; i < 4; i++) {
+      const [a, b, c] = [q[i], q[(i + 1) % 4], q[(i + 2) % 4]];
+      const cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+      if (!cr || (sign && Math.sign(cr) !== sign)) return false;
+      sign = Math.sign(cr);
+    }
+    return true;
+  }
+  /** CSS matrix3d that maps a w×h box onto four corners (TL, TR, BR, BL) in pixels: the logo, in perspective. */
+  function quadTransform(w, h, [[x0, y0], [x1, y1], [x2, y2], [x3, y3]]) {
+    const A = [], b = [];
+    for (const [[u, v], [x, y]] of [[[0, 0], [x0, y0]], [[w, 0], [x1, y1]], [[w, h], [x2, y2]], [[0, h], [x3, y3]]]) {
+      A.push([u, v, 1, 0, 0, 0, -u * x, -v * x]); b.push(x);
+      A.push([0, 0, 0, u, v, 1, -u * y, -v * y]); b.push(y);
+    }
+    for (let i = 0; i < 8; i++) { // Gaussian elimination with pivoting
+      let p = i; for (let r = i + 1; r < 8; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]]; [b[i], b[p]] = [b[p], b[i]];
+      for (let r = 0; r < 8; r++) if (r !== i) { const f = A[r][i] / A[i][i]; for (let k = i; k < 8; k++) A[r][k] -= f * A[i][k]; b[r] -= f * b[i]; }
+    }
+    const [a, bb, c, d, e, f, g, hh] = b.map((v, i) => v / A[i][i]);
+    return `matrix3d(${[a, d, 0, g, bb, e, 0, hh, 0, 0, 1, 0, c, f, 0, 1].join(',')})`;
   }
 
   function ringHtml(j, c, size = 64) {

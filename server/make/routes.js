@@ -9,11 +9,12 @@ import express from 'express';
 import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { checkLabTake, isLocal } from '../lab.js';
-import { UPLOADS } from './jobs.js';
+import { UPLOADS, REF_UPLOADS } from './jobs.js';
 import { FREE_BELOW_MATCH, MAX_VERSIONS } from './recipe.js';
 import { unitsPerVersion } from '../billing.js';
+import { isPng, cleanQuad } from './logolock.js';
 
-const MEDIA = /^(start-\d+\.(png|jpg)|video-\d+\.mp4|wm-\d+\.mp4|reference\.mp4|first-frame\.png|preview-\d+\.jpg)$/;
+const MEDIA = /^(ref-subject\.jpg|ref-logo\.png|start-\d+\.(png|jpg)|video-\d+\.mp4|wm-\d+\.mp4|reference\.mp4|first-frame\.png|preview-\d+\.jpg|lock-\d+\.mp4|lockwm-\d+\.mp4|frame-\d+\.jpg|logo\.png)$/;
 
 /**
  * What the browser may see of a job: no provider URLs, no internal request ids; our AI cost only for the founder.
@@ -40,7 +41,18 @@ export function publicJob(job, recipe, { admin = true } = {}) {
   return out;
 }
 
-export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForCustomers = false, chargePractice = false, preview, watermark }) {
+/** Logo locks as the browser may see them: a customer on a trial gets the watermarked copy. */
+export function publicLocks(locks, job, { full = true } = {}) {
+  const out = {};
+  for (const [n, l] of Object.entries(locks || {})) {
+    if (!/^\d+$/.test(n)) continue;
+    const { status, quad, cover, locked, motion, coverUsed, oldLogo, error } = l;
+    out[n] = { status, quad, cover, locked, motion, coverUsed, oldLogo, error, file: l.file && (job.watermark && !full ? `lockwm-${n}.mp4` : l.file) };
+  }
+  return out;
+}
+
+export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForCustomers = false, chargePractice = false, preview, watermark, logolock = null, refsForCustomers = false }) {
   const r = express.Router();
   const who = (req) => {
     const local = isLocal(req), user = accounts?.userFrom(req) || null;
@@ -66,7 +78,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   r.get('/config', (req, res) => {
     const w = req.who;
     res.json({
-      freeBelowMatch: FREE_BELOW_MATCH, maxVersions: MAX_VERSIONS, admin: w.admin, signedIn: !!(w.user || w.local),
+      freeBelowMatch: FREE_BELOW_MATCH, maxVersions: MAX_VERSIONS, admin: w.admin, signedIn: !!(w.user || w.local), refs: w.admin || refsForCustomers,
       account: accounts?.pub(w.user) || null,
       ent: w.ent,
       pricing: pricing && { qualityUnits: pricing.qualityUnits, longTakeSeconds: pricing.longTakeSeconds, currency: pricing.currency, trial: pricing.trial || null },
@@ -85,11 +97,12 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
 
   r.get('/', async (req, res) => {
     const list = (await jobs.list()).filter((j) => owns(req.who, j));
-    res.json({ jobs: list.map((j) => publicJob(j, recipes[j.recipeId], req.who)) });
+    res.json({ jobs: await Promise.all(list.map((j) => withLocks(j, req.who))) });
   });
 
   r.post('/', async (req, res) => {
     const { take, scene, look, recipeId, demo, quality, versions } = req.body || {};
+    const refs = req.body?.refs === true && (req.who.admin || refsForCustomers); // product photo + logo to the AI: founder only until tested
     const errors = checkLabTake({ take: { ...take, label: undefined }, scene });
     if (errors.length) return res.status(400).json({ error: errors.slice(0, 2).join('; ') });
     const w = req.who, recipe = recipes[recipeId];
@@ -99,10 +112,10 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     if (recipe && !byok && !allowed(w, recipe)) return res.status(400).json({ error: `${recipe.label}: ${whyNot(w, recipe) === 'not set up on this server' ? 'isn’t set up on this server yet' : 'real AI video is switched off for this test. Try Practice.'}` });
     try {
       const job = await jobs.create({
-        take, scene, look, recipeId, demo, quality, versions, userId: w.user?.id || null, unitFor: unitFor(w, byok), priority: w.ent?.features.priority ?? 0, byok,
+        take, scene, look, recipeId, demo, quality, versions, userId: w.user?.id || null, unitFor: unitFor(w, byok), priority: w.ent?.features.priority ?? 0, byok, refs,
         check: (j) => { const no = canAfford(w, j, j.versions ?? 1); if (no) throw Object.assign(new Error(no.error), { status: 402, code: no.code }); }, // before anything is rendered or uploaded
       });
-      res.json({ job: publicJob(job, recipe, req.who), uploads: Object.keys(UPLOADS) });
+      res.json({ job: publicJob(job, recipe, req.who), uploads: Object.keys(UPLOADS), ...(refs && { refUploads: Object.keys(REF_UPLOADS) }) });
     } catch (e) { res.status(e.status || 500).json({ error: e.message, code: e.code }); }
   });
 
@@ -117,7 +130,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   r.put('/:id/files/:name', express.raw({ type: '*/*', limit: '200mb' }), async (req, res) => {
     const job = req.job;
     if (job.status !== 'uploading') return res.status(404).json({ error: 'no such job waiting for files' });
-    if (!(req.params.name in UPLOADS) || !req.body?.length) return res.status(400).json({ error: 'unexpected file' });
+    if (!(req.params.name in UPLOADS || (job.refs && req.params.name in REF_UPLOADS)) || !req.body?.length) return res.status(400).json({ error: 'unexpected file' });
     await writeFile(jobs.path(job.id, req.params.name), req.body);
     res.json({ ok: true });
   });
@@ -153,12 +166,18 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     } finally { reserving.delete(job.id); }
   }
 
+  /** The job for the browser, with its logo locks (kept in their own file, see logolock.js). */
+  async function withLocks(job, w) {
+    const out = publicJob(job, recipes[job.recipeId], w);
+    if (logolock) { out.locks = publicLocks(await logolock.read(job.id), job, { full: w.admin || job.byok }); out.hasLogo = logolock.hasLogo(job); }
+    return out;
+  }
   const step = (fn) => async (req, res) => {
     try {
       const job = await fn(req, res);
       if (res.headersSent) return;
       if (!job) return res.status(404).json({ error: 'no such job' });
-      res.json({ job: publicJob(job, recipes[job.recipeId], req.who), account: accounts?.pub(req.who.user && accounts.get(req.who.user.id)) || null });
+      res.json({ job: await withLocks(job, req.who), account: accounts?.pub(req.who.user && accounts.get(req.who.user.id)) || null });
     } catch (e) { if (!res.headersSent) res.status(e.status || 500).json({ error: e.message }); }
   };
   r.post('/:id/start', step((req) => jobs.start(req.job.id)));
@@ -177,6 +196,36 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   }));
   r.get('/:id', step((req) => req.job));
 
+  // ---- logo lock: the brand's exact logo on the product, in every frame (server/logolock.py) ----
+  /** The version to lock: it must have a video this person may have in full (not a free preview). */
+  const lockable = (req, res) => {
+    const n = Number(req.body?.n), c = req.job.candidates.find((x) => x.n === n);
+    if (!c?.file) { res.status(404).json({ error: 'That version isn’t ready.' }); return null; }
+    if (c.free && !(req.who.admin || req.job.byok)) { res.status(403).json({ error: 'This version was free (under the move-match line): preview only.' }); return null; }
+    return c;
+  };
+  r.put('/:id/logo', express.raw({ type: '*/*', limit: '12mb' }), async (req, res) => {
+    if (!logolock) return res.status(503).json({ error: 'Logo lock isn’t set up on this server.' });
+    if (!isPng(req.body)) return res.status(400).json({ error: 'The logo must be a PNG or SVG file.' });
+    await logolock.saveLogo(req.job, req.body);
+    res.json({ job: await withLocks(req.job, req.who) });
+  });
+  r.post('/:id/lock-find', async (req, res) => {
+    if (!logolock?.hasLogo(req.job)) return res.status(400).json({ error: 'Add your logo first.' });
+    const c = lockable(req, res);
+    if (c) res.json(await logolock.find(req.job, c.file));
+  });
+  r.post('/:id/lock', step(async (req, res) => {
+    if (!logolock?.hasLogo(req.job)) { res.status(400).json({ error: 'Add your logo first.' }); return null; }
+    const c = lockable(req, res);
+    if (!c) return null;
+    const quad = cleanQuad(req.body?.quad);
+    if (!quad) { res.status(400).json({ error: 'Place the logo on the product first (four corners).' }); return null; }
+    const cover = ['auto', 'on', 'off'].includes(req.body?.cover) ? req.body.cover : 'auto';
+    await logolock.start(req.job, c.n, c.file, quad, cover);
+    return req.job;
+  }));
+
   r.get('/:id/media/:file', async (req, res) => {
     const job = req.job, name = req.params.file;
     if (!MEDIA.test(name)) return res.status(404).end();
@@ -191,6 +240,22 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
       if (!c?.file || c.free || !watermark) return res.status(404).end();
       const out = jobs.path(job.id, name);
       if (!existsSync(out)) { try { await watermark(jobs.path(job.id, c.file), out); } catch (e) { console.warn(e.message); return res.status(503).json({ error: 'The video isn’t ready yet. Try again in a moment.' }); } }
+      return res.sendFile(out);
+    }
+    // logo lock: the first frame (placing the logo), the locked video (trial: its watermarked copy), the logo itself
+    const fr = Number(name.match(/^frame-(\d+)\.jpg$/)?.[1]);
+    if (fr) {
+      const c = job.candidates.find((x) => x.n === fr);
+      if (!c?.file || !logolock) return res.status(404).end();
+      try { return res.sendFile(await logolock.firstFrame(job, fr, c.file)); } catch { return res.status(500).end(); }
+    }
+    const ln = Number(name.match(/^lock-(\d+)\.mp4$/)?.[1]);
+    if (ln && !full && (job.watermark || job.candidates.find((c) => c.n === ln)?.free)) return res.status(403).json({ error: 'Free trial videos come with a watermark.', code: 'plan' });
+    const lw = Number(name.match(/^lockwm-(\d+)\.mp4$/)?.[1]);
+    if (lw) {
+      const src = jobs.path(job.id, `lock-${lw}.mp4`), out = jobs.path(job.id, name);
+      if (!existsSync(src) || !watermark) return res.status(404).end();
+      if (!existsSync(out)) { try { await watermark(src, out); } catch { return res.status(503).json({ error: 'The video isn’t ready yet. Try again in a moment.' }); } }
       return res.sendFile(out);
     }
     const pn = Number(name.match(/^preview-(\d+)\.jpg$/)?.[1]);

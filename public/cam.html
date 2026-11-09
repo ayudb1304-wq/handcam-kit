@@ -87,6 +87,7 @@
   #soloTakes li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid var(--line); font-size: 14px; }
   #soloTakes small { display: block; color: var(--mute); font: 11px var(--mono); }
   .solo-hint { margin: 0; color: var(--mute); font-size: 12.5px; }
+  #soloPhoto { cursor: pointer; flex: none; } #soloPhoto.on { outline: 2px solid var(--accent, #e5484d); }
   .hint { position: fixed; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); padding: 18px; border-radius: 18px; display: flex; flex-direction: column; gap: 10px; animation: rise .4s var(--ease) both; }
   .hint > b { font: 700 18px var(--display); }
   .hint p { margin: 0; color: var(--fg-2); font-size: 14px; }
@@ -113,12 +114,14 @@
       <button class="tbtn glass" id="walkBtn" hidden title="True walking: your steps move the camera (AR tracking)">Walk: stick</button>
       <button class="tbtn glass" id="ghostBtn" title="Show your last take's path faintly, to beat or match it">Ghost</button>
       <button class="tbtn glass" id="speed" aria-label="Walking speed">1×</button>
+      <button class="tbtn glass" id="startHere" title="Make where the camera is now the start of every take (Re-anchor brings you back here)">Start here</button>
       <button class="tbtn glass" id="anchor">Re&#8209;anchor</button>
       <span class="pill glass" id="room"></span>
     </div>
   </div>
   <form class="solo glass" id="solo" hidden>
     <input class="field" id="soloPrompt" placeholder="Describe the set: “parking lot at night, a man by a car”" aria-label="Describe the set" autocomplete="off">
+    <label class="tbtn glass" id="soloPhoto" aria-label="Build the set from a photo" title="Build the set from a photo">📷<input type="file" id="soloPhotoFile" accept="image/*" hidden></label>
     <button class="btn light sm" id="soloBuild" type="submit">Build</button>
   </form>
   <div class="zoom glass"><input type="range" id="zoom" min="0" max="1000" step="1" aria-label="Zoom (lens)"><span id="lensLabel">24 mm</span></div>
@@ -160,6 +163,8 @@ import { frameAt } from './shared/motion.js';
 import { FRAMES, DEFAULT_FRAME, LENS_RANGE, DEFAULT_LENS, fovFromLens } from './shared/frames.js';
 import { makeStick } from './shared/joystick.js';
 import { putTake, allTakes, putScene, getScene, deleteTake } from './shared/store.js';
+import { photoToJpeg } from './shared/image.js';
+import { addPicture } from './shared/refs.js';
 
 const WALK_SPEED = 1.4;          // m/s at 1×, a normal walking pace
 const SPEEDS = [1, 3, 10];       // life-size, then faster for big sets
@@ -193,13 +198,14 @@ renderer.setClearColor(0x000000, 1);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene3 = povStage();
 const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 200);
-let sceneGroup = null, sceneId = null, setId = null, spawn = { p: [0, 1.6, 6], yaw: 0 };
+let sceneGroup = null, sceneId = null, setId = null, spawn = { p: [0, 1.6, 6], yaw: 0 }, liveSet = null;
 camera.position.fromArray(spawn.p);
 function setScene(scene) {
   if (sceneGroup) scene3.remove(sceneGroup);
   sceneGroup = renderScene(scene);
   scene3.add(sceneGroup);
   sceneId = scene.id || null;
+  liveSet = scene;
   spawn = { p: scene.spawn?.p || [0, 1.6, 6], yaw: scene.spawn?.yaw || 0 };
   const newSet = (scene.setId || scene.id) !== setId; // an edit on the laptop keeps you where you stand
   setId = scene.setId || scene.id;
@@ -321,6 +327,21 @@ function anchor() {
   if (typeof anchorTracked === 'function') anchorTracked();
 }
 document.getElementById('anchor').onclick = () => { anchor(); relay.send({ t: MSG.ANCHOR }); };
+/** Start here: the camera's spot and direction right now become the set's start (where Re-anchor and every take begin). */
+document.getElementById('startHere').onclick = () => {
+  if (recording || !liveSet) return;
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  const next = { p: camera.position.toArray().map(r2), yaw: Math.round(Math.atan2(-fwd.x, -fwd.z) * 1000) / 1000 };
+  spawn = next;
+  if (SOLO) { // phone only: a new version of the set (takes already shot keep the one they saw)
+    liveSet = { ...liveSet, id: `scene-${Date.now()}`, setId: liveSet.setId || liveSet.id, spawn: next };
+    sceneId = liveSet.id;
+    putScene(liveSet).catch(() => {});
+    try { localStorage.setItem('handcam.soloScene', liveSet.id); } catch {}
+  } else relay.send({ t: MSG.SPAWN, ...next }); // the studio saves it and sends the set back
+  say('Start set. Re-anchor brings you back here.');
+};
 
 // --- walking ----------------------------------------------------------------
 const walk = makeStick(document.getElementById('walk'));
@@ -589,18 +610,22 @@ async function startWebXR() {
 
 // --- Phase 5: phone-only mode --------------------------------------------------------------------
 const $id = (id) => document.getElementById(id);
+let soloPic = null; // a photo to build the set from
 async function soloBuild(prompt) {
-  const btn = $id('soloBuild');
-  btn.disabled = true; btn.textContent = '…'; say('Building the set…');
+  const btn = $id('soloBuild'), pic = soloPic;
+  btn.disabled = true; btn.textContent = '…'; say(pic ? 'Reading your photo…' : 'Building the set…');
   try {
-    const r = await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) });
+    const body = pic ? { prompt, image: { mediaType: pic.mediaType, data: pic.base64 } } : { prompt };
+    const r = await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const out = await r.json();
     if (!r.ok) throw new Error(out.error || 'Could not build the set.');
     out.scene.setId ||= out.scene.id;
+    if (pic) { out.scene.fromPhoto = true; out.scene.prompt ||= out.scene.name || 'From a photo'; addPicture(out.scene.setId, 'subject', { dataUrl: pic.dataUrl, mediaType: pic.mediaType, width: pic.width, height: pic.height, at: Date.now() }).catch(() => {}); }
     setScene(out.scene);
     putScene(out.scene).catch(() => {});
     try { localStorage.setItem('handcam.soloScene', out.scene.id); } catch {}
-    say(out.source === 'llm' ? 'Set ready. Tap Re-anchor, then ●' : 'Set ready (a template). Tap Re-anchor, then ●');
+    if (pic) { soloPic = null; $id('soloPhoto').classList.remove('on'); $id('soloPrompt').placeholder = 'Describe the set: “parking lot at night, a man by a car”'; }
+    say(out.source === 'llm' ? 'Set ready. Tap Re-anchor, then ●' : (out.note && pic ? out.note : 'Set ready (a template). Tap Re-anchor, then ●'));
     $id('soloPrompt').blur();
   } catch (e) { say(e.message); } finally { btn.disabled = false; btn.textContent = 'Build'; }
 }
@@ -639,7 +664,13 @@ if (SOLO) {
   $id('solo').hidden = false;
   $id('takesBtn').hidden = false;
   $id('soloHint').hidden = false;
-  $id('solo').onsubmit = (e) => { e.preventDefault(); const v = $id('soloPrompt').value.trim(); if (v) soloBuild(v); };
+  $id('solo').onsubmit = (e) => { e.preventDefault(); const v = $id('soloPrompt').value.trim(); if (v || soloPic) soloBuild(v); };
+  $id('soloPhotoFile').onchange = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
+    try { soloPic = await photoToJpeg(f); $id('soloPhoto').classList.add('on'); $id('soloPrompt').placeholder = 'Optional: what to change'; say('Photo added. Tap Build.'); }
+    catch (err) { say(err.message); }
+  };
   $id('takesBtn').onclick = showTakes;
   $id('drawerClose').onclick = () => { $id('drawer').hidden = true; };
   (async () => { // the set you were shooting in last time, or a starter set

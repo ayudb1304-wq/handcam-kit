@@ -17,6 +17,7 @@ import { makeMock } from './make/providers/mock.js';
 import { makeHiggsfield, higgsfieldReady } from './make/providers/higgsfield.js';
 import { makeQueue } from './make/queue.js';
 import { watermark } from './watermark.js';
+import { makeLogoLock } from './make/logolock.js';
 import { publicCatalogue } from './plans.js';
 import { runScore } from './make/score.js';
 import { spawn } from 'node:child_process';
@@ -156,7 +157,11 @@ app.post('/api/scene', async (req, res) => {
     if (!ok) return res.status(429).json({ error: user ? 'That’s a lot of sets for one hour. Try again a bit later.' : 'Sign in to build more sets this hour.', code: user ? 'limit' : 'signin' });
   }
   const current = req.body?.current && !validateScene(req.body.current).length ? req.body.current : undefined;
-  res.json(await buildScene(req.body?.prompt, { current, cache: sceneCache }));
+  // a photo to build from: a resized JPEG/PNG from the browser (shared/image.js), base64, at most ~4 MB
+  const img = req.body?.image;
+  const image = img && /^image\/(jpeg|png|webp|gif)$/.test(img.mediaType) && typeof img.data === 'string' && img.data.length < 5_500_000 && /^[A-Za-z0-9+/=]+$/.test(img.data.slice(0, 200)) ? { mediaType: img.mediaType, data: img.data } : undefined;
+  if (img && !image) return res.status(400).json({ error: 'That picture can’t be used. Try a JPEG or PNG photo.' });
+  res.json(await buildScene(req.body?.prompt, { current: image ? undefined : current, cache: sceneCache, image }));
 });
 
 // Send to lab: save a take + its set under lab/takes/ for recipe tests. Laptop only, never via the tunnel.
@@ -201,7 +206,7 @@ const preview = (src, out) => new Promise((resolve, reject) => {
   const p = spawn(process.env.HANDCAM_PYTHON || 'python3', [join(__dirname, 'preview.py'), src, out], { stdio: 'ignore' });
   p.on('error', reject); p.on('close', (c) => (c === 0 ? resolve() : reject(new Error(`preview exit ${c}`))));
 });
-app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, preview, watermark, realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
+app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, preview, watermark, logolock: makeLogoLock({ jobs }), refsForCustomers: flag(process.env.REFS_FOR_CUSTOMERS), realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
 jobs.resume().catch((e) => console.warn('could not resume make jobs:', e.message));
 
 // ---- WebSocket relay -------------------------------------------------------

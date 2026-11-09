@@ -1,6 +1,7 @@
 // Scene from a sentence. Claude when ANTHROPIC_API_KEY is set, otherwise (or on any failure) a template.
 // Kept out of index.js so tests can import it without starting the server.
 import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { validateScene } from './validate-scene.js';
@@ -73,14 +74,21 @@ export function firstJsonObject(text) {
 
 /** Ask Claude for a scene. Throws on anything unexpected; the caller falls back to a template. */
 /** The user message: a new set from a sentence, or (with `current`) the same set with one change. */
-export function sceneRequest(prompt, current) {
+export function sceneRequest(prompt, current, image) {
+  if (image) { // a set from a photo: the picture first, then what to do with it (and the person's own words, if any)
+    const words = String(prompt || '').trim();
+    return [
+      { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
+      { type: 'text', text: 'Block out the set in this photo (see "Building from a photo").' + (words ? `\n\nThe person also says: ${words}` : '') },
+    ];
+  }
   if (!current) return prompt;
   const { id, setId, prompt: _p, ...plain } = current;
   return `Here is the current set:\n${JSON.stringify(plain)}\n\nChange it like this: ${prompt}\n\n` +
     'Return the whole set with only that change. Keep every id, and keep every object and field the change does not mention exactly as it is.';
 }
 
-export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImpl = fetch, current } = {}) {
+export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImpl = fetch, current, image } = {}) {
   cachedPrompt ??= await readFile(PROMPT_PATH, 'utf8');
   cachedSchema ??= await readFile(SCHEMA_PATH, 'utf8');
   const system = `${cachedPrompt}\n\n## JSON schema your output must match\n\n${cachedSchema}`;
@@ -96,7 +104,7 @@ export async function llmScene(prompt, { apiKey, model = DEFAULT_MODEL, fetchImp
       // No json_schema structured output: with it Claude returned 1–3 objects instead of ~12 (DECISIONS §12).
       // The schema goes in the prompt instead, and validateScene() is the real check.
       output_config: { effort: 'low' },
-      messages: [{ role: 'user', content: sceneRequest(prompt, current) }],
+      messages: [{ role: 'user', content: sceneRequest(prompt, current, image) }],
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
@@ -138,7 +146,7 @@ export function makeSceneCache(file, { max = 400, log = console } = {}) {
  * With `current` (Phase 3 "edit with words") Claude changes that set instead of making a new one; without a key, or if
  * the edit fails, the current set comes back unchanged with a note (a template would throw the user's set away).
  */
-export async function buildScene(prompt, { env = process.env, fetchImpl, log = console, current, cache } = {}) {
+export async function buildScene(prompt, { env = process.env, fetchImpl, log = console, current, cache, image } = {}) {
   prompt = String(prompt || '').slice(0, 2000);
   if (current && typeof current === 'object') {
     if (!env.ANTHROPIC_API_KEY) return { scene: current, source: 'edit', unchanged: true, note: 'Changing the set with words needs the AI blockout (ANTHROPIC_API_KEY). Drag objects instead.' };
@@ -151,11 +159,13 @@ export async function buildScene(prompt, { env = process.env, fetchImpl, log = c
     }
   }
   let scene, source = 'template', note;
-  const key = promptKey(prompt), kept = cache && key ? await cache.get(key) : null;
+  // a photo is part of the key (its hash), so the same photo with the same words is also built once
+  const key = image ? `img:${createHash('sha256').update(image.data).digest('hex').slice(0, 32)}:${promptKey(prompt)}` : promptKey(prompt);
+  const kept = cache && key ? await cache.get(key) : null;
   if (kept) { scene = structuredClone(kept); source = 'llm'; } // built before: no Claude call
-  else if (env.ANTHROPIC_API_KEY && prompt.trim()) {
+  else if (env.ANTHROPIC_API_KEY && (prompt.trim() || image)) {
     try {
-      scene = await llmScene(prompt, { apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, fetchImpl });
+      scene = await llmScene(prompt, { apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, fetchImpl, image });
       source = 'llm';
       if (cache && key) await cache.set(key, structuredClone(scene));
     } catch (e) {
@@ -163,7 +173,7 @@ export async function buildScene(prompt, { env = process.env, fetchImpl, log = c
       log.warn(`[scene] ${note}`);
     }
   } else if (!env.ANTHROPIC_API_KEY) {
-    note = 'no ANTHROPIC_API_KEY, using a template';
+    note = image ? 'Building a set from a photo needs the AI blockout (ANTHROPIC_API_KEY): here is a template instead.' : 'no ANTHROPIC_API_KEY, using a template';
   }
   if (!scene) scene = await loadTemplate(matchTemplate(prompt));
   scene.prompt = prompt;

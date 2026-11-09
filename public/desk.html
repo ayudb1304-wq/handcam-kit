@@ -64,9 +64,14 @@
   <aside class="col">
     <section class="card panel" data-tour="set">
       <div class="panel-head"><span class="eyebrow">01 · Set</span><span class="badge" id="src" hidden></span></div>
-      <h3>Describe the set</h3>
-      <p>One sentence. You get a grey blockout: boxes for things, stick figures for people. That’s on purpose.</p>
+      <h3>Describe the set, or show it</h3>
+      <p>One sentence, a photo of the real thing, or both. You get a grey blockout: boxes for things, stick figures for people. That’s on purpose.</p>
       <textarea class="field" id="prompt" rows="3" placeholder="Empty parking lot at night, one parked car, a man standing beside the driver’s door"></textarea>
+      <div class="photo-row">
+        <input type="file" id="photoFile" accept="image/*" hidden>
+        <button class="btn ghost sm" id="photoBtn" type="button" title="Build the set from a photo of your product or place">＋ Use a photo</button>
+        <span class="photo-chip" id="photoChip" hidden><img id="photoThumb" alt=""><span id="photoName">Photo</span><button type="button" id="photoClear" aria-label="Remove the photo">✕</button></span>
+      </div>
       <div class="chips" id="examples">
         <button class="chip" type="button">Parking lot at night, a man between two cars</button>
         <button class="chip" type="button">Office, two people at a desk</button>
@@ -111,7 +116,7 @@
     <canvas id="view"></canvas>
     <div class="stage-top">
       <span class="pill"><span class="eyebrow" style="color:var(--fg-2)">Overview</span><span class="muted small">drag to look around</span></span>
-      <span class="pill sel-pill" id="selPill" hidden><b id="selName"></b><span class="muted small">drag · R+drag turns · Delete</span></span>
+      <span class="pill sel-pill" id="selPill" hidden><b id="selName"></b><span class="muted small" id="selHint">drag · R+drag turns · Delete</span><label class="start-height small" id="startHeight" hidden>Height <input type="range" id="startHeightIn" min="0.2" max="3" step="0.05" aria-label="Camera start height"><output id="startHeightOut"></output></label></span>
       <span class="pill rec-chip" id="recChip" hidden><span class="dot rec"></span><span id="recTime">REC</span></span>
     </div>
     <div id="inset" hidden><span class="pill small" id="insetLabel">What the camera saw</span></div>
@@ -169,6 +174,7 @@
         <textarea class="field" id="look" rows="3" placeholder="Wet parking lot at night, orange street light, man in a grey hoodie, shot on an old phone"></textarea>
         <div class="row" style="margin-top:10px"><select id="recipe" class="grow" aria-label="Video model"></select></div>
         <div class="row" style="margin-top:8px;gap:8px"><select id="quality" class="grow" style="min-width:0" aria-label="Video quality" title="Higher quality costs more" hidden></select><select id="versions" class="grow" style="min-width:0" aria-label="How many versions to make" title="More versions: more chances one follows your move, and more cost"></select></div>
+        <label class="note refs-row" id="refsRow" hidden><input type="checkbox" id="useRefs" checked><span id="refThumbs"></span><span class="grow" id="refsText">Keep my product exactly as in my photo</span><span class="badge" title="Being tested: only you see this">testing</span></label>
         <label class="note" id="ownKeyRow" style="margin-top:8px;display:flex;align-items:center;gap:8px" hidden><input type="checkbox" id="ownKey"> Use my own Higgsfield key (uses none of my videos)</label>
         <div class="note" id="recipeWhy" style="margin-top:6px"></div>
         <div class="cost" style="margin-top:10px"><span id="costText">Pick a take first</span><span id="costEta"></span></div>

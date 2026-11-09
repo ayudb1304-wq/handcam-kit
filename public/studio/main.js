@@ -7,8 +7,10 @@ import { OneEuroQuat } from '../shared/one-euro.js';
 import { putTake, allTakes, deleteTake, putScene, getScene } from '../shared/store.js';
 import { sampleAt, takeOutput } from '../shared/frames.js';
 import { setupMake } from './make.js';
+import { photoToJpeg } from '../shared/image.js';
+import { addPicture } from '../shared/refs.js';
 import { setupTour } from './tour.js';
-import { setupEditor } from './editor.js';
+import { setupEditor, START } from './editor.js';
 import { setupExport } from './export.js';
 import { setupSequence } from './sequence.js';
 import { signIn, openAccount, openPlans, needPlan, getAccount, paymentReturnMessage, signOut, finishSignIn, newPassword } from '../shared/account.js';
@@ -94,12 +96,37 @@ function showPath(take) {
 live.group.position.set(0, 1.6, 6);
 const replayCam = new THREE.PerspectiveCamera(60, 9 / 16, 0.05, 200); // renders the inset: what the take saw
 
+/** The camera start (scene.spawn): a small green camera with a line to the floor. Drag it to move where takes begin. */
+const startMark = (() => {
+  const green = 0x5fd38d, g = new THREE.Group();
+  const solid = new THREE.MeshBasicMaterial({ color: green });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.14), solid);
+  const lens = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.3, 16, 1, true), new THREE.MeshBasicMaterial({ color: green, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+  lens.rotation.x = Math.PI / 2; lens.position.z = -0.2; // points where the camera looks (−z)
+  const grab = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })); // easier to grab
+  const pole = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, -1, 0)]), new THREE.LineBasicMaterial({ color: green, transparent: true, opacity: 0.6 }));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 32), new THREE.MeshBasicMaterial({ color: green, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2;
+  g.add(body, lens, grab, pole, ring);
+  g.name = START; g.visible = false;
+  g.traverse((o) => o.layers.set(1)); // only the overview camera sees it, never a camera view (the take's inset)
+  camera.layers.enable(1);
+  scene3.add(g);
+  return { group: g, show(spawn) {
+    const p = spawn?.p || [0, 1.6, 6];
+    g.position.set(p[0], p[1], p[2]); g.rotation.set(0, spawn?.yaw || 0, 0);
+    pole.scale.y = Math.max(p[1], 0.01); ring.position.y = -p[1] + 0.01;
+    g.visible = true;
+  } };
+})();
+
 let sceneGroup = null, liveScene = null, shownSceneId = null;
 function showScene(scene) {
   if (sceneGroup) scene3.remove(sceneGroup);
   sceneGroup = renderScene(scene);
   scene3.add(sceneGroup);
   shownSceneId = scene.id;
+  startMark.show(scene.spawn);
 }
 function resize() {
   const r = canvas.parentElement.getBoundingClientRect();
@@ -153,26 +180,50 @@ const relay = connectRelay({
       if (m.joined) { toast('Phone connected. Tap Re-anchor, then ● to shoot.'); if (liveScene) relay.send({ t: MSG.SCENE, scene: liveScene }); }
     }
     if (m.t === MSG.POSE) onPose(m);
+    if (m.t === MSG.SPAWN) onSpawn(m);
     if (m.t === MSG.TAKE) { receiveTake(m.take); if (m.take?.id) relay.send({ t: MSG.ACK, id: m.take.id }); }
   },
 });
 
 // --- build scene from prompt --------------------------------------------------------
 const buildBtn = $('build'), srcEl = $('src');
+let photo = null; // { dataUrl, base64, mediaType, width, height, name } — the photo the next set is built from
 async function build(prompt) {
   buildBtn.disabled = true;
-  $('veil').hidden = false; $('veilText').textContent = 'Building the set…';
+  $('veil').hidden = false; $('veilText').textContent = photo ? 'Reading your photo and building the set…' : 'Building the set…';
   try {
-    const { scene, source, note } = await (await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) })).json();
+    const pic = photo;
+    const body = pic ? { prompt, image: { mediaType: pic.mediaType, data: pic.base64 } } : { prompt };
+    const r = await fetch('/api/scene', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const { scene, source, note, error } = await r.json();
+    if (!r.ok || !scene) throw new Error(error || 'no set');
+    if (pic) { scene.fromPhoto = true; scene.prompt ||= scene.name || 'From a photo'; }
     useScene(scene);
+    // the photo is the subject the AI video keeps (shape, label, colours): kept with the set, on this computer
+    if (pic) addPicture(scene.setId, 'subject', { dataUrl: pic.dataUrl, mediaType: pic.mediaType, width: pic.width, height: pic.height, name: pic.name, at: Date.now() }).catch(() => {});
     srcEl.hidden = false;
     srcEl.textContent = source === 'llm' ? 'AI blockout' : 'Template';
     srcEl.className = `badge ${source === 'llm' ? 'accent' : ''}`;
     srcEl.title = note || '';
-  } catch {
-    toast('Could not build the set. Try again.');
+  } catch (e) {
+    toast(e?.message && e.message !== 'no set' ? e.message : 'Could not build the set. Try again.');
   } finally { buildBtn.disabled = false; $('veil').hidden = true; }
 }
+function showPhoto(p) {
+  photo = p;
+  $('photoChip').hidden = !p; $('photoBtn').hidden = !!p;
+  if (p) { $('photoThumb').src = p.dataUrl; $('photoName').textContent = p.name || 'Photo'; }
+  $('prompt').placeholder = p ? 'Optional: what to change. “On a rock, Himalayas behind it”' : 'Empty parking lot at night, one parked car, a man standing beside the driver’s door';
+}
+$('photoBtn').onclick = () => $('photoFile').click();
+$('photoFile').onchange = async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try { showPhoto({ ...(await photoToJpeg(file)), name: file.name }); toast('Photo added. Press Build the set.'); }
+  catch (err) { toast(err.message || 'That picture can’t be opened.'); }
+};
+$('photoClear').onclick = () => showPhoto(null);
 function useScene(scene) {
   scene.setId ||= scene.id;
   liveScene = scene;
@@ -224,13 +275,33 @@ const editor = setupEditor({
   canvas, camera, controls, scene3,
   getGroup: () => sceneGroup,
   getScene: () => (!current && liveScene && shownSceneId === liveScene.id ? liveScene : null), // only the live set, not a take's
-  preview: (draft) => relay.send({ t: MSG.SCENE, scene: draft }),
+  getStart: () => startMark.group,
+  preview: (draft) => { relay.send({ t: MSG.SCENE, scene: draft }); if (draft.spawn) startMark.show(draft.spawn); },
   commit: commitEdit,
   onSelect: (o) => {
     $('selPill').hidden = !o;
     if (o) $('selName').textContent = o.label || o.id;
+    const isStart = o?.id === START;
+    $('selHint').textContent = isStart ? 'drag · R+drag aims it' : 'drag · R+drag turns · Delete';
+    $('startHeight').hidden = !isStart;
+    if (isStart) { const y = liveScene?.spawn?.p?.[1] ?? 1.6; $('startHeightIn').value = y; $('startHeightOut').textContent = `${y.toFixed(2)} m`; }
   },
 });
+// the camera start's height: a slider while the start is selected (eye height 1.6 m, a table shot lower)
+const withHeight = (y) => ({ ...liveScene, spawn: { ...liveScene.spawn, p: [liveScene.spawn?.p?.[0] ?? 0, y, liveScene.spawn?.p?.[2] ?? 6] } });
+$('startHeightIn').oninput = () => {
+  const y = Number($('startHeightIn').value);
+  $('startHeightOut').textContent = `${y.toFixed(2)} m`;
+  if (liveScene) { const d = withHeight(y); startMark.show(d.spawn); relay.send({ t: MSG.SCENE, scene: d }); }
+};
+$('startHeightIn').onchange = () => { if (liveScene) commitEdit(withHeight(Math.round(Number($('startHeightIn').value) * 100) / 100)); };
+/** "Start here" on the phone: where the phone is now becomes the set's camera start. */
+function onSpawn(m) {
+  if (!liveScene || !Array.isArray(m.p) || m.p.length !== 3 || !m.p.every(Number.isFinite) || !Number.isFinite(m.yaw)) return;
+  if (current) selectTake(null);
+  commitEdit({ ...liveScene, spawn: { p: m.p, yaw: m.yaw } });
+  toast('The camera start moved to where the phone is. Undo if it isn’t right.');
+}
 async function editWithWords() {
   const words = $('editPrompt').value.trim();
   if (!words || !liveScene) return;
@@ -249,7 +320,7 @@ async function editWithWords() {
 }
 $('editBtn').onclick = editWithWords;
 $('editPrompt').addEventListener('keydown', (e) => { if (e.key === 'Enter') editWithWords(); });
-buildBtn.onclick = () => build($('prompt').value.trim() || 'parking lot');
+buildBtn.onclick = () => build($('prompt').value.trim() || (photo ? '' : 'parking lot'));
 for (const chip of document.querySelectorAll('#examples .chip')) chip.onclick = () => { $('prompt').value = chip.textContent; build(chip.textContent); };
 $('prompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) buildBtn.click(); });
 

@@ -197,3 +197,24 @@ test('same words, same set: a remembered set costs no second Claude call, and su
   assert.equal(calls, 2, 'different words still reach Claude');
   assert.equal(c.source, 'llm');
 });
+
+test('a set from a photo: Claude gets the picture before the words; the same photo is built once', async () => {
+  const image = { mediaType: 'image/jpeg', data: Buffer.from('fake jpeg bytes').toString('base64') };
+  let body, calls = 0;
+  const fetchImpl = async (url, init) => { calls++; body = JSON.parse(init.body); return llmReply(minimal())(); };
+  const env = { ANTHROPIC_API_KEY: 'k' };
+  const cache = makeSceneCache(null, { log: quiet });
+  const r = await buildScene('', { env, fetchImpl, image, cache });
+  assert.equal(r.source, 'llm');
+  const [pic, words] = body.messages[0].content;
+  assert.deepEqual(pic, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image.data } });
+  assert.match(words.text, /Building from a photo/);
+  await buildScene('on a rock in the Himalayas', { env, fetchImpl, image, cache });
+  assert.match(body.messages[0].content[1].text, /Himalayas/);
+  assert.equal(calls, 2, 'same photo, new words: a new set');
+  await buildScene('', { env, fetchImpl, image, cache });
+  assert.equal(calls, 2, 'same photo, same words: from the cache');
+  const none = await buildScene('', { env: {}, image });
+  assert.equal(none.source, 'template');
+  assert.match(none.note, /photo/);
+});

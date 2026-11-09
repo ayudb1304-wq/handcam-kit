@@ -174,3 +174,11 @@ Raised from "optional": every hand-held competitor has positional tracking (Virt
 - Strictly optional: plain file export (Phase 4) stays the default, nothing requires an account with any vendor, and the app works the same without it.
 
 **Accept:** One click from a starred take produces a generated video that follows the hand-shot move; with the integration switched off, nothing else in the app changes.
+
+## Product sets and logo lock · `built` (2026-11-09, checked in Chrome; waiting for your phone test and a real product)
+- **Set from a photo**: ＋ Use a photo in the studio (📷 in phone-only mode), with or without words. Checked: a bottle-on-a-box photo became a box, a 20 cm bottle with cap and label at their real sizes, and a camera start at 0.9 m, 1.8 m away, facing it.
+- **Camera start**: drag the green camera on the laptop (R + drag aims it, height slider); **Start here** on the phone. Checked with a simulated phone.
+- **Logo lock**: Open result → Logo lock → add your logo (PNG or SVG) → place it on frame 1 → Lock logo. Checked: ground truth under 0.5 px, a real AI clip held until the scene changed, the whole flow in the studio.
+- **Keep my product exact** (photo + logo to the AI): built, founder only, needs ~10 test generations to tune before customers see it.
+- Acceptance: build a set from a photo of a real product; set the start from the phone; make a video; lock your logo on it and check frame by frame that it never changes shape.
+

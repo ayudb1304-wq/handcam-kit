@@ -1,5 +1,6 @@
 // Phase 3 "Fix the set": click an object to select it, drag to move it on the ground, hold R and drag to turn it,
 // Delete removes it. Floors (planes) can't be picked: dragging on them still orbits the view.
+// The camera start (scene.spawn) is picked the same way: drag it to move where every take starts, R+drag to aim it.
 // The editor never owns the set: it asks main.js for the live scene and hands back a changed copy.
 import * as THREE from '../shared/three.js';
 
@@ -12,8 +13,11 @@ export function changeObject(scene, id, fn) {
   return next;
 }
 
-export function setupEditor({ canvas, camera, controls, scene3, getGroup, getScene, preview, commit, onSelect = () => {} }) {
+export const START = '__start'; // the id the camera start answers to while selected
+
+export function setupEditor({ canvas, camera, controls, scene3, getGroup, getScene, getStart = () => null, preview, commit, onSelect = () => {} }) {
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  ray.layers.enableAll(); // the camera start lives on its own layer (main.js)
   const hit = new THREE.Vector3();
   let selected = null, drag = null, rKey = false, lastPreview = 0;
   const box = new THREE.BoxHelper(undefined, 0xf0a07d);
@@ -31,6 +35,8 @@ export function setupEditor({ canvas, camera, controls, scene3, getGroup, getSce
     const group = getGroup();
     if (!group || !getScene()) return null;
     aim(e);
+    const start = getStart();
+    if (start?.visible && ray.intersectObject(start, true).length) return start; // the start sits in front of the set
     for (const h of ray.intersectObjects(group.children, true)) {
       let m = h.object;
       while (m.parent && m.parent !== group) m = m.parent;
@@ -39,16 +45,21 @@ export function setupEditor({ canvas, camera, controls, scene3, getGroup, getSce
     }
     return null;
   }
-  function meshOf(id) { return getGroup()?.children.find((m) => m.name === id) || null; }
+  function meshOf(id) { return id === START ? getStart() : getGroup()?.children.find((m) => m.name === id) || null; }
   function select(id) {
-    selected = id && meshOf(id) ? id : null;
+    selected = id && meshOf(id) && getScene() ? id : null;
     box.visible = !!selected;
     if (selected) box.setFromObject(meshOf(selected));
-    onSelect(selected ? getScene().objects.find((o) => o.id === selected) : null);
+    onSelect(!selected ? null : selected === START ? { id: START, label: 'Camera start' } : getScene().objects.find((o) => o.id === selected));
   }
   /** The scene as the dragged mesh shows it right now. */
   function draft() {
     const m = meshOf(drag.id);
+    if (drag.id === START) {
+      const next = clone(getScene()), y = next.spawn?.p?.[1] ?? 1.6;
+      next.spawn = { ...next.spawn, p: [round(m.position.x), y, round(m.position.z)], yaw: round(m.rotation.y, 3) };
+      return next;
+    }
     return changeObject(getScene(), drag.id, (o) => {
       o.p = [round(m.position.x), o.p?.[1] ?? 0, round(m.position.z)];
       if (drag.turned) o.rot = [o.rot?.[0] || 0, round(m.rotation.y, 3), o.rot?.[2] || 0];
@@ -108,7 +119,7 @@ export function setupEditor({ canvas, camera, controls, scene3, getGroup, getSce
     if (typing(e)) return;
     if (e.key === 'r' || e.key === 'R') rKey = true;
     if (e.key === 'Escape') select(null);
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selected && selected !== START) {
       e.preventDefault();
       const id = selected;
       select(null);

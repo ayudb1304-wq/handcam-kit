@@ -8,6 +8,18 @@ import { randomUUID } from 'node:crypto';
 import { fill, pick, judge, badness, matchPercent, pickQuality, pickVersions, videoCost, FREE_BELOW_MATCH } from './recipe.js';
 
 export const UPLOADS = Object.freeze({ 'reference.mp4': 'video/mp4', 'measure.mp4': 'video/mp4', 'first-frame.png': 'image/png' });
+// Optional: the product as it really is (a photo, the logo). Sent to the AI with the first frame, so it keeps the product's
+// shape, label and colours. Only on jobs made with refs (routes.js decides who may: the founder until it's tested).
+export const REF_UPLOADS = Object.freeze({ 'ref-subject.jpg': 'image/jpeg', 'ref-logo.png': 'image/png' });
+const REFS_NOTE = 'The extra reference images show the real product. Keep it exactly as it is in them: same shape, proportions, colours, label and logo. Do not redesign, restyle or reletter it.';
+
+/** A filled AI step input with the job's reference pictures added after its own images, and the note added to its prompt. */
+export function withRefs(input, refUrls, note = REFS_NOTE) {
+  if (!refUrls?.length) return input;
+  const out = { ...input, image_urls: [...(input.image_urls || []), ...refUrls] };
+  if (typeof out.prompt === 'string') out.prompt = `${out.prompt}\n\n${note}`;
+  return out;
+}
 const TERMINAL = new Set(['completed', 'failed', 'nsfw', 'canceled']);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -44,7 +56,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
 
   /** Create a job and save take/scene; the browser then PUTs the UPLOADS and calls start(). */
   /** check(job): a last look before anything is written (routes.js: can this account afford it?). Throw to refuse. */
-  async function create({ take, scene, look, recipeId, demo = false, quality, versions, userId = null, unitFor = () => 0, priority = 0, byok = false, check = () => {} }) {
+  async function create({ take, scene, look, recipeId, demo = false, quality, versions, userId = null, unitFor = () => 0, priority = 0, byok = false, refs = false, check = () => {} }) {
     const recipe = recipes[recipeId];
     if (!recipe) throw Object.assign(new Error(`unknown recipe ${recipeId}`), { status: 400 });
     if (typeof look !== 'string' || look.trim().length < 3) throw Object.assign(new Error('Describe the look in a few words first.'), { status: 400 });
@@ -58,7 +70,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       aspect: (take.view?.aspect ?? 0.5) < 1 ? '9:16' : '16:9', resolution, versions: versionCount,
       durationS: Math.min(recipe.maxDurationS ?? 15, Math.max(recipe.minDurationS ?? 4, Math.round(durationMs / 1000))),
       status: 'uploading', urls: {}, startImages: [], candidates: [], best: null, outcome: null, error: null, log: [],
-      userId, priority, byok: Boolean(byok),
+      userId, priority, byok: Boolean(byok), ...(refs && { refs: true }),
     };
     const unit = unitFor(job); // videos per version for this account (0: free, e.g. practice or the founder's laptop)
     if (unit > 0) job.charge = { unit, reserved: 0, refunded: 0 };
@@ -98,6 +110,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     }
   }
 
+  const refUrls = (job) => (job.refs ? Object.keys(REF_UPLOADS).map((n) => job.urls[n]).filter(Boolean) : []);
   function vars(job, extra = {}) {
     return { look: job.look, aspect: job.aspect, durationS: job.durationS, resolution: job.resolution ?? '480p', demo: job.demo, firstFrameUrl: job.urls['first-frame.png'], referenceUrl: job.urls['reference.mp4'], ...extra };
   }
@@ -109,7 +122,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     job.status = 'start_image';
     say(job, `Making start image ${n}`);
     await save(job);
-    const { requestId } = await provider.submit(recipe.startImage.endpoint, fill(recipe.startImage.input, vars(job)), `${job.id}-start-${n}`);
+    const { requestId } = await provider.submit(recipe.startImage.endpoint, withRefs(fill(recipe.startImage.input, vars(job)), refUrls(job), recipe.refsNote), `${job.id}-start-${n}`);
     entry.requestId = requestId;
     await save(job);
     const s = await poll(provider, requestId);
@@ -131,7 +144,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     job.candidates.push(c);
     await save(job);
     const start = job.startImages.find((s) => s.n === job.approvedStart);
-    const input = fill(recipe.video.input, vars(job, { startImageUrl: start.url }));
+    const input = withRefs(fill(recipe.video.input, vars(job, { startImageUrl: start.url })), refUrls(job), recipe.refsNote);
     const { requestId } = await provider.submit(recipe.video.endpoint, input, `${job.id}-video-${n}`);
     c.requestId = requestId;
     await save(job);
@@ -225,6 +238,9 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       if (job.urls[name]) continue;
       if (!existsSync(path(job.id, name))) throw new Error(`${name} was not uploaded`);
       job.urls[name] = await provider.upload(path(job.id, name), type);
+    }
+    if (job.refs) for (const [name, type] of Object.entries(REF_UPLOADS)) { // optional: whichever the person gave
+      if (!job.urls[name] && existsSync(path(job.id, name))) job.urls[name] = await provider.upload(path(job.id, name), type);
     }
   }
 

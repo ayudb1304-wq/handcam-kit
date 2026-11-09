@@ -232,3 +232,13 @@ test('customer Make video: trial videos are spent, watermarked, refunded when fr
     assert.equal(marked.length, 1);
   } finally { server.close(); await rm(dir, { recursive: true }); }
 });
+
+import { withRefs } from './make/jobs.js';
+test('product references go after the step’s own pictures, with a note to keep the product as it is', () => {
+  const input = { image_urls: ['start.png'], video_urls: ['ref.mp4'], prompt: 'Follow the camera.' };
+  const out = withRefs(input, ['photo.jpg', 'logo.png']);
+  assert.deepEqual(out.image_urls, ['start.png', 'photo.jpg', 'logo.png'], 'the start image stays first');
+  assert.match(out.prompt, /^Follow the camera\.\n\n.*same shape, proportions, colours, label and logo/s);
+  assert.equal(withRefs(input, []), input, 'no references: the request is unchanged');
+  assert.deepEqual(input.image_urls, ['start.png'], 'the recipe input is not changed in place');
+});

@@ -78,3 +78,11 @@ Example: "a guy walks to the red car, then crouches" → the guy has `"moves":[{
 ## Editing an existing set
 
 Sometimes the user message gives you the current set as JSON and asks for one change ("move the car closer to the wall", "turn the guy to face the camera", "add a second car"). Then return the whole set with only that change: keep every id, keep every object and field the change does not mention exactly as it was (same numbers), and keep `spawn` unless the change is about where the camera starts. A new object gets a new readable id. "Face the camera" means turn the object toward `spawn.p`.
+
+## Building from a photo
+
+Sometimes the user message is a photo (and maybe a few words). Then block out what is in the photo, so the person can shoot their move on that same set:
+- Rebuild the layout you see: the main subject, what it stands or sits on, the surfaces and big things around it, at their real sizes and their real distances from each other. Leave out clutter the camera wouldn't care about. Never leave out the subject, even when it is small (a bottle on a table is the shot). Give the subject a clear id (`subject`, or what it is: `bottle`, `chair`) and its real colour.
+- Put `spawn` where the photo was taken from: same height (a phone at chest height is about 1.3, a person's eye 1.6, a low table shot 0.6–1.0), same distance, looking at the subject the way the photo does (compute yaw so the camera faces the subject). The phone starts the move exactly there.
+- If the person's words change the place ("on a rock in the Himalayas", "at night on a street"), keep the subject and its size from the photo and build the new place around it instead of what's behind it in the photo. Words win over the photo for the place; the photo wins for the subject.
+- `name` says what the set is in a few words ("Shampoo bottle on a box").

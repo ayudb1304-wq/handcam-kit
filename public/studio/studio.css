@@ -193,3 +193,32 @@ body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(-
 .trim label { display: grid; grid-template-columns: 26px 1fr 44px; gap: 6px; align-items: center; font: 11px var(--mono); color: var(--mute); }
 .trim input { accent-color: var(--accent); }
 .btn.icon.sm { width: 26px; height: 26px; padding: 0; }
+
+/* a photo to build the set from (and the subject the AI video keeps) */
+.photo-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.photo-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); border-radius: 10px; padding: 3px 6px 3px 3px; font: 500 12px var(--font); color: var(--fg-2); max-width: 100%; }
+.photo-chip img { width: 34px; height: 34px; object-fit: cover; border-radius: 7px; background: var(--line); }
+.photo-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+.photo-chip button { border: 0; background: transparent; color: var(--fg-3, var(--fg-2)); cursor: pointer; font-size: 12px; padding: 4px; }
+.photo-chip button:hover { color: var(--fg); }
+
+.start-height { display: inline-flex; align-items: center; gap: 6px; color: var(--fg-2); pointer-events: auto; }
+.start-height input { width: 110px; accent-color: #5fd38d; }
+.start-height output { min-width: 44px; font-variant-numeric: tabular-nums; }
+
+/* logo lock: the box under a result, and placing the logo on the first frame */
+.lock-box { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line-2); border-radius: 12px; }
+.lock-box .note .spinner { vertical-align: -2px; margin-right: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; padding: 2px; }
+.seg-b { border: 0; background: transparent; color: var(--fg-2); font: 500 12px var(--font); padding: 5px 10px; border-radius: 999px; cursor: pointer; }
+.seg-b.sel { background: var(--accent-soft); color: var(--fg); }
+.place-stage { position: relative; align-self: center; max-width: 100%; touch-action: none; user-select: none; line-height: 0; }
+.place-frame { display: block; max-width: 100%; max-height: 62vh; border-radius: 10px; }
+.place-logo { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.place-svg { position: absolute; left: 0; top: 0; overflow: visible; }
+.place-svg polygon { fill: rgba(95, 211, 141, .08); stroke: #5fd38d; stroke-width: 1.5; stroke-dasharray: 5 4; cursor: move; }
+.place-handle { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #5fd38d; border: 2px solid #0b0b0b; cursor: grab; box-shadow: 0 0 0 1px rgba(255,255,255,.4); }
+
+.refs-row { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+#refThumbs { display: inline-flex; gap: 4px; }
+#refThumbs img { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; background: #fff; border: 1px solid var(--line-2); }

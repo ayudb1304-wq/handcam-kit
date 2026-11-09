@@ -10,6 +10,7 @@ export const MSG = Object.freeze({
   TAKE: 'take',     // cam -> desk    { take }
   ACK: 'ack',       // desk -> cam    { id }  the desk has this take; the phone stops re-sending it (Phase 5)
   ANCHOR: 'anchor', // cam -> desk    {}
+  SPAWN: 'spawn',   // cam -> desk    { p:[x,y,z], yaw }  "Start here": the set's camera start moves to where the phone is now
 });
 
 export const ROLES = Object.freeze(['cam', 'desk']);
