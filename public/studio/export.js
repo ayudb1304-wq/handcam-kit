@@ -45,13 +45,13 @@ export function blenderFiles(take, scene, { smoothing = 0, script, fps = EXPORT_
   if (smoothing > 0) files.push({ name: 'camera.json', data: JSON.stringify({ smoothing, samples: smoothSamples(t.samples, smoothing) }) });
   files.push({ name: 'import.py', data: script });
   files.push({ name: 'README.txt', data: [
-    'HandCam → Blender',
+    'CineHand → Blender',
     '',
     'You need Blender 4.x (free, blender.org). In a terminal, go into this folder and run:',
     '',
-    '    blender --background --python import.py -- take.json scene.json handcam.blend',
+    '    blender --background --python import.py -- take.json scene.json cinehand.blend',
     '',
-    'Then open handcam.blend and press Play (space). The camera moves exactly like your hand did:',
+    'Then open cinehand.blend and press Play (space). The camera moves exactly like your hand did:',
     'one key per recorded sample, straight lines between them, the zoom as you performed it.',
     smoothing > 0 ? `This export was smoothed (${Math.round(smoothing * 100)}%): camera.json holds the smoothed copy; take.json is your raw take.` : 'This export is raw (no smoothing).',
     '',
@@ -86,20 +86,20 @@ export function setupExport({ getTake, takeScene, toast }) {
   $('exportBtn').onclick = () => withScene((take, scene) => busy($('exportBtn'), 'Video', async (say) => {
     const { exportTake } = await import('../shared/export-video.js');
     const out = await exportTake(take, scene, { samples: smoothSamples(take.samples, smoothing()), onProgress: (f) => say(`Video ${Math.round(f * 100)}%`) });
-    const name = `handcam-${take.id}`;
+    const name = `cinehand-${take.id}`;
     download(`${name}.mp4`, out.mp4);
     download(`${name}-first-frame.png`, out.png);
     toast(`Saved ${out.width}×${out.height} video + first frame to Downloads`);
   }));
   $('jsonBtn').onclick = () => withScene((take, scene) => {
-    download(`handcam-${take.id}.json`, new Blob([JSON.stringify({ take: cleanTake(take), scene }, null, 2)], { type: 'application/json' }));
+    download(`cinehand-${take.id}.json`, new Blob([JSON.stringify({ take: cleanTake(take), scene }, null, 2)], { type: 'application/json' }));
     toast('Saved take + set as JSON');
   });
   $('blenderBtn').onclick = () => withScene((take, scene) => busy($('blenderBtn'), 'Blender', async () => {
     const sr = await fetch('/exporters/blender_import.py');
     if (!sr.ok) throw new Error((await sr.json().catch(() => ({}))).error || 'Blender export isn’t available.');
     const script = await sr.text();
-    download(`handcam-${take.id}-blender.zip`, new Blob([zip(blenderFiles(take, scene, { smoothing: smoothing(), script }))], { type: 'application/zip' }));
+    download(`cinehand-${take.id}-blender.zip`, new Blob([zip(blenderFiles(take, scene, { smoothing: smoothing(), script }))], { type: 'application/zip' }));
     toast('Saved the Blender folder (zip). README inside has the one command.');
   }));
   $('copyPrompt').onclick = async () => {

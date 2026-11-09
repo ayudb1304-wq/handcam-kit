@@ -50,6 +50,7 @@ export function makeDodo({ apiKey, mode = 'test', fetchImpl = fetch }) {
   return {
     ready: !!apiKey, mode,
     createProduct: (p) => call('POST', '/products', p),
+    updateProduct: (id, p) => call('PATCH', `/products/${id}`, p),
     listProducts: (recurring) => call('GET', `/products?page_size=100&page_number=0&recurring=${recurring ? 'true' : 'false'}`),
     checkout: (body) => call('POST', '/checkouts', body),
     payment: (x) => call('GET', `/payments/${id(x)}`),
@@ -66,9 +67,9 @@ export function makeDodo({ apiKey, mode = 'test', fetchImpl = fetch }) {
 /** Everything sold, by key: "creator.month", "creator.year", "topup5", "lifetime". */
 export function catalogueItems(pricing) {
   const items = {};
-  for (const p of pricing.plans) if (p.id !== 'free') for (const interval of INTERVALS) items[`${p.id}.${interval}`] = { kind: 'plan', plan: p.id, interval, usd: p.price[interval], name: `HandCam ${p.name} (${interval === 'year' ? 'yearly' : 'monthly'})` };
-  for (const t of pricing.topups || []) items[t.id] = { kind: 'topup', id: t.id, videos: t.videos, usd: t.usd, name: `HandCam: ${t.name}` };
-  if (pricing.lifetime) items[pricing.lifetime.id] = { kind: 'lifetime', id: pricing.lifetime.id, usd: pricing.lifetime.usd, name: `HandCam ${pricing.lifetime.name}` };
+  for (const p of pricing.plans) if (p.id !== 'free') for (const interval of INTERVALS) items[`${p.id}.${interval}`] = { kind: 'plan', plan: p.id, interval, usd: p.price[interval], name: `CineHand ${p.name} (${interval === 'year' ? 'yearly' : 'monthly'})` };
+  for (const t of pricing.topups || []) items[t.id] = { kind: 'topup', id: t.id, videos: t.videos, usd: t.usd, name: `CineHand: ${t.name}` };
+  if (pricing.lifetime) items[pricing.lifetime.id] = { kind: 'lifetime', id: pricing.lifetime.id, usd: pricing.lifetime.usd, name: `CineHand ${pricing.lifetime.name}` };
   return items;
 }
 
@@ -102,7 +103,7 @@ export function makePayRoutes({ dodo, accounts, pricing, products, publicBase, w
   async function syncSubscription(subId, userHint) {
     const s = await dodo.subscription(subId);
     const sub = normaliseSubscription(s, byProduct);
-    if (!sub) { log.warn(`[pay] subscription ${subId}: product ${s.product_id} is not a HandCam plan`); return null; }
+    if (!sub) { log.warn(`[pay] subscription ${subId}: product ${s.product_id} is not a CineHand plan`); return null; }
     const user = (userHint && accounts.get(userHint)) || accounts.bySubscription(subId) || (sub.userId && accounts.get(sub.userId)) || (sub.email && accounts.byEmail(sub.email));
     if (!user) { log.warn(`[pay] subscription ${subId}: no account`); return null; }
     await accounts.syncSubscription(user.id, sub);

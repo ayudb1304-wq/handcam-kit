@@ -45,7 +45,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const v = cfg.ent?.videos, need = n * unit;
       const trialOnly = v && unit && v.left + v.topup < need; // the free trial videos would pay: 480p and watermarked
       $('costText').innerHTML = free ? 'Practice · free · no AI'
-        : `Uses up to <b>${need}</b> video${need === 1 ? '' : 's'}${v ? ` · you have ${v.total} · <a href="#" id="buyLink">${cfg.ent.features.topups ? 'Buy more' : 'See plans'}</a>` : ''}${trialOnly && v.total >= need ? ` · <span title="Your free videos are ${cfg.ent.trialQuality} with a small HandCam label">free trial: ${cfg.ent.trialQuality}, watermarked</span>` : ''}`;
+        : `Uses up to <b>${need}</b> video${need === 1 ? '' : 's'}${v ? ` · you have ${v.total} · <a href="#" id="buyLink">${cfg.ent.features.topups ? 'Buy more' : 'See plans'}</a>` : ''}${trialOnly && v.total >= need ? ` · <span title="Your free videos are ${cfg.ent.trialQuality} with a small CineHand label">free trial: ${cfg.ent.trialQuality}, watermarked</span>` : ''}`;
       $('buyLink')?.addEventListener('click', (e) => { e.preventDefault(); topUp(); });
     }
     $('recipeStatus').hidden = r.status === 'final';
@@ -234,7 +234,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
         <div><b>${pct(c.score.turn_corr)}</b><span>Turns that match yours</span></div><div><b>${pct(c.score.walk_ratio)}</b><span>Of your walking distance</span></div></div>` : ''}
       <div class="row wrap"><div class="versions grow">${j.candidates.filter((x) => x.file).map((x) => `<button class="version${x.n === c.n ? ' sel' : ''}" data-v="${x.n}">${x.verdict?.pass ? '✓' : x.verdict?.pass === false ? '⚠' : '·'} V${x.n}${x.match != null ? ` · ${x.match}%` : ''}${x.free ? ' · free' : ''}</button>`).join('')}</div>
         <button class="btn ghost" data-act="more">Make another version</button>
-        ${c.preview ? '<span class="note">Preview only: this version was free.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="handcam-${j.id}-v${c.n}.mp4">Download</a>`}</div>
+        ${c.preview ? '<span class="note">Preview only: this version was free.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="cinehand-${j.id}-v${c.n}.mp4">Download</a>`}</div>
       <p class="note">Move match compares the camera’s turns, timing and walking in the AI video with your take. It’s measured, not guessed: the score is the same every time for the same video.</p>
     </div>`;
     m.hidden = false;

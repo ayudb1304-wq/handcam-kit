@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "HandCam scene (blockout)",
+  "title": "CineHand scene (blockout)",
   "type": "object",
   "required": [
     "units",

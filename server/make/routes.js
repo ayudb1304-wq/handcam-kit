@@ -1,5 +1,5 @@
 // HTTP routes for Make video. Who may use them (Phase 5, 5c):
-//  - the founder on the laptop running HandCam (isLocal) or an ADMIN_EMAILS account: everything, real AI, sees real
+//  - the founder on the laptop running CineHand (isLocal) or an ADMIN_EMAILS account: everything, real AI, sees real
 //    AI cost in dollars;
 //  - a signed-in account: their own jobs only; pays in videos from its plan, top-ups or trial (docs/PRICING-PLAN.md);
 //    never sees our AI cost; real AI only when the server allows it for customers (REAL_AI=on), else Practice;

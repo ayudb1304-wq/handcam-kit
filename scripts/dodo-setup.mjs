@@ -1,7 +1,7 @@
 // npm run dodo:setup — make sure everything sold in config/pricing.json exists as a Dodo product (test mode unless
 // DODO_MODE=live): each paid plan monthly and yearly (subscriptions), the top-ups and Lifetime (one-time). Writes the
 // ids to config/dodo-products.<mode>.json. Safe to run again: existing products (matched by metadata.handcam_item)
-// are reused, never duplicated. A changed price needs a new plan id (subscribers keep the product they bought).
+// are reused, never duplicated, and get the current name and description. A changed price needs a new plan id (subscribers keep the product they bought).
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { makeDodo, catalogueItems } from '../server/payments.js';
 import { loadPricing } from '../server/billing.js';
@@ -21,11 +21,17 @@ const existing = [...((await dodo.listProducts(false)).items || []), ...((await 
 
 const describe = (item) => item.kind === 'plan'
   ? `${pricing.plans.find((p) => p.id === item.plan).videosPerMonth} move-checked AI videos a month, JSON and Blender export, your own AI key.`
-  : item.kind === 'topup' ? `${item.videos} extra HandCam videos for your plan. They never expire.` : 'HandCam forever: JSON and Blender export, use your own AI key, top-ups.';
+  : item.kind === 'topup' ? `${item.videos} extra CineHand videos for your plan. They never expire.` : 'CineHand forever: JSON and Blender export, use your own AI key, top-ups.';
 
 for (const [itemKey, item] of Object.entries(catalogueItems(pricing))) {
   const found = existing.find((p) => p.metadata?.handcam_item === itemKey);
-  if (found) { ids[itemKey] = found.product_id; console.log(`${itemKey}: exists (${found.product_id})`); continue; }
+  if (found) {
+    ids[itemKey] = found.product_id;
+    const renamed = found.name !== item.name || found.description !== describe(item); // a rename (CineHand) updates the words, never the price
+    if (renamed) await dodo.updateProduct(found.product_id, { name: item.name, description: describe(item) });
+    console.log(`${itemKey}: exists (${found.product_id})${renamed ? `, renamed to "${item.name}"` : ''}`);
+    continue;
+  }
   const price = item.kind === 'plan'
     ? { type: 'recurring_price', price: Math.round(item.usd * 100), currency, discount_bps: 0, purchasing_power_parity: false,
         payment_frequency_count: 1, payment_frequency_interval: item.interval === 'year' ? 'Year' : 'Month',

@@ -6,10 +6,10 @@ Numbers in it are as of 2026-11-05; update them if the API bill or pass rates ch
 
 ---
 
-I'm the solo founder of HandCam, an AI video product launching soon. I want to understand how AI video companies price their products, how they make a profit, and then design the best-margin pricing for my product. Please research thoroughly, cite every number with a source and date, and flag anything you couldn't verify.
+I'm the solo founder of CineHand, an AI video product launching soon. I want to understand how AI video companies price their products, how they make a profit, and then design the best-margin pricing for my product. Please research thoroughly, cite every number with a source and date, and flag anything you couldn't verify.
 
 ## My product (context)
-HandCam lets someone with no 3D or film skills plan a shot by holding their phone as a camera. They type one sentence ("dead forest at night, a man standing by a tree"), get a grey 3D blockout of the set, walk through it with their phone to record a real handheld camera move, then press "Make video". We send that move to an AI video model (currently ByteDance Seedance 2.5 through the Higgsfield API), and our server automatically checks that the AI video actually follows the hand-shot move, with a 0–100 "move match" score. That guaranteed camera move is our edge: other tools only let you describe camera moves in words.
+CineHand lets someone with no 3D or film skills plan a shot by holding their phone as a camera. They type one sentence ("dead forest at night, a man standing by a tree"), get a grey 3D blockout of the set, walk through it with their phone to record a real handheld camera move, then press "Make video". We send that move to an AI video model (currently ByteDance Seedance 2.5 through the Higgsfield API), and our server automatically checks that the AI video actually follows the hand-shot move, with a 0–100 "move match" score. That guaranteed camera move is our edge: other tools only let you describe camera moves in words.
 - Target users: indie filmmakers, YouTubers, ad and music-video creators, small agencies. They only know phone camera apps.
 - Each "Make video" makes 1–4 versions (the user chooses); we keep the best one.
 - Policy: any version under 70% move match is free (we don't charge for it), and we offer "Try again".
@@ -38,7 +38,7 @@ HandCam lets someone with no 3D or film skills plan a shot by holding their phon
 
 ## What I want back
 - A competitor pricing table (sourced), plus a short summary of the patterns.
-- A unit-economics model for HandCam: a spreadsheet-style table of cost per charged video at 480p, 720p and 1080p for pass rates of 60%, 75% and 90%, with and without a 50% Higgsfield discount, and the price needed for 50%, 60% and 70% gross margin.
+- A unit-economics model for CineHand: a spreadsheet-style table of cost per charged video at 480p, 720p and 1080p for pass rates of 60%, 75% and 90%, with and without a 50% Higgsfield discount, and the price needed for 50%, 60% and 70% gross margin.
 - 2–3 recommended pricing structures for launch (plan names, prices, what's included, top-ups, free tier), each with expected gross margin and the reasoning, and which one you'd pick and why.
 - How to display price to users (units, wording) without revealing our costs.
 - A list of risks (model price changes, abuse of free versions, heavy users) and how each structure handles them.

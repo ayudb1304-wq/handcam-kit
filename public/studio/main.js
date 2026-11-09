@@ -1,4 +1,4 @@
-// HandCam Studio (desk). Set → Shoot → Takes → Make video. See docs/ARCHITECTURE.md.
+// CineHand Studio (desk). Set → Shoot → Takes → Make video. See docs/ARCHITECTURE.md.
 import * as THREE from '../shared/three.js';
 import { OrbitControls } from '../shared/three.js';
 import { MSG, SHOTS, connectRelay } from '../shared/protocol.js';

@@ -1,4 +1,4 @@
-# HandCam — Product Spec (v1)
+# CineHand — Product Spec (v1)
 
 ## One line
 

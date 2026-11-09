@@ -1,4 +1,4 @@
-# HandCam — project instructions for Claude Code
+# CineHand — project instructions for Claude Code
 
 Read `docs/SPEC.md`, `docs/ARCHITECTURE.md` and `docs/PLAN.md` before changing anything. `docs/DECISIONS.md` explains constraints that look odd; do not "fix" them.
 

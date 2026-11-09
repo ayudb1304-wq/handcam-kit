@@ -1,9 +1,9 @@
 """
-HandCam -> Blender importer (Phase 4).
+CineHand -> Blender importer (Phase 4).
 
 Usage (from the unzipped "Blender" export folder, or with paths):
-    blender --background --python import.py -- take.json scene.json [handcam.blend]
-    blender --background --python import.py -- sequence.json scene.json [handcam.blend]   (Phase 5b)
+    blender --background --python import.py -- take.json scene.json [cinehand.blend]
+    blender --background --python import.py -- sequence.json scene.json [cinehand.blend]   (Phase 5b)
     blender --background --python exporters/blender_import.py -- take.json scene.json [out.blend]
 Without Blender, `python3 blender_import.py` runs the axis self-test.
 
@@ -119,7 +119,7 @@ def run_in_blender(take_path, scene_path, out_path=None):
     camera_copy = _load(os.path.join(here, "camera.json"))
     motion = _load(os.path.join(here, "motion.json"))
     figures = _load(os.path.join(here, "figures.json"))
-    out_path = out_path or os.path.join(here, "handcam.blend")
+    out_path = out_path or os.path.join(here, "cinehand.blend")
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bscene = bpy.context.scene
@@ -144,7 +144,7 @@ def run_in_blender(take_path, scene_path, out_path=None):
         samples = []
     else:
         samples = (camera_copy or {}).get("samples") or take["samples"]
-        bscene.camera = _camera(bpy, "HandCam", take, samples, fps)
+        bscene.camera = _camera(bpy, "CineHand", take, samples, fps)
         end_frame = 1 + samples[-1]["ts"] / 1000.0 * fps
 
     # --- the set's own motion, baked by the desk ------------------------------------------------

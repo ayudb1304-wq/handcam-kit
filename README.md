@@ -1,4 +1,4 @@
-# HandCam Kit — a Claude Code starter for "text builds the set, your hand shoots it"
+# CineHand Kit — a Claude Code starter for "text builds the set, your hand shoots it"
 
 This folder is a **kit for Claude Code**, not a finished app. It contains:
 
@@ -10,7 +10,7 @@ This folder is a **kit for Claude Code**, not a finished app. It contains:
 | `docs/PLAN.md` | Six build phases, each with an acceptance test you can run with your own phone |
 | `docs/PROMPTS.md` | Copy‑paste prompts to give Claude Code, one per phase |
 | `docs/DECISIONS.md` | Why gyro‑first, why no smoothing, why iPhone can't walk in Safari, etc. |
-| `docs/COMPETITORS.md` | Who else does this, what they have, and what HandCam adds to be better |
+| `docs/COMPETITORS.md` | Who else does this, what they have, and what CineHand adds to be better |
 | `server/`, `public/`, `exporters/` | A **running** starter scaffold so Phase 0 is already done |
 
 ## How to use it
@@ -50,7 +50,7 @@ pip3 install opencv-python-headless numpy
 
 Open `http://localhost:3000/` for the landing page, `/desk` for the studio (first visit shows a short tour; **Try the demo take** works without a phone).
 
-**Landing page examples** (the live hero and the "Made with HandCam" gallery) come from `public/showcase/examples.json`. To add one (a horror hallway, a rooftop chase…): put the AI video and its grey move in `public/showcase/media/` as 720×1280 H.264 MP4s without audio, plus a `.webp` of each first frame, and add an entry with its real move-match numbers from `server/score.py`. Encode with:
+**Landing page examples** (the live hero and the "Made with CineHand" gallery) come from `public/showcase/examples.json`. To add one (a horror hallway, a rooftop chase…): put the AI video and its grey move in `public/showcase/media/` as 720×1280 H.264 MP4s without audio, plus a `.webp` of each first frame, and add an entry with its real move-match numbers from `server/score.py`. Encode with:
 
 ```bash
 ffmpeg -i in.mp4 -an -vf "scale=720:1280:flags=lanczos,setsar=1,format=yuv420p" -c:v libx264 -preset slow -crf 22 -movflags +faststart -r 24 out.mp4
@@ -97,7 +97,7 @@ Your friend is a **customer**: they create an account (their first two real vide
 - Plans: **Free, Indie, Creator, Studio** (monthly or yearly), **Lifetime**, and **top-ups**. What each includes, and what happens on upgrade, downgrade, cancellation, renewal, a failed card or a refund: [`docs/PRICING-PLAN.md`](docs/PRICING-PLAN.md). Every price and allowance is in `config/pricing.json`.
 - Accounts live in `data/accounts.json` (gitignored).
 - Payments use **Dodo Payments**. In `.env`: `DODO_PAYMENTS_API_KEY=dodo_test_…` (Dodo dashboard → Test Mode → Developer → API Keys), then `npm run dodo:setup` once: it creates each plan (monthly and yearly subscriptions), the top-ups and Lifetime as Dodo products. Test card: `4242 4242 4242 4242`, any future date, CVC `123`.
-- **Webhook (needed for plans):** `npm run share` sets it up and keeps it pointed at the current link (`npm run dodo:webhook -- https://<link>` does it by hand; it saves the signing secret into `.env` for you). Manually: Dodo → Developer → Webhooks, endpoint `https://<your link>/api/pay/webhook`, events `subscription.*`, `payment.succeeded`, `refund.succeeded`, `dispute.*`; put its secret in `DODO_WEBHOOK_SECRET`. Renewals, failed cards and cancellations only reach HandCam this way. Customers manage their card and invoices in Dodo's customer portal (Account → Manage billing).
+- **Webhook (needed for plans):** `npm run share` sets it up and keeps it pointed at the current link (`npm run dodo:webhook -- https://<link>` does it by hand; it saves the signing secret into `.env` for you). Manually: Dodo → Developer → Webhooks, endpoint `https://<your link>/api/pay/webhook`, events `subscription.*`, `payment.succeeded`, `refund.succeeded`, `dispute.*`; put its secret in `DODO_WEBHOOK_SECRET`. Renewals, failed cards and cancellations only reach CineHand this way. Customers manage their card and invoices in Dodo's customer portal (Account → Manage billing).
 - Free trial videos are watermarked with `ffmpeg` (installed in the Dockerfile; on a Mac: `brew install ffmpeg`).
 - `MAKE_SLOTS` (default 6): AI versions running at once on your Higgsfield key; when it's full, Creator and Studio go first. `SIGNUP_LIMIT` (default 5): new accounts per hour per IP.
 - `REAL_AI=on` lets customers make real AI videos (spends your Higgsfield API money). Off by default: customers get Practice.
@@ -110,4 +110,4 @@ Deployed 2026-11-08 on Render from `render.yaml` (Hobby workspace, Starter insta
 
 ## Hosting details (always on, ~$7/month)
 
-`render.yaml` + `Dockerfile` run HandCam on [Render](https://render.com): a **Hobby** workspace ($0, not Pro) with a **Starter** instance and a 1 GB disk for accounts and videos. New → Blueprint → this repo, fill in the secret env vars, deploy, then set `PUBLIC_URL` to the service's https address. Any host that runs one always-on Docker container with a disk works the same (DECISIONS §15).
+`render.yaml` + `Dockerfile` run CineHand on [Render](https://render.com): a **Hobby** workspace ($0, not Pro) with a **Starter** instance and a 1 GB disk for accounts and videos. New → Blueprint → this repo, fill in the secret env vars, deploy, then set `PUBLIC_URL` to the service's https address. Any host that runs one always-on Docker container with a disk works the same (DECISIONS §15).

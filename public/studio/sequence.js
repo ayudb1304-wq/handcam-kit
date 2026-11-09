@@ -64,13 +64,13 @@ export function sequenceBlenderFiles(cuts, scenes, { script, fps = EXPORT_FPS } 
   );
   if (Object.keys(motion.objects).length) files.push({ name: 'motion.json', data: JSON.stringify(motion) });
   files.push({ name: 'import.py', data: script }, { name: 'README.txt', data: [
-    'HandCam sequence → Blender',
+    'CineHand sequence → Blender',
     '',
     'You need Blender 4.x (free, blender.org). In a terminal, go into this folder and run:',
     '',
-    '    blender --background --python import.py -- sequence.json scene.json handcam.blend',
+    '    blender --background --python import.py -- sequence.json scene.json cinehand.blend',
     '',
-    `Open handcam.blend and press Play: ${cuts.length} shots, one camera each, cut with timeline markers`,
+    `Open cinehand.blend and press Play: ${cuts.length} shots, one camera each, cut with timeline markers`,
     'bound to each camera. Every camera moves exactly like your hand did in that take.',
     '',
   ].join('\n') });
@@ -176,21 +176,21 @@ export function setupSequence({ takes, getLiveScene, takeScene, toast, nice, onC
     try {
       const { exportSegments } = await import('../shared/export-video.js');
       const out = await exportSegments(got.cuts.map((c, i) => ({ take: c.take, scene: got.scenes[i], from: c.from, to: c.to })), { onProgress: (f) => { btn.textContent = `${Math.round(f * 100)}%`; } });
-      download(`handcam-sequence-${stamp()}.mp4`, out.mp4);
+      download(`cinehand-sequence-${stamp()}.mp4`, out.mp4);
       toast(`Saved the sequence: ${got.cuts.length} shots, ${secs((out.frames / out.fps) * 1000)} s`);
     } catch (e) { toast(e.message, 5000); } finally { btn.disabled = false; btn.textContent = 'Video'; }
   };
   $('seqJson').onclick = async () => {
     const got = await cutsWithScenes(); if (!got) return;
     const data = { sequence: got.cuts.map((c) => ({ name: c.shot.name, takeId: c.take.id, in: c.from, out: c.to })), takes: got.cuts.map((c) => cleanTake(c.take)), scenes: got.scenes };
-    download(`handcam-sequence-${stamp()}.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    download(`cinehand-sequence-${stamp()}.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   };
   $('seqBlender').onclick = async () => {
     const got = await cutsWithScenes(); if (!got) return;
     const sr = await fetch('/exporters/blender_import.py');
     if (!sr.ok) return toast((await sr.json().catch(() => ({}))).error || 'Blender export isn’t available.', 5000);
     const script = await sr.text();
-    download(`handcam-sequence-${stamp()}-blender.zip`, new Blob([zip(sequenceBlenderFiles(got.cuts, got.scenes, { script }))], { type: 'application/zip' }));
+    download(`cinehand-sequence-${stamp()}-blender.zip`, new Blob([zip(sequenceBlenderFiles(got.cuts, got.scenes, { script }))], { type: 'application/zip' }));
     toast('Saved the Blender folder for the sequence (zip).');
   };
 

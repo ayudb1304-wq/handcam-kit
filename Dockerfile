@@ -1,4 +1,4 @@
-# HandCam on one always-on server (Render, Fly, Railway…): Node for the app, Python + OpenCV for the move-match checker,
+# CineHand on one always-on server (Render, Fly, Railway…): Node for the app, Python + OpenCV for the move-match checker,
 # ffmpeg + a font for the free-trial watermark.
 FROM node:22-slim
 RUN apt-get update \

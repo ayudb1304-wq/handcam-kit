@@ -1,12 +1,12 @@
 # Lab: cracking the recipe (private)
 
-Goal: find the exact way to hand each AI video model a HandCam take so it **copies the camera move**, and prove it with numbers. What we learn here is the product's edge. **Keep this folder private**: if this repo is ever made public, move `lab/` out first.
+Goal: find the exact way to hand each AI video model a CineHand take so it **copies the camera move**, and prove it with numbers. What we learn here is the product's edge. **Keep this folder private**: if this repo is ever made public, move `lab/` out first.
 
 ## Files
 - `experiments.csv`: one row per AI generation. Never delete rows; add a new row when you retry.
 - `recipe.md`: the current best recipe per model, plus rules learned. Update it when a test beats it.
 - `testpacks/<name>/`: everything a test needs, so any test can be re-run in a new session:
-  `take.json` (raw HandCam take), `reference.mp4` + `first-frame.png` (from the desk's Export video), `start-image.jpg` (the photoreal picture), and a note of the prompt in `experiments.csv`.
+  `take.json` (raw CineHand take), `reference.mp4` + `first-frame.png` (from the desk's Export video), `start-image.jpg` (the photoreal picture), and a note of the prompt in `experiments.csv`.
 - `results/<test>/`: small comparison images. Full result videos stay on Higgsfield (job ids are in the CSV).
 - `takes/<id>/`: takes sent from the desk (`take.json`, `scene.json`; `reference.mp4` + `first-frame.png` after rendering).
 - `../server/score.py`: "move match" v0 (now part of the app; the lab uses the same file). Compares a result video with the take's raw samples.

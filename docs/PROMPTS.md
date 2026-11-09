@@ -83,7 +83,7 @@ Implement Phase 4 from docs/PLAN.md.
 1. Phone: frame picker (16:9 default, 9:16, 2.39:1) shown as bars while shooting; zoom slider in full-frame mm (16–135, default 24) recorded per sample. Update the take format in ARCHITECTURE.md (frame, per-sample focal length) and DECISIONS.md if anything surprises you.
 2. exporters/blender_import.py — pure bpy, Blender 4.x. Usage in the file header:
    blender --background --python exporters/blender_import.py -- take.json scene.json out.blend
-   Build scene primitives (mirror shared/scene-render.js including the stick figure and set motion from shared/motion.js), create camera "HandCam", insert location + rotation_quaternion + lens keys per sample using ts, set fps and frame range, save out.blend. Keep three_to_blender() as the only axis conversion and keep its self-test.
+   Build scene primitives (mirror shared/scene-render.js including the stick figure and set motion from shared/motion.js), create camera "CineHand", insert location + rotation_quaternion + lens keys per sample using ts, set fps and frame range, save out.blend. Keep three_to_blender() as the only axis conversion and keep its self-test.
 3. Desk "Export": Video reference (offscreen render of the take's camera at the take's frame, 1920 on the long side, 24/30 fps, mp4 or webm fallback, no outlines), first-frame PNG, a ready-to-paste motion prompt, JSON, and Blender (zip via a tiny no-dep stored-entries zip writer in public/shared/zip.js).
 4. Smoothing slider 0–1 in the export panel, default 0, applied to a COPY of the samples via one-euro.js; raw take.json is always written unchanged alongside.
 

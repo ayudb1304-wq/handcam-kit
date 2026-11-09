@@ -20,7 +20,7 @@ export function setupTour({ loadDemo }) {
     m.className = 'modal';
     m.innerHTML = `<div class="card welcome rise" role="dialog" aria-modal="true" aria-labelledby="wTitle">
       <div class="art"><img src="/assets/obj-viewfinder.webp" alt=""><img src="/assets/obj-phone.webp" alt="" onerror="this.src='/assets/obj-camera.webp'"><img src="/assets/obj-clapper.webp" alt=""></div>
-      <div class="body"><span class="eyebrow">Welcome to HandCam Studio</span>
+      <div class="body"><span class="eyebrow">Welcome to CineHand Studio</span>
         <h2 id="wTitle">Your hand is the camera.<br>The AI follows.</h2>
         <p>Describe a set, shoot the move with your phone, and turn it into a real video that moves exactly like you did. Here’s the studio in 60 seconds.</p>
         <div class="row" style="margin-top:6px"><button class="btn primary lg" data-a="go">Show me around</button><button class="btn quiet" data-a="skip">Skip for now</button></div></div></div>`;

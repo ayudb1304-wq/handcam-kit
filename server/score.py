@@ -1,4 +1,4 @@
-"""Move match v0: how closely does an AI video follow the camera move of a HandCam take?
+"""Move match v0: how closely does an AI video follow the camera move of a CineHand take?
 
     python3 server/score.py TAKE.json RESULT.mp4 [RESULT2.mp4 ...]
 
@@ -19,7 +19,7 @@ import numpy as np
 
 
 def export_vfov(take):
-    """Vertical fov of HandCam's exported video (mirrors public/shared/frames.js exportFov/exportSize)."""
+    """Vertical fov of CineHand's exported video (mirrors public/shared/frames.js exportFov/exportSize)."""
     fov, a = take["view"].get("fov", 60), take["view"].get("aspect", 9 / 16)
     out = 9 / 16 if a < 1 else 16 / 9
     if out >= a:

@@ -1,5 +1,5 @@
 // 1€ filter (Casiez, Roussel, Vogel 2012): a low-pass whose cutoff rises with speed, so it calms jitter
-// at rest without lagging fast moves. HandCam uses it for DISPLAY ONLY (the desk's live gizmo) and, in
+// at rest without lagging fast moves. CineHand uses it for DISPLAY ONLY (the desk's live gizmo) and, in
 // Phase 4, on a COPY of samples at export. Recorded takes never pass through it. See DECISIONS §1–2.
 // No three.js import: OneEuroQuat only calls methods on the quaternions it is given.
 

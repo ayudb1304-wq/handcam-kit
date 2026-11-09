@@ -1,4 +1,4 @@
-// HandCam landing page motion: nav, hero tilt, scroll-lit words, floating objects, reveals, chart, ring,
+// CineHand landing page motion: nav, hero tilt, scroll-lit words, floating objects, reveals, chart, ring,
 // pricing toggle, FAQ. No libraries. Everything degrades to a static page with reduced motion or no JS.
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;

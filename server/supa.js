@@ -1,7 +1,7 @@
 // Supabase (Phase 5d): sign-in (Google, email + password, password reset) and the accounts database. Plain fetch,
 // no SDK on the server, no new dependency.
 //  - Who someone is: the browser signs in with Supabase Auth and sends its access token once; we ask Supabase
-//    (GET /auth/v1/user) whether it's real, then give them HandCam's own session cookie (accounts.js).
+//    (GET /auth/v1/user) whether it's real, then give them CineHand's own session cookie (accounts.js).
 //  - Where accounts live: tables handcam_accounts / handcam_payments (RLS on, no policies: only the secret key on this
 //    server can read or write them). Keys: the publishable key is public (it's sent to browsers); the secret key
 //    (sb_secret_…) stays in the server's environment and goes on the `apikey` header only (Supabase docs).

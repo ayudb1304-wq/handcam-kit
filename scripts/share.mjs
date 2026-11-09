@@ -1,4 +1,4 @@
-// npm run share — let a friend try HandCam from this laptop: starts a free Cloudflare tunnel (a public https link),
+// npm run share — let a friend try CineHand from this laptop: starts a free Cloudflare tunnel (a public https link),
 // then the server with PUBLIC_URL set to it, and prints the links to send. Ctrl+C stops both.
 // The laptop must stay on and awake while they test. Your friend is a customer: they sign up, see prices in videos,
 // and never see your AI costs; you on this laptop (localhost) are the founder.
@@ -23,9 +23,9 @@ const onOut = async (buf) => {
   // payments: point the Dodo webhook at this link (renewals, failed cards and refunds arrive there), then start the server
   const { pointWebhook } = await import('./dodo-webhook.mjs');
   if (existsSync('.env') && process.loadEnvFile) process.loadEnvFile('.env');
-  // once HandCam lives on Render, the webhook belongs to the Render address: DODO_WEBHOOK_HOME in .env stops share moving it
+  // once CineHand lives on Render, the webhook belongs to the Render address: DODO_WEBHOOK_HOME in .env stops share moving it
   if (process.env.DODO_WEBHOOK_HOME) console.log(`webhook: stays on ${process.env.DODO_WEBHOOK_HOME} (DODO_WEBHOOK_HOME); payments made through this link are still confirmed on return`);
-  else try { await pointWebhook(url); } catch (e) { console.warn(`webhook not updated (${e.message}); plan renewals won't reach HandCam on this link`); }
+  else try { await pointWebhook(url); } catch (e) { console.warn(`webhook not updated (${e.message}); plan renewals won't reach CineHand on this link`); }
   const server = spawn(process.execPath, ['server/index.js'], { stdio: 'inherit', env: { ...process.env, PORT, PUBLIC_URL: url } });
   kids.push(server);
   server.on('exit', (c) => { console.log(`server stopped (${c})`); stop(); });

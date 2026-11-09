@@ -1,8 +1,8 @@
-# HandCam recipe book (private)
+# CineHand recipe book (private)
 
 ## Current best: v0.1 (2026-11-04, 1 test, synthetic move)
 **Model:** Seedance 2.5, mode `omni_reference`, 480p for tests.
-**Inputs:** start image = photoreal picture made from the export's first-frame PNG; video reference = HandCam "Export video" MP4 as is (phone look, 24 fps).
+**Inputs:** start image = photoreal picture made from the export's first-frame PNG; video reference = CineHand "Export video" MP4 as is (phone look, 24 fps).
 **Prompt B1:** "Handheld phone footage at night. The start image sets the look of the scene. The reference video shows only the camera movement: follow the camera movement of the reference video exactly, including its timing, small shakes and corrections. Do not copy the grey look of the reference video; keep the scene photoreal like the start image. The man stands still and keeps looking at the camera. Do not add any camera movement that is not in the reference."
 **Result:** 3 runs (T1a, T2a, T2b): 2 followed exactly (timing within 0.05 s), 1 added an unrequested move back to the subject at the end. **Reliability ~2 in 3** (4 good of 6 runs incl. T3). Generate 2, keep the one score.py rates best.
 

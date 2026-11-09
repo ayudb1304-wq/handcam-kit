@@ -1,4 +1,4 @@
-/* HandCam Studio (desk.html). Builds on shared/ui.css. */
+/* CineHand Studio (desk.html). Builds on shared/ui.css. */
 html, body { height: 100%; overflow: hidden; }
 body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(--bg) 60%); }
 

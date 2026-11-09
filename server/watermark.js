@@ -11,7 +11,7 @@ const FONTS = [
 ].filter(Boolean);
 
 /** The ffmpeg filter: a small label in the bottom-right corner, on a soft dark box. */
-export function watermarkFilter(text = 'HandCam · free trial', font = FONTS.find((f) => existsSync(f))) {
+export function watermarkFilter(text = 'CineHand · free trial', font = FONTS.find((f) => existsSync(f))) {
   const t = text.replace(/[\\':%]/g, ''); // drawtext's special characters: keep the label plain
   return `drawtext=${font ? `fontfile='${font}':` : ''}text='${t}':fontcolor=white@0.85:fontsize=(w+h)/56:x=w-tw-(w+h)/80:y=h-th-(w+h)/80:box=1:boxcolor=black@0.4:boxborderw=8`;
 }

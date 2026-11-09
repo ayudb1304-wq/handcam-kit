@@ -141,7 +141,7 @@ From the "SaaS Pricing Strategy" doc, re-costed against the real API bill. Every
 - Dodo subscriptions: checkout, upgrade now (prorated), downgrade at period end, cancel at period end, undo, customer portal, failed card (plan videos pause), refunds and chargebacks.
 - Landing pricing and the studio's plans/account screens draw from `GET /api/plans`.
 
-**Accept:** with a Dodo test key and the webhook set up: run `npm run dodo:setup`, then sign up on the hosted link with a fresh email. Make a video with the 2 free videos: it is 480p and has the HandCam label. Choose Indie monthly with the test card: the pill shows Indie · 5 (+ any trial left) and JSON/Blender export unlock. Upgrade to Creator: you're charged the difference and see 15 minus what you used. Switch down to Indie: it says when. Cancel: it says until when; Keep my plan undoes it. In Dodo's dashboard, refund a top-up: its unspent videos disappear.
+**Accept:** with a Dodo test key and the webhook set up: run `npm run dodo:setup`, then sign up on the hosted link with a fresh email. Make a video with the 2 free videos: it is 480p and has the CineHand label. Choose Indie monthly with the test card: the pill shows Indie · 5 (+ any trial left) and JSON/Blender export unlock. Upgrade to Creator: you're charged the difference and see 15 minus what you used. Switch down to Indie: it says when. Cancel: it says until when; Keep my plan undoes it. In Dodo's dashboard, refund a top-up: its unspent videos disappear.
 
 ---
 

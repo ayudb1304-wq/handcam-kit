@@ -1,6 +1,6 @@
 # Competitors (researched 2026-11-03)
 
-What else exists for "plan a camera move without being a 3D artist", what each does well, and what HandCam does about it. Most sources are vendor pages or vendor-written roundups, so treat feature claims as claims. Re-check before relying on any single detail.
+What else exists for "plan a camera move without being a 3D artist", what each does well, and what CineHand does about it. Most sources are vendor pages or vendor-written roundups, so treat feature claims as claims. Re-check before relying on any single detail.
 
 ## The landscape
 
@@ -28,7 +28,7 @@ Higgsfield 3D Jutsu + Higgsfield Blender plugin, Intangible.
   - Render to AI video from the same chat.
   - Intangible: start/end cameras, shot sequencing, Build / Compose / Visualize modes.
   - Higgsfield has also announced **live phone camera control, but inside Blender**.
-- **Lack:** a hand-made camera move. Paths are presets or drawn trajectories, which is the "on rails" look HandCam exists to avoid. The handheld phone path needs Blender.
+- **Lack:** a hand-made camera move. Paths are presets or drawn trajectories, which is the "on rails" look CineHand exists to avoid. The handheld phone path needs Blender.
 
 ### 3. AI video with motion reference
 Kling Motion Control, invideo, Runway.
@@ -48,20 +48,20 @@ Previs Pro, Shot Designer, Shot Lister, Katalist, LTX Studio.
   - Script → storyboard → animatic (Katalist, LTX).
 - **Lack:** any hand-held camera.
 
-## Where HandCam wins today
+## Where CineHand wins today
 1. **No 3D software at all:** browser + phone. Every hand-held competitor needs a DCC.
 2. **The camera is genuinely hand-shot,** and the raw samples are kept (DECISIONS §1).
 3. **Open and cheap:** no account, works offline on templates, exports you own, no vendor lock-in.
 
 ## The risk
-If Higgsfield brings its phone camera into 3D Jutsu (no Blender), it matches HandCam's core loop. It already has assets, animated characters and rendering on top. Our defence:
+If Higgsfield brings its phone camera into 3D Jutsu (no Blender), it matches CineHand's core loop. It already has assets, animated characters and rendering on top. Our defence:
 - be clearly the best at the *hand* part;
 - work on a phone alone;
 - stay open to every video model.
 
 ## What we add (now in PLAN.md)
 
-| Gap or opportunity | Who has it | HandCam answer | Phase |
+| Gap or opportunity | Who has it | CineHand answer | Phase |
 |---|---|---|---|
 | Output aspect ratio | 3D Jutsu, AI video tools | Pick 16:9 / 9:16 / 2.39 before shooting; shown on the phone; stored with the take | 4 |
 | Lens / zoom | VirtuCamera, Previs Pro, Jutsu | Zoom slider in mm, recorded per sample (a zoom is hand-performed) | 4 |
@@ -75,7 +75,7 @@ If Higgsfield brings its phone camera into 3D Jutsu (no Blender), it matches Han
 | One-click render | Jutsu, Intangible | Optional send to Higgsfield / Seedance / Kling; file export stays default | 7 |
 
 ## What we keep saying no to
-- **Keyframe or camera-path editing.** It would make HandCam another on-rails tool (DECISIONS §1).
+- **Keyframe or camera-path editing.** It would make CineHand another on-rails tool (DECISIONS §1).
 - **A GLB/asset library in v1.** It bloats the phone page and isn't needed for a blockout; better primitive-built figures and vehicles first (DECISIONS §4).
 - **Smoothing that rewrites a take.** Rigs and export-time smoothing on a copy cover the need.
 

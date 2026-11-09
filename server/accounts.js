@@ -127,7 +127,7 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
       return db.users[id];
     },
     /**
-     * Someone Supabase Auth vouches for (Google, or a confirmed email). Their HandCam account by Supabase id, else the
+     * Someone Supabase Auth vouches for (Google, or a confirmed email). Their CineHand account by Supabase id, else the
      * account with that email (now linked to them), else a new Free account with the trial videos.
      */
     async fromAuth({ authId, email, name = '' }) {

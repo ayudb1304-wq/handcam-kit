@@ -1,5 +1,5 @@
 // npm run dodo:webhook -- https://<public link>
-// Points HandCam's Dodo webhook at <link>/api/pay/webhook (creates it the first time) and, if .env has no
+// Points CineHand's Dodo webhook at <link>/api/pay/webhook (creates it the first time) and, if .env has no
 // DODO_WEBHOOK_SECRET yet, fetches the signing secret from Dodo and appends it to .env. The secret is never printed.
 // `npm run share` calls this with each new tunnel link, so renewals, failed cards and refunds keep arriving.
 import { existsSync, readFileSync, appendFileSync } from 'node:fs';
@@ -18,9 +18,9 @@ export async function pointWebhook(base, { env = process.env, log = console.log 
   const url = `${base.replace(/\/$/, '')}/api/pay/webhook`;
   const list = await call('GET', '/webhooks?limit=100');
   let hook = (list.data || []).find((w) => w.metadata?.handcam === '1');
-  // all event types: HandCam ignores the ones it doesn't use (subscription.*, payment.*, refund.*, dispute.* matter)
+  // all event types: CineHand ignores the ones it doesn't use (subscription.*, payment.*, refund.*, dispute.* matter)
   if (hook) { if (hook.url !== url) await call('PATCH', `/webhooks/${hook.id}`, { url, disabled: false }); }
-  else hook = await call('POST', '/webhooks', { url, description: 'HandCam (npm run share keeps this pointed at the current link)', metadata: { handcam: '1' } });
+  else hook = await call('POST', '/webhooks', { url, description: 'CineHand (npm run share keeps this pointed at the current link)', metadata: { handcam: '1' } });
   log(`webhook: ${url}`);
   // live mode keeps its own secret line (DODO_LIVE_WEBHOOK_SECRET) so the test one isn't overwritten
   const name = env.DODO_WEBHOOK_SECRET_VAR || (env.DODO_MODE === 'live' ? 'DODO_LIVE_WEBHOOK_SECRET' : 'DODO_WEBHOOK_SECRET');

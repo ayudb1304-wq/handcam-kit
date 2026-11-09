@@ -1,4 +1,4 @@
-/* HandCam landing page. Light, warm, rounded tiles. Gabarito / Archivo / JetBrains Mono. */
+/* CineHand landing page. Light, warm, rounded tiles. Gabarito / Archivo / JetBrains Mono. */
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Gabarito:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap');
 
 :root {
@@ -102,7 +102,7 @@ p { margin: 0; }
 .rc-stats .mono:first-of-type { margin-left: auto; }
 .rc-play { position: absolute; z-index: 5; left: 50%; top: 40%; transform: translate(-50%, -50%); height: 52px; padding: 0 22px; border-radius: 999px; border: 0; background: var(--ink); color: #fff; font: 600 15px var(--font); box-shadow: 0 16px 30px -10px rgba(0,0,0,.6); cursor: pointer; }
 
-/* Gallery: made with HandCam */
+/* Gallery: made with CineHand */
 .gallery { background: var(--night); color: #f4ede4; padding: 90px 40px 70px; }
 .gal-head { text-align: center; margin-bottom: 44px; }
 .gal-head h2 { color: #f4ede4; margin: 16px auto 0; }

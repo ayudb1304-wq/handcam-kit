@@ -4,7 +4,7 @@ Paste everything below the line into Claude Code in your local clone, after `git
 
 ---
 
-You're picking up HandCam from a cloud Claude session. Before changing anything, read `CLAUDE.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/PLAN.md`, `docs/DECISIONS.md` (especially §21–28), `lab/README.md` and `lab/recipe.md`. Ask me for phone and laptop test results; don't assume them.
+You're picking up CineHand from a cloud Claude session. Before changing anything, read `CLAUDE.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/PLAN.md`, `docs/DECISIONS.md` (especially §21–28), `lab/README.md` and `lab/recipe.md`. Ask me for phone and laptop test results; don't assume them.
 
 ## Where things stand
 
@@ -14,7 +14,7 @@ You're picking up HandCam from a cloud Claude session. Before changing anything,
   - **Make video engine:** `server/make/` (jobs in `data/jobs/`, recipe loader, providers `higgsfield.js` + `mock.js`), `recipes/practice.json` (free) and `recipes/seedance-2.5.json` (draft). The scorer is `server/score.py`: turns, timing, walking (using the speckled "measuring twin" `measure.mp4`), and shake.
   - **Studio redesign:** `public/desk.html` + `public/studio/` (`main.js`, `make.js`, `tour.js`) + `public/shared/ui.css`. There's a demo take with a real Seedance result in `public/demo/`, and a first-run tour.
   - **Phone page polish** (`public/cam.html`), plus a real bug fix: on high-DPI phones the preview canvas showed a 2× zoomed top-left quarter (DECISIONS §24). Takes shot before the fix were framed on a zoomed preview.
-  - **Landing page:** `public/index.html` + `public/site/`, GSCdaddy style. The live hero reel and the "Made with HandCam" gallery are driven by `public/showcase/examples.json`.
+  - **Landing page:** `public/index.html` + `public/site/`, GSCdaddy style. The live hero reel and the "Made with CineHand" gallery are driven by `public/showcase/examples.json`.
   - **Lab:** desk **Send to lab** + `npm run lab:push`. `lab/tools/render.mjs` (needs Playwright) renders `reference.mp4` + `measure.mp4` from a lab take. The knowledge bank is `lab/experiments.csv` (9 rows so far) and `lab/recipe.md`.
 - **Recipe results so far** (a synthetic move made with code, not by hand): Seedance 2.5 through the Higgsfield *connector's* `omni_reference` mode (start image + grey reference video) followed the move in about 4 of 6 runs. MiniMax H3 was about 0.6 s late. The scorer catches the bad runs.
 

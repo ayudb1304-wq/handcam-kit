@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>HandCam · phone</title>
+<title>CineHand · phone</title>
 <link rel="stylesheet" href="/shared/ui.css">
 <style>
   [hidden] { display: none !important; } /* #gate/#hud set display below, which would otherwise beat the hidden attribute */
@@ -115,7 +115,7 @@
 <div id="gate">
   <div class="wrap">
     <img src="/assets/obj-phone.webp" alt="">
-    <span class="eyebrow">HandCam</span>
+    <span class="eyebrow">CineHand</span>
     <h1>Your phone is the camera</h1>
     <ol>
       <li><span>01</span>Tap below and allow motion</li>
@@ -123,7 +123,7 @@
       <li><span>03</span>Tap ● and move like a camera operator</li>
     </ol>
     <button class="btn light lg" id="enable">Enable motion</button>
-    <p class="solo-hint" id="soloHint" hidden>Phone only: no laptop needed. To use a laptop too, open <b>handcam/desk</b> on it and scan its QR code.</p>
+    <p class="solo-hint" id="soloHint" hidden>Phone only: no laptop needed. To use a laptop too, open <b>cinehand.com/desk</b> on it and scan its QR code.</p>
     <div id="err"></div>
   </div>
 </div>
@@ -555,8 +555,8 @@ async function exportOnPhone(take, btn) {
   try {
     const { exportTake } = await import('./shared/export-video.js');
     const out = await exportTake(take, scene, { onProgress: (f) => { btn.textContent = `${Math.round(f * 100)}%`; } });
-    const file = new File([out.mp4], `handcam-${take.id}.mp4`, { type: 'video/mp4' });
-    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'HandCam take' }); // → Save Video / AirDrop / Messages
+    const file = new File([out.mp4], `cinehand-${take.id}.mp4`, { type: 'video/mp4' });
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'CineHand take' }); // → Save Video / AirDrop / Messages
     else Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: file.name }).click();
     btn.textContent = 'Done';
   } catch (e) {

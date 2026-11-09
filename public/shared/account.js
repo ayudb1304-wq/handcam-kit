@@ -46,7 +46,7 @@ export async function supabase() {
   } catch { supaClient = false; }
   return supaClient;
 }
-/** The Supabase session (after Google, an email link or a password) becomes HandCam's own session cookie. */
+/** The Supabase session (after Google, an email link or a password) becomes CineHand's own session cookie. */
 async function exchange(session) {
   return (await postJson('/api/account/supabase', { access_token: session.access_token })).account;
 }
@@ -71,7 +71,7 @@ export async function finishSignIn() {
 /** Choose a new password after a reset link (Supabase). */
 export function newPassword() {
   const { el, close } = modal(`
-    <span class="eyebrow">HandCam account</span><h3>Choose a new password</h3>
+    <span class="eyebrow">CineHand account</span><h3>Choose a new password</h3>
     <form id="pwForm"><input class="field" name="password" type="password" autocomplete="new-password" placeholder="New password (8+ characters)" minlength="8" required>
     <div class="acct-err" id="pwErr"></div><button class="btn primary" type="submit">Save password</button></form>`);
   el.querySelector('#pwForm').onsubmit = async (e) => {
@@ -81,7 +81,7 @@ export function newPassword() {
     if (error) el.querySelector('#pwErr').textContent = error.message; else close();
   };
 }
-/** Sign out of HandCam (and of Supabase, so the next person on this computer starts fresh). */
+/** Sign out of CineHand (and of Supabase, so the next person on this computer starts fresh). */
 export async function signOut() {
   await fetch('/api/account/logout', { method: 'POST' });
   const sb = await supabase();
@@ -97,7 +97,7 @@ export function signIn({ reason = '' } = {}) {
     const sb = await supabase();
     let mode = 'signup';
     const { el, close } = modal(`
-      <span class="eyebrow">HandCam account</span>
+      <span class="eyebrow">CineHand account</span>
       <h3 id="acctTitle">Create your account</h3>
       <p class="acct-why">${esc(reason || 'Your first two real videos are on us. Practice mode is always free.')}</p>
       ${sb ? `<button class="btn google" id="acctGoogle" type="button">${GOOGLE_ICON}<span>Continue with Google</span></button><div class="or"><span>or with email</span></div>` : ''}
@@ -314,7 +314,7 @@ export async function openAccount({ account, from = 'desk', onChange = () => {} 
       ${s ? '<button class="btn ghost" data-portal>Manage billing</button>' : ''}
     </div>
     ${account.features.byok ? `<details class="byok"><summary>Your own Higgsfield key ${account.byok?.set ? `<span class="badge ok">saved · …${esc(account.byok.last4)}</span>` : ''}</summary>
-      <p class="note">Make videos on your own Higgsfield account (console.higgsfield.ai → API keys): they use none of your HandCam videos, every quality, no watermark. Stored encrypted; we never show it again.</p>
+      <p class="note">Make videos on your own Higgsfield account (console.higgsfield.ai → API keys): they use none of your CineHand videos, every quality, no watermark. Stored encrypted; we never show it again.</p>
       <form id="byokForm"><input class="field" name="keyId" placeholder="API key ID" autocomplete="off" required><input class="field" name="keySecret" type="password" placeholder="API key secret" autocomplete="off" required>
       <div class="row"><button class="btn ghost sm" type="submit">Save key</button>${account.byok?.set ? '<button class="btn quiet sm" type="button" data-unkey>Remove key</button>' : ''}</div></form></details>` : ''}
     <div class="acct-err" id="acctErr2"></div>

@@ -1,6 +1,6 @@
 # Plans and paywalls (Phase 5c)
 
-This is how HandCam charges. It is built from the "SaaS Pricing Strategy for HandCam Kit" doc (Drive, 2026-11-05),
+This is how CineHand charges. It is built from the "SaaS Pricing Strategy for CineHand Kit" doc (Drive, 2026-11-05),
 with its numbers re-costed against our real API bill (DECISIONS §29). Every number below lives in
 `config/pricing.json`; change it there, never in code.
 
@@ -63,7 +63,7 @@ Rules that cut across plans:
   It works even when real AI is switched off for customers (`REAL_AI`), because it doesn't spend our money.
   The key is stored encrypted on the server and never sent back to the browser (only its last 4 characters).
 - **Grey video export stays free** on every plan: it is what the five-minute stranger test (SPEC) ends with.
-- **The founder** (the laptop running HandCam) and `ADMIN_EMAILS` accounts: no gates, no charges, real AI cost in $.
+- **The founder** (the laptop running CineHand) and `ADMIN_EMAILS` accounts: no gates, no charges, real AI cost in $.
 
 ## Where each gate is enforced
 

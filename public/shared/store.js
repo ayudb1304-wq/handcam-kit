@@ -13,7 +13,7 @@ function db() {
       resolve(req.result);
     };
     req.onerror = () => reject(req.error);
-    req.onblocked = () => console.warn('HandCam: another open HandCam tab is using an older version; close it or reload it.');
+    req.onblocked = () => console.warn('CineHand: another open CineHand tab is using an older version; close it or reload it.');
   });
 }
 
@@ -35,7 +35,7 @@ export const putScene = (scene) => run('scenes', 'readwrite', s => s.put(scene))
 export const getScene = (id) => run('scenes', 'readonly', s => s.get(id));
 
 // Phase 5b: shot lists live in their OWN small database. Adding a store to 'handcam' would need a version upgrade,
-// and an upgrade waits until every open HandCam tab (old versions included) lets go; a new database never waits.
+// and an upgrade waits until every open CineHand tab (old versions included) lets go; a new database never waits.
 let seqOpening;
 function seqDb() {
   return seqOpening ??= new Promise((resolve, reject) => {

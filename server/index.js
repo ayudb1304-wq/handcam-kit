@@ -1,4 +1,4 @@
-// HandCam relay: static files + dumb WebSocket relay + QR info + POST /api/scene. See docs/ARCHITECTURE.md.
+// CineHand relay: static files + dumb WebSocket relay + QR info + POST /api/scene. See docs/ARCHITECTURE.md.
 import express from 'express';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
@@ -41,7 +41,7 @@ const app = express();
 app.set('trust proxy', true); // behind cloudflared / Render: req.protocol is https when the visitor's is
 // ---- accounts, plans and payments (Phase 5, 5c: docs/PRICING-PLAN.md) ----
 const pricing = loadPricing(join(ROOT_DIR, 'config', 'pricing.json'));
-// Supabase (Phase 5d): sign-in and the accounts database. Without its env vars HandCam keeps working on the file.
+// Supabase (Phase 5d): sign-in and the accounts database. Without its env vars CineHand keeps working on the file.
 const supa = makeSupabase({ url: process.env.SUPABASE_URL, publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY, secretKey: process.env.SUPABASE_SECRET_KEY });
 const accounts = await makeAccounts({ store: supa.store, dir: DATA_DIR, secret: process.env.SESSION_SECRET, pricing, adminEmails: (process.env.ADMIN_EMAILS || '').split(',') });
 const dodoMode = process.env.DODO_MODE === 'live' ? 'live' : 'test';
@@ -119,7 +119,7 @@ app.post('/api/account/login', async (req, res) => {
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 // Sign-in through Supabase Auth (Google, email + password): the browser sends its access token once, we check it with
-// Supabase and hand out HandCam's own session cookie. Both config values are public (publishable key).
+// Supabase and hand out CineHand's own session cookie. Both config values are public (publishable key).
 app.get('/api/auth/config', (req, res) => res.json({ supabase: supa.publicConfig() }));
 app.post('/api/account/supabase', async (req, res) => {
   if (!authLimit(clientIp(req))) return res.status(429).json({ error: 'Too many tries. Wait a little and try again.' });
@@ -241,7 +241,7 @@ function lanIp() {
 }
 
 server.listen(PORT, () => {
-  console.log(`HandCam relay  →  http://localhost:${PORT}/desk   (LAN: http://${lanIp()}:${PORT})`);
+  console.log(`CineHand relay  →  http://localhost:${PORT}/desk   (LAN: http://${lanIp()}:${PORT})`);
   console.log(process.env.ANTHROPIC_API_KEY ? `scenes: Claude (${process.env.ANTHROPIC_MODEL || DEFAULT_MODEL})` : 'scenes: templates only (set ANTHROPIC_API_KEY for AI blockouts)');
   console.log(`make video: ${Object.values(recipes).map((r) => `${r.label}${providerReady(r.provider) ? '' : ' (needs HF_API_KEY_ID/SECRET)'}`).join(', ')}`);
   console.log(`sign-in: ${supa.authReady ? 'Supabase (Google, email)' : 'built-in email + password'}   database: ${supa.dbReady ? 'Supabase' : 'file only'}`);
