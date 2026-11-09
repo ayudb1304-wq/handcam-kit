@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Camera Movement Prompts: 12 Moves That Work | CineHand</title>
+<meta name="description" content="Copy-ready camera movement prompts for AI video (push-in, orbit, whip pan, handheld and more), why the camera drifts in Seedance, Kling and Veo, and how to fix it.">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="theme-color" content="#F6F4EF">
+<link rel="canonical" href="https://cinehand.com/ai-camera-movement-prompts">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="CineHand">
+<meta property="og:title" content="AI Camera Movement Prompts: 12 Moves That Work">
+<meta property="og:description" content="Copy-ready camera prompts for AI video, why the camera drifts, and how to get the exact move every time.">
+<meta property="og:url" content="https://cinehand.com/ai-camera-movement-prompts">
+<meta property="og:image" content="https://cinehand.com/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/site/guide.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Article","headline":"AI camera movement prompts: 12 moves, and how to make the AI actually follow them","description":"Copy-ready camera movement prompts for AI video, why the camera drifts in Seedance, Kling and Veo, and how to get the exact move.","datePublished":"2026-11-09","dateModified":"2026-11-09","mainEntityOfPage":"https://cinehand.com/ai-camera-movement-prompts","image":"https://cinehand.com/assets/og.png","author":{"@type":"Organization","name":"CineHand","url":"https://cinehand.com"},"publisher":{"@type":"Organization","name":"CineHand","logo":{"@type":"ImageObject","url":"https://cinehand.com/assets/icon-512.png"}}},
+ {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"CineHand","item":"https://cinehand.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://cinehand.com/guides"},{"@type":"ListItem","position":3,"name":"AI camera movement prompts","item":"https://cinehand.com/ai-camera-movement-prompts"}]},
+ {"@type":"FAQPage","mainEntity":[
+  {"@type":"Question","name":"What is a camera movement prompt?","acceptedAnswer":{"@type":"Answer","text":"A sentence in your AI video prompt that tells the model how the virtual camera should move: the move (push-in, pan, orbit), its direction, its speed and what stays fixed. Most video models, including Seedance, Kling and Veo, understand common film terms."}},
+  {"@type":"Question","name":"How do I stop the AI from adding camera movement I didn't ask for?","acceptedAnswer":{"@type":"Answer","text":"Ask for one move per shot, say what must stay still (“the camera does not pan back to the man”), and end the prompt with “no other camera movement”. If the shot needs an exact path, give the model a video reference of the move instead of words."}},
+  {"@type":"Question","name":"Can I control the timing of a camera move with a prompt?","acceptedAnswer":{"@type":"Answer","text":"Only roughly. Words like “slowly” or “halfway through” are interpreted loosely. To land a turn at a specific moment, use a camera-motion reference video. In our Seedance 2.5 tests, a reference shot with a phone kept the timing within about 0.05 seconds."}},
+  {"@type":"Question","name":"Which camera moves work best in AI video?","acceptedAnswer":{"@type":"Answer","text":"Slow push-ins, slow pull-outs, pans and orbits around a still subject are the most reliable from text alone. Whip pans, handheld moves and combined moves (walk in, glance, whip) are where prompts drift most, and where a motion reference helps most."}},
+  {"@type":"Question","name":"Can I use my own camera move as a reference for AI video?","acceptedAnswer":{"@type":"Answer","text":"Yes. Models that accept a video reference can follow the camera path in it. CineHand lets you shoot that reference with your phone through a 3D blockout of your scene, then makes the AI video and scores how closely it followed."}}
+ ]}
+]}
+</script>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="/"><img src="/assets/logo.svg" alt="" width="28" height="28">CineHand</a>
+  <nav aria-label="Main"><a class="hide-sm" href="/guides">Guides</a><a class="hide-sm" href="/#pricing">Pricing</a><a href="/desk">Open the studio</a><a class="btn" href="/desk?demo=1">Try the demo →</a></nav>
+</header>
+<p class="crumbs"><a href="/">CineHand</a> › <a href="/guides">Guides</a> › AI camera movement prompts</p>
+
+<article>
+  <span class="kicker">Guide · AI video camera control</span>
+  <h1>AI camera movement prompts: 12 moves, and how to make the AI actually follow them</h1>
+  <p class="lead">Every AI video model understands “slow push-in” or “orbit around the subject”. Getting the exact move, at the right moment, without the camera wandering off, is the hard part. Here are prompts that work, why they drift, and what to do when words aren’t enough.</p>
+  <p class="byline">By the CineHand team · Updated 9 November 2026 · Tested on Seedance 2.5</p>
+
+  <div class="tldr"><b>In short</b>
+    <ul>
+      <li>Write the camera as its own sentence: move, direction, speed, and what stays fixed.</li>
+      <li>One move per shot. Combined moves (“walk in, glance left, whip pan”) are where prompts fail.</li>
+      <li>End with <em>“no other camera movement”</em>. Models love to add a move back to the main subject.</li>
+      <li>Words can’t set timing. When the shot needs an exact path, give the model a <strong>video of the move</strong> instead. You can shoot one with your phone in CineHand.</li>
+    </ul>
+  </div>
+
+  <ol class="toc">
+    <li><a href="#formula">The camera prompt formula</a></li>
+    <li><a href="#moves">12 camera moves with prompt wording</a></li>
+    <li><a href="#models">Notes for Seedance, Kling, Veo and Runway</a></li>
+    <li><a href="#drift">Why the camera drifts</a></li>
+    <li><a href="#shoot">When to stop prompting and shoot the move</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+
+  <h2 id="formula">The camera prompt formula</h2>
+  <p>Video models read a prompt as a bag of ideas. If the camera words are mixed into the description of the scene, the model weighs them against everything else and often loses them. Keep them apart:</p>
+  <p><code>[shot size + subject] + [camera move, direction, speed] + [what stays fixed] + [look]</code></p>
+  <span class="prompt">Medium shot of a man standing between two parked cars at night. The camera slowly pushes in toward his face over the whole shot. He stays still and keeps looking at the lens. No other camera movement. Wet asphalt, sodium street light, shot on an old phone.</span>
+  <p>Three habits matter more than the exact wording:</p>
+  <ul>
+    <li><strong>Name the move with a film term</strong> (push-in, pan, orbit, crane). Models were trained on captions that use these words.</li>
+    <li><strong>Give a speed word</strong>: <em>slowly</em>, <em>steadily</em>, <em>quickly</em>, <em>a sudden whip</em>. Without one, most models default to a slow, smooth move.</li>
+    <li><strong>Say what doesn’t move.</strong> “The subject stays still”, “the horizon stays level”, “the camera does not return to the man”.</li>
+  </ul>
+
+  <h2 id="moves">12 camera moves with prompt wording</h2>
+  <p>The wording below is a starting point that most current models understand. The last column is where each move tends to go wrong.</p>
+  <div class="scroll"><table>
+    <tr><th>Move</th><th>What it does</th><th>Prompt wording</th><th>Where it goes wrong</th></tr>
+    <tr><td><strong>Push-in</strong> (dolly in)</td><td>Camera travels toward the subject. Builds tension or intimacy.</td><td><code>the camera slowly pushes in toward her face</code></td><td>Becomes a zoom (flat, no parallax) or stops halfway.</td></tr>
+    <tr><td><strong>Pull-out</strong> (dolly out)</td><td>Camera travels away, revealing the space.</td><td><code>the camera slowly pulls back to reveal the empty street</code></td><td>The reveal is invented differently every run.</td></tr>
+    <tr><td><strong>Pan</strong></td><td>Camera turns left or right on the spot.</td><td><code>the camera pans slowly from left to right across the parking lot</code></td><td>Turns too far, or drifts sideways instead of turning.</td></tr>
+    <tr><td><strong>Tilt</strong></td><td>Camera turns up or down on the spot.</td><td><code>the camera tilts up from his shoes to his face</code></td><td>Turns into a crane move (the camera rises).</td></tr>
+    <tr><td><strong>Tracking shot</strong> (truck)</td><td>Camera moves alongside a moving subject.</td><td><code>tracking shot moving left alongside the woman as she walks</code></td><td>Speed doesn’t match the subject; the subject slides in frame.</td></tr>
+    <tr><td><strong>Orbit</strong> (arc)</td><td>Camera circles the subject, keeping it centred.</td><td><code>the camera orbits slowly around the car, 90 degrees, keeping it centred</code></td><td>Orbits too far, or the subject’s face changes as the side comes into view.</td></tr>
+    <tr><td><strong>Crane up</strong> (jib)</td><td>Camera rises vertically, often ending high and wide.</td><td><code>the camera cranes up slowly from street level to above the rooftops</code></td><td>Tilts instead of rising.</td></tr>
+    <tr><td><strong>Whip pan</strong></td><td>Very fast pan with motion blur, often to a new subject.</td><td><code>sudden whip pan to the right with heavy motion blur, landing on the shed</code></td><td>Lands on the wrong thing, or swings back afterwards.</td></tr>
+    <tr><td><strong>Handheld</strong></td><td>Small human shakes and corrections.</td><td><code>handheld camera, subtle natural shake, slight corrections</code></td><td>Either too smooth (looks like a dolly) or fake “camera shake”.</td></tr>
+    <tr><td><strong>Dolly zoom</strong></td><td>Camera moves in while zooming out: the background stretches.</td><td><code>dolly zoom: the camera moves toward him while the background stretches away</code></td><td>Often unsupported; you get a plain push-in or zoom.</td></tr>
+    <tr><td><strong>FPV fly-through</strong></td><td>Fast drone flight through a space.</td><td><code>FPV drone shot flying fast through the warehouse, banking left</code></td><td>Path is random; collisions with geometry.</td></tr>
+    <tr><td><strong>Locked-off</strong></td><td>No camera movement at all.</td><td><code>static shot, locked-off camera on a tripod, no camera movement</code></td><td>Models still add a slow drift or push.</td></tr>
+  </table></div>
+  <p>For the vocabulary behind these moves, see our guide to <a href="/camera-motion-control">camera motion control in AI video</a>.</p>
+
+  <h2 id="models">Notes for Seedance, Kling, Veo and Runway</h2>
+  <h3>Seedance 2.5 (tested)</h3>
+  <p>We run every camera move through Seedance 2.5 with a phone-shot motion reference and score the result frame by frame. What we’ve seen so far:</p>
+  <ul>
+    <li><strong>With a motion reference, timing holds.</strong> In good runs the camera hit its turns within about 0.05 s of the reference, and natural hand shake survived (0.32° of wobble in the take, 0.38° in the video).</li>
+    <li><strong>It likes to return to the main subject.</strong> When the move turns away from a person, some runs swing back to them at the end. Say explicitly that the camera ends pointing away and the subject can leave the frame.</li>
+    <li><strong>It slightly under-walks.</strong> Forward movement came out at roughly 75–93% of the distance in the reference.</li>
+    <li><strong>Not every run follows.</strong> About two in three runs followed the move closely in our early tests, so make two or three versions and keep the closest.</li>
+  </ul>
+  <h3>Kling, Veo, Runway and others</h3>
+  <p>Kling, Runway and Higgsfield offer preset camera moves (zoom, pan, orbit and similar) that are more reliable than free text for simple moves. Veo and Sora rely mostly on prompt wording. We haven’t run our move tests on these models yet, so we won’t claim more than that: the formula above is a good default for all of them, and a video reference is the strongest control wherever a model accepts one.</p>
+
+  <h2 id="drift">Why the camera drifts</h2>
+  <p>A prompt describes a <em>category</em> of move. A shot needs a <em>performance</em>: this speed, this pause, turn here, overshoot a little, settle. Text can’t carry that, so the model fills the gaps with the most common version it has seen, which is a smooth, slow, centred move. Three things follow from that:</p>
+  <ul>
+    <li><strong>Timing is guessed.</strong> “Halfway through, whip pan left” lands anywhere from a third to two thirds of the way in.</li>
+    <li><strong>Combined moves collapse.</strong> “Walk in, glance left, whip pan” usually becomes one blended move.</li>
+    <li><strong>The camera returns to safety.</strong> Models are biased toward keeping the main subject in frame.</li>
+  </ul>
+
+  <h2 id="shoot">When to stop prompting and shoot the move</h2>
+  <p>If the shot is about the camera (a whip that lands on a reveal, a nervous handheld walk-in, an exact two-beat turn), stop rewriting the prompt and show the model the move. That is what CineHand is for:</p>
+  <ol>
+    <li><strong>Describe the set</strong> in one sentence. CineHand builds a grey 3D blockout of it.</li>
+    <li><strong>Shoot the move with your phone.</strong> Your phone becomes the camera inside the set; walk, turn and whip like an operator. Takes are recorded raw, never smoothed.</li>
+    <li><strong>Make the video.</strong> CineHand sends your move to Seedance 2.5 as a motion reference, makes several versions, and scores each one for how closely it followed. Versions under 70% move match are free.</li>
+  </ol>
+  <div class="proof">
+    <figure><video controls muted playsinline loop preload="none" poster="/showcase/media/night-lot-move.webp" src="/showcase/media/night-lot-move.mp4"></video><figcaption>The move, shot with a phone</figcaption></figure>
+    <figure><video controls muted playsinline loop preload="none" poster="/showcase/media/night-lot-a.webp" src="/showcase/media/night-lot-a.mp4"></video><figcaption>Seedance 2.5 · 91% move match</figcaption></figure>
+  </div>
+  <p class="caption">Walk in, glance left, whip pan. 6 seconds. The AI video turned within 0.04 s of the phone take.</p>
+
+  <div class="cta">
+    <div><h2>Show the AI the move</h2><p>Free to shoot: sets, takes and the grey video export cost nothing. Two AI videos free on sign-up.</p></div>
+    <a class="btn red" href="/desk?demo=1">Try the demo →</a>
+  </div>
+
+  <h2 id="faq">FAQ</h2>
+  <div class="faq">
+    <details open><summary>What is a camera movement prompt?</summary><p>A sentence in your AI video prompt that tells the model how the virtual camera should move: the move (push-in, pan, orbit), its direction, its speed and what stays fixed. Most video models, including Seedance, Kling and Veo, understand common film terms.</p></details>
+    <details><summary>How do I stop the AI from adding camera movement I didn't ask for?</summary><p>Ask for one move per shot, say what must stay still (“the camera does not pan back to the man”), and end the prompt with “no other camera movement”. If the shot needs an exact path, give the model a video reference of the move instead of words.</p></details>
+    <details><summary>Can I control the timing of a camera move with a prompt?</summary><p>Only roughly. Words like “slowly” or “halfway through” are interpreted loosely. To land a turn at a specific moment, use a camera-motion reference video. In our Seedance 2.5 tests, a reference shot with a phone kept the timing within about 0.05 seconds.</p></details>
+    <details><summary>Which camera moves work best in AI video?</summary><p>Slow push-ins, slow pull-outs, pans and orbits around a still subject are the most reliable from text alone. Whip pans, handheld moves and combined moves (walk in, glance, whip) are where prompts drift most, and where a motion reference helps most.</p></details>
+    <details><summary>Can I use my own camera move as a reference for AI video?</summary><p>Yes. Models that accept a video reference can follow the camera path in it. CineHand lets you shoot that reference with your phone through a 3D blockout of your scene, then makes the AI video and scores how closely it followed.</p></details>
+  </div>
+
+  <h2>Keep reading</h2>
+  <div class="related">
+    <a href="/camera-motion-control"><b>Camera motion control for AI video</b><span>Character motion control vs camera control, and four ways to direct the camera.</span></a>
+    <a href="/ai-filmmaking"><b>An AI filmmaking workflow</b><span>From shot list to finished shot, with the camera decided before you generate.</span></a>
+  </div>
+</article>
+
+<footer class="foot"><a href="/">CineHand</a><a href="/guides">Guides</a><a href="/#pricing">Pricing</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:sushi@cinehand.com">Contact</a></footer>
+</body>
+</html>

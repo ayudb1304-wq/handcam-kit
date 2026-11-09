@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Filmmaking Workflow: Direct the Camera First | CineHand</title>
+<meta name="description" content="A practical AI filmmaking workflow: shot list, blockout, camera take, first frame, generate and check. How to make AI films where the camera does what you planned.">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="theme-color" content="#F6F4EF">
+<link rel="canonical" href="https://cinehand.com/ai-filmmaking">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="CineHand">
+<meta property="og:title" content="AI Filmmaking Workflow: Direct the Camera First">
+<meta property="og:description" content="Shot list, blockout, camera take, first frame, generate and check: an AI filmmaking workflow where the camera does what you planned.">
+<meta property="og:url" content="https://cinehand.com/ai-filmmaking">
+<meta property="og:image" content="https://cinehand.com/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/site/guide.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Article","headline":"AI filmmaking: a workflow where you direct the camera before you generate","description":"A practical AI filmmaking workflow: shot list, blockout, camera take, first frame, generate and check.","datePublished":"2026-11-09","dateModified":"2026-11-09","mainEntityOfPage":"https://cinehand.com/ai-filmmaking","image":"https://cinehand.com/assets/og.png","author":{"@type":"Organization","name":"CineHand","url":"https://cinehand.com"},"publisher":{"@type":"Organization","name":"CineHand","logo":{"@type":"ImageObject","url":"https://cinehand.com/assets/icon-512.png"}}},
+ {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"CineHand","item":"https://cinehand.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://cinehand.com/guides"},{"@type":"ListItem","position":3,"name":"AI filmmaking workflow","item":"https://cinehand.com/ai-filmmaking"}]},
+ {"@type":"FAQPage","mainEntity":[
+  {"@type":"Question","name":"How do I make an AI film?","acceptedAnswer":{"@type":"Answer","text":"Write a shot list, block out each scene, decide the camera move for every shot, lock the look on a first frame, generate a few versions per shot, keep the ones that follow your plan, then edit them together with sound. Treat each shot as a take you can redo, not a prompt you hope works."}},
+  {"@type":"Question","name":"What tools do AI filmmakers use?","acceptedAnswer":{"@type":"Answer","text":"Usually an image model for the look, a video model (such as Seedance, Kling, Veo or Runway) for the shots, an editor (such as DaVinci Resolve, Premiere or CapCut) for the cut, and a sound tool. CineHand covers the camera: blocking the scene and shooting the camera move that the video model follows."}},
+  {"@type":"Question","name":"How long should AI video shots be?","acceptedAnswer":{"@type":"Answer","text":"Short. Four to eight seconds per shot is the sweet spot for most video models today: long enough for one clear camera idea, short enough that the model keeps the scene consistent. Cut between shots rather than asking one generation to do everything."}},
+  {"@type":"Question","name":"Do I need 3D software to plan AI shots?","acceptedAnswer":{"@type":"Answer","text":"No. CineHand builds a grey blockout from one sentence, and you shoot the camera with your phone. You never open a 3D program. If you do use Blender, CineHand can export your camera there on a paid plan."}},
+  {"@type":"Question","name":"Can I keep the same camera move across different versions of a shot?","acceptedAnswer":{"@type":"Answer","text":"Yes, if the move is a reference rather than a prompt. In CineHand the take stays the same and only the generation changes, so every version is measured against the same move and you keep the closest one."}}
+ ]}
+]}
+</script>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="/"><img src="/assets/logo.svg" alt="" width="28" height="28">CineHand</a>
+  <nav aria-label="Main"><a class="hide-sm" href="/guides">Guides</a><a class="hide-sm" href="/#pricing">Pricing</a><a href="/desk">Open the studio</a><a class="btn" href="/desk?demo=1">Try the demo →</a></nav>
+</header>
+<p class="crumbs"><a href="/">CineHand</a> › <a href="/guides">Guides</a> › AI filmmaking workflow</p>
+
+<article>
+  <span class="kicker">Guide · AI filmmaking</span>
+  <h1>AI filmmaking: a workflow where you direct the camera before you generate</h1>
+  <p class="lead">Most AI films look generated for one reason: nobody directed the camera. Each shot drifts its own way, nothing cuts together, and every fix is another roll of the dice. This workflow puts the camera decision before the generation, the way a real shoot does.</p>
+  <p class="byline">By the CineHand team · Updated 9 November 2026</p>
+
+  <div class="tldr"><b>In short</b>
+    <ul>
+      <li>Plan shots, not prompts: size, move, length and what the audience should notice.</li>
+      <li>Block out the scene and <strong>shoot the camera move</strong> before generating anything.</li>
+      <li>Approve the look on one frame, then generate a few versions and keep the one that follows your move.</li>
+      <li>Keep shots to 4–8 seconds with one camera idea each, and cut between them.</li>
+    </ul>
+  </div>
+
+  <h2>Why AI films feel generated</h2>
+  <ul>
+    <li><strong>The camera is random.</strong> Each generation invents its own move, so shots don’t share a visual language.</li>
+    <li><strong>Nothing matches the cut.</strong> A turn that lands late or a push that stops short breaks the edit you planned.</li>
+    <li><strong>No coverage.</strong> Without a plan, you end up with lots of pretty clips and no sequence.</li>
+  </ul>
+  <p>Live-action crews solved this long ago: they block the scene, rehearse the camera, and shoot takes until one is right. AI filmmaking works the same way once the camera is something you perform instead of something you describe.</p>
+
+  <h2>The workflow, step by step</h2>
+  <h3>1. Write a shot list</h3>
+  <p>For each shot, write four things: shot size (wide, medium, close), the camera move, the length, and the one thing the audience should notice. “Medium. Walk in, glance left, whip pan to the shed. 6 s. The shed door is open.” That last line is what the move is for.</p>
+  <h3>2. Block out the scene</h3>
+  <p>A blockout is a rough 3D version of the space: boxes for cars and walls, stick figures for people. It’s what lets you place the camera before anything is pretty. In CineHand you type one sentence (“parking lot at night, a man between two cars”) and get one in seconds, then drag things where they belong.</p>
+  <h3>3. Shoot the camera move</h3>
+  <p>Hold your phone like a camera and move through the blockout. Shoot several takes, as on set, and keep the best. Your takes are recorded exactly as you moved, with the small shakes and corrections that make a shot feel operated. See <a href="/camera-motion-control">camera motion control</a> for why this beats describing the move.</p>
+  <h3>4. Lock the look on the first frame</h3>
+  <p>Describe the look (“wet asphalt, sodium street light, shot on an old phone”) and approve a single frame before any video is made. It’s the cheapest place to fix the look, and it keeps every version of the shot consistent.</p>
+  <h3>5. Generate a few versions</h3>
+  <p>Video models don’t follow a move every time. Make two or three versions of each shot from the same take. In our Seedance 2.5 tests, roughly two in three runs followed a phone-shot move closely.</p>
+  <h3>6. Check that the camera followed</h3>
+  <p>Don’t judge the camera by eye alone. CineHand scores every version for move match (timing, turns and walking compared frame by frame) and keeps the closest. Versions under 70% are free, so a miss doesn’t cost you.</p>
+  <h3>7. Cut it together</h3>
+  <p>Edit the chosen shots in your editor of choice and add sound. Because every shot was planned with a move, they cut like coverage instead of a montage of clips. CineHand can also export a sequence of takes, or your camera to Blender, if your workflow continues there.</p>
+
+  <h2>A typical AI filmmaking tool stack</h2>
+  <div class="scroll"><table>
+    <tr><th>Stage</th><th>What you use</th><th>Where CineHand fits</th></tr>
+    <tr><td>Script and shot list</td><td>Notes, a script tool, or an LLM to help draft</td><td>Shots become sets and takes in the studio</td></tr>
+    <tr><td>Blocking and camera</td><td>Traditionally 3D software and a lot of practice</td><td><strong>This is CineHand:</strong> blockout from a sentence, camera shot with your phone</td></tr>
+    <tr><td>Look development</td><td>Image models, reference boards</td><td>Describe the look and approve the first frame</td></tr>
+    <tr><td>Shot generation</td><td>Video models such as Seedance, Kling, Veo, Runway</td><td>Seedance 2.5 inside CineHand, following your take</td></tr>
+    <tr><td>Quality check</td><td>Your eyes, many rerolls</td><td>Move match score on every version</td></tr>
+    <tr><td>Edit and sound</td><td>DaVinci Resolve, Premiere, CapCut and sound tools</td><td>Download the videos; export sequences or a Blender camera</td></tr>
+  </table></div>
+
+  <h2>Short films, music videos and ads</h2>
+  <p><strong>AI short films</strong> live or die on continuity: plan the camera per shot and the film reads as directed. <strong>AI music videos</strong> need moves that land on the beat, which is a timing problem prompts can’t solve and a performed take can. <strong>Ads and product shots</strong> need a reveal that ends exactly on the product; shoot the reveal and let the model paint it.</p>
+
+  <div class="proof">
+    <figure><video controls muted playsinline loop preload="none" poster="/showcase/media/night-lot-move.webp" src="/showcase/media/night-lot-move.mp4"></video><figcaption>Step 3: the camera take</figcaption></figure>
+    <figure><video controls muted playsinline loop preload="none" poster="/showcase/media/night-lot-a.webp" src="/showcase/media/night-lot-a.mp4"></video><figcaption>Step 6: kept version · 91% move match</figcaption></figure>
+  </div>
+
+  <div class="cta">
+    <div><h2>Plan your next AI shot</h2><p>Sets, takes and the grey video export are free. Two AI videos free on sign-up, no 3D skills needed.</p></div>
+    <a class="btn red" href="/desk?demo=1">Try the demo →</a>
+  </div>
+
+  <h2 id="faq">FAQ</h2>
+  <div class="faq">
+    <details open><summary>How do I make an AI film?</summary><p>Write a shot list, block out each scene, decide the camera move for every shot, lock the look on a first frame, generate a few versions per shot, keep the ones that follow your plan, then edit them together with sound. Treat each shot as a take you can redo, not a prompt you hope works.</p></details>
+    <details><summary>What tools do AI filmmakers use?</summary><p>Usually an image model for the look, a video model (such as Seedance, Kling, Veo or Runway) for the shots, an editor (such as DaVinci Resolve, Premiere or CapCut) for the cut, and a sound tool. CineHand covers the camera: blocking the scene and shooting the camera move that the video model follows.</p></details>
+    <details><summary>How long should AI video shots be?</summary><p>Short. Four to eight seconds per shot is the sweet spot for most video models today: long enough for one clear camera idea, short enough that the model keeps the scene consistent. Cut between shots rather than asking one generation to do everything.</p></details>
+    <details><summary>Do I need 3D software to plan AI shots?</summary><p>No. CineHand builds a grey blockout from one sentence, and you shoot the camera with your phone. You never open a 3D program. If you do use Blender, CineHand can export your camera there on a paid plan.</p></details>
+    <details><summary>Can I keep the same camera move across different versions of a shot?</summary><p>Yes, if the move is a reference rather than a prompt. In CineHand the take stays the same and only the generation changes, so every version is measured against the same move and you keep the closest one.</p></details>
+  </div>
+
+  <h2>Keep reading</h2>
+  <div class="related">
+    <a href="/ai-camera-movement-prompts"><b>AI camera movement prompts</b><span>Wording for 12 moves, model notes and why the camera drifts.</span></a>
+    <a href="/camera-motion-control"><b>Camera motion control for AI video</b><span>Character vs camera motion control, and four ways to direct the camera.</span></a>
+  </div>
+</article>
+
+<footer class="foot"><a href="/">CineHand</a><a href="/guides">Guides</a><a href="/#pricing">Pricing</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:sushi@cinehand.com">Contact</a></footer>
+</body>
+</html>

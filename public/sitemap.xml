@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://cinehand.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://cinehand.com/desk</loc><priority>0.6</priority></url>
-  <url><loc>https://cinehand.com/privacy</loc><priority>0.2</priority></url>
-  <url><loc>https://cinehand.com/terms</loc><priority>0.2</priority></url>
-  <url><loc>https://cinehand.com/refunds</loc><priority>0.2</priority></url>
+  <url><loc>https://cinehand.com/</loc><lastmod>2026-11-09</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://cinehand.com/ai-camera-movement-prompts</loc><lastmod>2026-11-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://cinehand.com/camera-motion-control</loc><lastmod>2026-11-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://cinehand.com/ai-filmmaking</loc><lastmod>2026-11-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://cinehand.com/guides</loc><lastmod>2026-11-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://cinehand.com/desk</loc><lastmod>2026-11-09</lastmod><priority>0.6</priority></url>
+  <url><loc>https://cinehand.com/privacy</loc><lastmod>2026-11-09</lastmod><priority>0.2</priority></url>
+  <url><loc>https://cinehand.com/terms</loc><lastmod>2026-11-09</lastmod><priority>0.2</priority></url>
+  <url><loc>https://cinehand.com/refunds</loc><lastmod>2026-11-09</lastmod><priority>0.2</priority></url>
 </urlset>

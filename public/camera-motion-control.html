@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera Motion Control for AI Video | CineHand</title>
+<meta name="description" content="AI motion control usually moves a character. Here's how to control the camera instead: prompts, presets, a motion reference, or shooting the move with your phone.">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="theme-color" content="#F6F4EF">
+<link rel="canonical" href="https://cinehand.com/camera-motion-control">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="CineHand">
+<meta property="og:title" content="Camera Motion Control for AI Video">
+<meta property="og:description" content="Character motion control vs camera motion control, and four ways to direct the camera in AI video.">
+<meta property="og:url" content="https://cinehand.com/camera-motion-control">
+<meta property="og:image" content="https://cinehand.com/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/site/guide.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Article","headline":"Camera motion control for AI video: direct the camera, not just the character","description":"Character motion control vs camera motion control, and four ways to direct the camera in AI video.","datePublished":"2026-11-09","dateModified":"2026-11-09","mainEntityOfPage":"https://cinehand.com/camera-motion-control","image":"https://cinehand.com/assets/og.png","author":{"@type":"Organization","name":"CineHand","url":"https://cinehand.com"},"publisher":{"@type":"Organization","name":"CineHand","logo":{"@type":"ImageObject","url":"https://cinehand.com/assets/icon-512.png"}}},
+ {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"CineHand","item":"https://cinehand.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://cinehand.com/guides"},{"@type":"ListItem","position":3,"name":"Camera motion control","item":"https://cinehand.com/camera-motion-control"}]},
+ {"@type":"FAQPage","mainEntity":[
+  {"@type":"Question","name":"What is motion control in AI video?","acceptedAnswer":{"@type":"Answer","text":"Usually it means character motion transfer: you give the model a reference video of a performance and an image of a character, and the character copies the performance. Camera motion control is different: it sets how the camera itself moves through the shot."}},
+  {"@type":"Question","name":"Is Kling Motion Control a camera control tool?","acceptedAnswer":{"@type":"Answer","text":"Kling Motion Control is built to transfer body movement, gestures and expressions from a reference video onto a character. It is not designed to give you a specific camera path. For the camera, use camera presets, prompt wording, or a camera-motion reference."}},
+  {"@type":"Question","name":"How do I control camera movement in AI video?","acceptedAnswer":{"@type":"Answer","text":"There are four levels: describe the move in the prompt, pick a preset camera move, give the model a video reference of the camera move, or shoot the move yourself through a 3D blockout of the scene and use that as the reference. The further down the list, the more exact the timing and path."}},
+  {"@type":"Question","name":"Does CineHand work with Kling or Veo?","acceptedAnswer":{"@type":"Answer","text":"CineHand makes AI videos with Seedance 2.5 today, because it passed our move tests. We add a model once it does. Your move can also be exported as a video (free), or as JSON or a Blender camera (paid plans), so you can use it as a reference anywhere."}},
+  {"@type":"Question","name":"Do I need a gimbal or a camera rig?","acceptedAnswer":{"@type":"Answer","text":"No. You hold your phone like a camera. Its motion sensors record the turns, and an on-screen joystick handles walking. Small hand shakes are kept on purpose: they are what makes the shot feel operated, not animated."}}
+ ]}
+]}
+</script>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="/"><img src="/assets/logo.svg" alt="" width="28" height="28">CineHand</a>
+  <nav aria-label="Main"><a class="hide-sm" href="/guides">Guides</a><a class="hide-sm" href="/#pricing">Pricing</a><a href="/desk">Open the studio</a><a class="btn" href="/desk?demo=1">Try the demo →</a></nav>
+</header>
+<p class="crumbs"><a href="/">CineHand</a> › <a href="/guides">Guides</a> › Camera motion control</p>
+
+<article>
+  <span class="kicker">Guide · Motion control</span>
+  <h1>Camera motion control for AI video: direct the camera, not just the character</h1>
+  <p class="lead">Search “motion control AI” and you’ll find tools that make a character copy a dancer. That’s half of directing. The other half is the camera: where it is, where it turns, and when. Here’s how the two differ, and the four ways to control the camera in AI video.</p>
+  <p class="byline">By the CineHand team · Updated 9 November 2026</p>
+
+  <div class="tldr"><b>In short</b>
+    <ul>
+      <li><strong>Character motion control</strong> moves the people in the shot, copying a reference performance.</li>
+      <li><strong>Camera motion control</strong> moves the camera: its turns, its path through the space and its timing.</li>
+      <li>You can control the camera with prompt words, presets, a motion reference video, or by <strong>shooting the move with your phone</strong> through a blockout of the scene.</li>
+      <li>Whatever method you use, check the result: a move that looks right can still be late, short or invented.</li>
+    </ul>
+  </div>
+
+  <h2>Two kinds of motion control</h2>
+  <div class="scroll"><table>
+    <tr><th></th><th>Character motion control</th><th>Camera motion control</th></tr>
+    <tr><td><strong>What moves</strong></td><td>The person or creature in the shot</td><td>The camera</td></tr>
+    <tr><td><strong>Input</strong></td><td>A reference video of a performance + an image of the character</td><td>A description, a preset, or a reference of the camera’s path</td></tr>
+    <tr><td><strong>Typical use</strong></td><td>Dance, gestures, lip sync, acting beats</td><td>Push-ins, reveals, whip pans, handheld walk-ins, orbits</td></tr>
+    <tr><td><strong>Examples</strong></td><td>Kling Motion Control and similar motion-transfer tools</td><td>Camera presets, camera prompts, motion-reference video, CineHand</td></tr>
+  </table></div>
+  <p>The two are complementary. A great performance shot with a wandering camera still looks generated; a precise camera move on a stiff character still looks fake. Most AI films need both decided before generation.</p>
+
+  <h2>What a camera move is made of</h2>
+  <p>When we say “the AI followed the move”, we mean it matched all of these:</p>
+  <ul>
+    <li><strong>Rotation</strong>: pan (left/right), tilt (up/down) and roll (the horizon tipping).</li>
+    <li><strong>Position</strong>: walking forward, stepping sideways, rising or dropping.</li>
+    <li><strong>Lens</strong>: wide or long, which changes how much the background moves.</li>
+    <li><strong>Timing</strong>: <em>when</em> each turn and step happens. This is what text prompts can’t carry.</li>
+    <li><strong>Micro-motion</strong>: breathing sway, the overshoot and correction after a fast turn, the bounce of a step. This is the texture of a human operator.</li>
+  </ul>
+
+  <h2>Four ways to control the camera in AI video</h2>
+  <div class="scroll"><table>
+    <tr><th>Method</th><th>Control over the path</th><th>Control over timing</th><th>Effort</th><th>Best for</th></tr>
+    <tr><td><strong>1. Prompt words</strong></td><td>Low</td><td>Very low</td><td>None</td><td>Simple slow moves</td></tr>
+    <tr><td><strong>2. Preset camera moves</strong></td><td>Medium (one fixed move)</td><td>Low</td><td>Low</td><td>Zooms, pans, orbits on a single subject</td></tr>
+    <tr><td><strong>3. Motion reference video</strong></td><td>High</td><td>High</td><td>You need footage of the exact move</td><td>Matching a move you already shot</td></tr>
+    <tr><td><strong>4. Shoot the move in a blockout</strong></td><td>High</td><td>High</td><td>A few minutes with your phone</td><td>Any move you can perform, in a scene that doesn’t exist yet</td></tr>
+  </table></div>
+
+  <h3>1. Prompt words</h3>
+  <p>Fast and free, and fine for “slow push-in on her face”. It breaks down for anything timed or combined. Our <a href="/ai-camera-movement-prompts">camera movement prompt guide</a> has wording for 12 moves and the reasons they drift.</p>
+  <h3>2. Preset camera moves</h3>
+  <p>Several platforms offer one-click camera moves (zoom, pan, orbit, crane and so on). They are more reliable than text for a single move, but you get the preset’s speed and path, not yours.</p>
+  <h3>3. A motion reference video</h3>
+  <p>Some models accept a video and follow the camera motion in it. This gives real timing and a real path, but you need footage of exactly the move you want, in a space shaped like your scene. Use footage you own or have rights to.</p>
+  <h3>4. Shoot the move through a blockout (CineHand)</h3>
+  <p>This is method 3 without needing the footage first. You describe the scene in a sentence, CineHand builds a grey 3D blockout of it, and your phone becomes the camera inside that set. You walk, turn and whip like an operator; every take is recorded raw, never smoothed. Then CineHand sends the move to the AI model as a reference and scores each version for how closely it followed.</p>
+  <div class="proof">
+    <figure><video controls muted playsinline loop preload="none" poster="/showcase/media/night-lot-move.webp" src="/showcase/media/night-lot-move.mp4"></video><figcaption>Shot with a phone in the blockout</figcaption></figure>
+    <figure><video controls muted playsinline loop preload="none" poster="/showcase/media/night-lot-b.webp" src="/showcase/media/night-lot-b.mp4"></video><figcaption>Seedance 2.5 · 81% move match</figcaption></figure>
+  </div>
+  <p class="caption">The same phone take, a second AI run. People and cars in a blockout can have simple moves of their own, so the camera can follow or ride along with them.</p>
+
+  <h2>How to check whether the AI followed the camera</h2>
+  <p>Looking is not enough: a move can look right and still turn half a second late, walk half as far, or add a turn back to the subject at the end. CineHand measures this. For every version it compares the AI video’s camera with your take frame by frame and reports:</p>
+  <ul>
+    <li><strong>Timing</strong>: how early or late the turns happen (good runs land within about ±0.05 s).</li>
+    <li><strong>Turns</strong>: how closely the pans and tilts match.</li>
+    <li><strong>Walking</strong>: how much of your forward movement made it into the video.</li>
+  </ul>
+  <p>Those combine into one <strong>move match</strong> score. Versions under 70% don’t use any of your videos, and you can make another.</p>
+
+  <div class="cta">
+    <div><h2>Direct the camera with your hand</h2><p>Shoot the move on your phone, get an AI video that follows it, scored frame by frame.</p></div>
+    <a class="btn red" href="/desk?demo=1">Try the demo →</a>
+  </div>
+
+  <h2 id="faq">FAQ</h2>
+  <div class="faq">
+    <details open><summary>What is motion control in AI video?</summary><p>Usually it means character motion transfer: you give the model a reference video of a performance and an image of a character, and the character copies the performance. Camera motion control is different: it sets how the camera itself moves through the shot.</p></details>
+    <details><summary>Is Kling Motion Control a camera control tool?</summary><p>Kling Motion Control is built to transfer body movement, gestures and expressions from a reference video onto a character. It is not designed to give you a specific camera path. For the camera, use camera presets, prompt wording, or a camera-motion reference.</p></details>
+    <details><summary>How do I control camera movement in AI video?</summary><p>There are four levels: describe the move in the prompt, pick a preset camera move, give the model a video reference of the camera move, or shoot the move yourself through a 3D blockout of the scene and use that as the reference. The further down the list, the more exact the timing and path.</p></details>
+    <details><summary>Does CineHand work with Kling or Veo?</summary><p>CineHand makes AI videos with Seedance 2.5 today, because it passed our move tests. We add a model once it does. Your move can also be exported as a video (free), or as JSON or a Blender camera (paid plans), so you can use it as a reference anywhere.</p></details>
+    <details><summary>Do I need a gimbal or a camera rig?</summary><p>No. You hold your phone like a camera. Its motion sensors record the turns, and an on-screen joystick handles walking. Small hand shakes are kept on purpose: they are what makes the shot feel operated, not animated.</p></details>
+  </div>
+
+  <h2>Keep reading</h2>
+  <div class="related">
+    <a href="/ai-camera-movement-prompts"><b>AI camera movement prompts</b><span>Wording for 12 moves, model notes and why the camera drifts.</span></a>
+    <a href="/ai-filmmaking"><b>An AI filmmaking workflow</b><span>From shot list to finished shot, with the camera decided first.</span></a>
+  </div>
+</article>
+
+<footer class="foot"><a href="/">CineHand</a><a href="/guides">Guides</a><a href="/#pricing">Pricing</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:sushi@cinehand.com">Contact</a></footer>
+</body>
+</html>

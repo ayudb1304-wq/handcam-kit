@@ -280,10 +280,10 @@ p { margin: 0; }
 
 /* Footer */
 footer.tile { background: var(--night); color: #cfc6bb; padding: 56px 56px 26px; margin-bottom: 12px; }
-.foot { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 32px; }
+.foot { display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); gap: 32px; }
 .foot .logo { color: #fff; }
 .foot p { margin-top: 14px; max-width: 34ch; font-size: 15px; }
-.foot h5 { margin: 0 0 14px; font: 600 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: #8f867b; }
+.foot h3 { margin: 0 0 14px; font: 600 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: #8f867b; }
 .foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 15px; }
 .foot a { text-decoration: none; color: #e9e1d6; }
 .foot a:hover { color: #fff; }

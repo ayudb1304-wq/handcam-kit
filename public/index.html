@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CineHand: your hand is the camera, the AI follows</title>
-<meta name="description" content="Describe a set, shoot the move with your phone, and get an AI video that moves exactly like you did, checked against your take.">
+<title>CineHand: Camera Control for AI Video, Shot With Your Phone</title>
+<meta name="description" content="Stop prompting camera moves. Shoot the move with your phone and CineHand makes an AI video that follows it, scored frame by frame. Built for AI filmmakers.">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -13,8 +13,8 @@
 <link rel="canonical" href="https://cinehand.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CineHand">
-<meta property="og:title" content="CineHand: your hand is the camera, the AI follows">
-<meta property="og:description" content="Describe a set, shoot the move with your phone, and get an AI video that moves exactly like you did, checked against your take.">
+<meta property="og:title" content="CineHand: Camera Control for AI Video, Shot With Your Phone">
+<meta property="og:description" content="Stop prompting camera moves. Shoot the move with your phone and get an AI video that follows it, scored frame by frame.">
 <meta property="og:url" content="https://cinehand.com/">
 <meta property="og:image" content="https://cinehand.com/assets/og.png">
 <meta property="og:image:width" content="1200">
@@ -23,13 +23,16 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preload" as="image" href="/assets/hero.webp">
 <link rel="stylesheet" href="/site/site.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://cinehand.com/#org","name":"CineHand","url":"https://cinehand.com/","logo":"https://cinehand.com/assets/icon-512.png","email":"sushi@cinehand.com","description":"CineHand lets AI filmmakers shoot a camera move with their phone and get an AI video that follows it."},{"@type":"WebSite","@id":"https://cinehand.com/#site","name":"CineHand","url":"https://cinehand.com/","publisher":{"@id":"https://cinehand.com/#org"}},{"@type":"SoftwareApplication","name":"CineHand","applicationCategory":"MultimediaApplication","operatingSystem":"Web browser (desktop) with iPhone or Android as the camera","url":"https://cinehand.com/","image":"https://cinehand.com/assets/og.png","description":"Camera control for AI video. Describe a set in one sentence to get a 3D blockout, shoot the camera move with your phone, and get an AI video (Seedance 2.5) that follows the move, scored frame by frame for move match.","featureList":["3D blockout from one sentence","Phone as a handheld virtual camera, recorded raw","AI video that follows your camera move (Seedance 2.5)","Move match score: timing, turns and walking compared frame by frame","Versions under 70% move match are free","Export the move as video, JSON or a Blender camera"],"offers":{"@type":"AggregateOffer","priceCurrency":"USD","lowPrice":"0","highPrice":"129","offerCount":"5"},"publisher":{"@id":"https://cinehand.com/#org"}},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Do I need Blender or any 3D software?","acceptedAnswer":{"@type":"Answer","text":"No. You describe the set in a sentence and CineHand builds it. You never open a 3D program, and you never draw a camera path by hand."}},{"@type":"Question","name":"Which phones work?","acceptedAnswer":{"@type":"Answer","text":"CineHand is built and tested on iPhone with Safari. Most recent Android phones work too. The phone page runs in the browser: there’s nothing to install."}},{"@type":"Question","name":"Which AI video models does it use?","acceptedAnswer":{"@type":"Answer","text":"Seedance 2.5 today. We add a model once its recipe passes our move tests, so every model we offer has been checked to follow a camera move."}},{"@type":"Question","name":"How do I control camera movement in AI video?","acceptedAnswer":{"@type":"Answer","text":"Describing a move in the prompt works for simple, slow moves, but the timing and path are guessed. For an exact move, give the model a reference of it. CineHand lets you shoot that reference with your phone inside a 3D blockout of your scene, then checks how closely the AI video followed. More in our camera movement prompt guide."}},{"@type":"Question","name":"How is this different from motion control tools?","acceptedAnswer":{"@type":"Answer","text":"Most AI motion control makes a character copy a performance from a reference video. CineHand controls the camera: where it turns, how far it walks, and when. The two work together. See camera motion control."}},{"@type":"Question","name":"Does it work with Kling, Veo or Runway?","acceptedAnswer":{"@type":"Answer","text":"CineHand makes videos with Seedance 2.5 today, because it passed our move tests, and we add models as they pass. Your move can also be exported as a grey video (free), or as JSON or a Blender camera on paid plans, to use as a reference anywhere."}},{"@type":"Question","name":"What is move match?","acceptedAnswer":{"@type":"Answer","text":"A score for how closely the AI video’s camera follows your take. We measure its turns, timing and walking frame by frame and compare them with what your phone recorded. Same video, same score, every time."}},{"@type":"Question","name":"Is the camera move really mine?","acceptedAnswer":{"@type":"Answer","text":"Yes. We record your phone’s motion exactly as it happened and never smooth or edit it. Want a different move? Shoot another take, like on a real set."}},{"@type":"Question","name":"What if the video doesn’t follow my move?","acceptedAnswer":{"@type":"Answer","text":"We make several versions and keep the closest. If none passes the check, you see why, for example “walks less than you did”, and you can make another version."}},{"@type":"Question","name":"What counts as a video?","acceptedAnswer":{"@type":"Answer","text":"One version of a real AI video, at 480p and up to 8 seconds. 720p uses 2, 1080p uses 5, and a take over 8 seconds uses double. Versions under 70% move match use nothing. The grey video of your move is always free."}},{"@type":"Question","name":"Can I change or cancel my plan?","acceptedAnswer":{"@type":"Answer","text":"Any time, from your account in the studio. Upgrades start straight away and you pay the difference for the rest of the month. Switching down or cancelling happens at the end of what you’ve paid for, and you keep your plan until then. Top-up videos never expire."}},{"@type":"Question","name":"What happens to my takes?","acceptedAnswer":{"@type":"Answer","text":"Your sets and takes stay in your browser and on your computer. When you make a video, the grey move, its first frame and your words for the look are sent to the AI model to make it."}},{"@type":"Question","name":"Can I walk around, or only turn?","acceptedAnswer":{"@type":"Answer","text":"Both. Turning comes straight from your phone; walking uses the on-screen joystick today. Real walking with the iPhone’s own tracking is on the way."}}]}]}
+</script>
 </head>
 <body>
 
 <header class="nav" id="nav">
   <div class="nav-in">
     <a class="logo" href="/"><img src="/assets/logo.svg" alt="">CineHand</a>
-    <nav class="links" aria-label="Sections"><a href="#how">How it works</a><a href="#examples">Examples</a><a href="#studio">The studio</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></nav>
+    <nav class="links" aria-label="Sections"><a href="#how">How it works</a><a href="#examples">Examples</a><a href="#studio">The studio</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/guides">Guides</a></nav>
     <div class="nav-r"><a class="quiet" href="/desk">Open the studio</a><a class="btn dark sm" href="/desk?demo=1">Try the demo <span class="arr">→</span></a></div>
   </div>
 </header>
@@ -38,7 +41,7 @@
   <section class="tile hero" aria-labelledby="h1">
     <div class="hero-bg"><img src="/assets/hero.webp" srcset="/assets/hero-1200.webp 1200w, /assets/hero.webp 2400w" sizes="100vw" alt="" fetchpriority="high"></div>
     <div class="hero-grid">
-      <span class="eyebrow h-eyebrow fade-in" style="color:#3a2618">AI video, directed by hand</span>
+      <span class="eyebrow h-eyebrow fade-in" style="color:#3a2618">Camera control for AI filmmakers</span>
       <h1 id="h1" class="h-title"><span class="ln"><span>Your <em>hand</em> is</span></span><span class="ln"><span>the camera.</span></span><span class="ln"><span>The AI follows.</span></span></h1>
       <div class="h-reel fade-in" style="animation-delay:.15s">
         <div class="reel" id="heroReel" aria-label="Live example: a move shot with a phone, and the AI video that follows it">
@@ -81,7 +84,7 @@
     <span class="obj" data-speed="-0.10"><img src="/assets/obj-reel.webp" alt=""></span>
     <span class="obj" data-speed="0.05"><img src="/assets/obj-viewfinder.webp" alt=""></span>
     <span class="obj" data-speed="-0.05"><img src="/assets/obj-phone.webp" alt=""></span>
-    <span class="eyebrow">Why CineHand?</span>
+    <h2 class="eyebrow">Why CineHand?</h2>
     <div class="why-text" id="whyText">
       <p>AI video models paint beautifully. They just can’t take direction.</p>
       <p>You type “slow handheld push-in” and hope. Then you try again.</p>
@@ -185,6 +188,9 @@
       <div class="q open"><button aria-expanded="true">Do I need Blender or any 3D software?<span class="pm">+</span></button><div class="a"><div><p>No. You describe the set in a sentence and CineHand builds it. You never open a 3D program, and you never draw a camera path by hand.</p></div></div></div>
       <div class="q"><button aria-expanded="false">Which phones work?<span class="pm">+</span></button><div class="a"><div><p>CineHand is built and tested on iPhone with Safari. Most recent Android phones work too. The phone page runs in the browser: there’s nothing to install.</p></div></div></div>
       <div class="q"><button aria-expanded="false">Which AI video models does it use?<span class="pm">+</span></button><div class="a"><div><p>Seedance 2.5 today. We add a model once its recipe passes our move tests, so every model we offer has been checked to follow a camera move.</p></div></div></div>
+      <div class="q"><button aria-expanded="false">How do I control camera movement in AI video?<span class="pm">+</span></button><div class="a"><div><p>Describing a move in the prompt works for simple, slow moves, but the timing and path are guessed. For an exact move, give the model a reference of it. CineHand lets you shoot that reference with your phone inside a 3D blockout of your scene, then checks how closely the AI video followed. More in our <a href="/ai-camera-movement-prompts">camera movement prompt guide</a>.</p></div></div></div>
+      <div class="q"><button aria-expanded="false">How is this different from motion control tools?<span class="pm">+</span></button><div class="a"><div><p>Most AI motion control makes a character copy a performance from a reference video. CineHand controls the camera: where it turns, how far it walks, and when. The two work together. See <a href="/camera-motion-control">camera motion control</a>.</p></div></div></div>
+      <div class="q"><button aria-expanded="false">Does it work with Kling, Veo or Runway?<span class="pm">+</span></button><div class="a"><div><p>CineHand makes videos with Seedance 2.5 today, because it passed our move tests, and we add models as they pass. Your move can also be exported as a grey video (free), or as JSON or a Blender camera on paid plans, to use as a reference anywhere.</p></div></div></div>
       <div class="q"><button aria-expanded="false">What is move match?<span class="pm">+</span></button><div class="a"><div><p>A score for how closely the AI video’s camera follows your take. We measure its turns, timing and walking frame by frame and compare them with what your phone recorded. Same video, same score, every time.</p></div></div></div>
       <div class="q"><button aria-expanded="false">Is the camera move really mine?<span class="pm">+</span></button><div class="a"><div><p>Yes. We record your phone’s motion exactly as it happened and never smooth or edit it. Want a different move? Shoot another take, like on a real set.</p></div></div></div>
       <div class="q"><button aria-expanded="false">What if the video doesn’t follow my move?<span class="pm">+</span></button><div class="a"><div><p>We make several versions and keep the closest. If none passes the check, you see why, for example “walks less than you did”, and you can make another version.</p></div></div></div>
@@ -205,9 +211,10 @@
   <footer class="tile">
     <div class="foot">
       <div><a class="logo" href="/"><img src="/assets/logo-on-dark.svg" alt="">CineHand</a><p>The camera move comes from your hand. CineHand makes sure the AI follows it.</p></div>
-      <div><h5>Product</h5><ul><li><a href="#how">How it works</a></li><li><a href="#examples">Examples</a></li><li><a href="#studio">The studio</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li></ul></div>
-      <div><h5>Get started</h5><ul><li><a href="/desk?demo=1">Try the demo</a></li><li><a href="/desk">Open the studio</a></li><li><a href="/desk?tour=1">Take the tour</a></li></ul></div>
-      <div><h5>Company</h5><ul><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/refunds">Refunds</a></li><li><a href="mailto:sushi@cinehand.com">Contact</a></li></ul></div>
+      <div><h3>Product</h3><ul><li><a href="#how">How it works</a></li><li><a href="#examples">Examples</a></li><li><a href="#studio">The studio</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+      <div><h3>Get started</h3><ul><li><a href="/desk?demo=1">Try the demo</a></li><li><a href="/desk">Open the studio</a></li><li><a href="/desk?tour=1">Take the tour</a></li></ul></div>
+      <div><h3>Guides</h3><ul><li><a href="/ai-camera-movement-prompts">AI camera movement prompts</a></li><li><a href="/camera-motion-control">Camera motion control</a></li><li><a href="/ai-filmmaking">AI filmmaking workflow</a></li></ul></div>
+      <div><h3>Company</h3><ul><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/refunds">Refunds</a></li><li><a href="mailto:sushi@cinehand.com">Contact</a></li></ul></div>
     </div>
     <div class="legal"><span>© 2026 CineHand</span><span>Your takes stay on your computer. Raw, never smoothed.</span></div>
   </footer>
