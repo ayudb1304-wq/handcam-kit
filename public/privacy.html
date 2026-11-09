@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · HandCam</title>
+<meta name="description" content="What HandCam collects, why, who helps us run it, and your choices.">
+<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/legal/legal.css">
+</head>
+<body>
+<header><a class="logo" href="/"><img src="/assets/logo.svg" alt="" width="26" height="26">HandCam</a>
+  <nav><a href="/privacy" aria-current="page">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a></nav></header>
+<main>
+  <h1>Privacy policy</h1>
+  <p class="updated">Last updated 9 November 2026</p>
+
+  <div class="summary"><b>The short version</b>
+    <ul>
+      <li>Your sets and takes stay in your own browser unless you choose to make an AI video from one.</li>
+      <li>We keep your account (email, name, plan, videos left) so you can sign in and use what you paid for.</li>
+      <li>We never sell your data and never show you ads.</li>
+      <li>A few services help us run HandCam; each only gets what it needs (listed below).</li>
+    </ul>
+  </div>
+
+  <h2>Who we are</h2>
+  <p>HandCam (handcam.onrender.com) is operated by Ayush Dhanraj Bhiogade, an individual based in India ("we", "us"). Contact: <a href="mailto:ayucorp1304@gmail.com">ayucorp1304@gmail.com</a>.</p>
+
+  <h2>What we collect and why</h2>
+  <table>
+    <tr><th>What</th><th>Why</th></tr>
+    <tr><td><b>Account:</b> email address, and your name if you sign in with Google</td><td>To sign you in and keep your plan, videos and purchases with you.</td></tr>
+    <tr><td><b>Plan and usage:</b> your plan, videos used and left, top-ups, a history of video charges and refunds, and the AI videos you made</td><td>To provide the service, apply your plan and settle what you were charged.</td></tr>
+    <tr><td><b>Payments:</b> what you bought and when, its payment id and status</td><td>To give you what you paid for. We never see or store your card number: Dodo Payments handles that.</td></tr>
+    <tr><td><b>Your own AI key</b> (only if you add one)</td><td>To make AI videos on your own Higgsfield account. Stored encrypted; we show back only its last 4 characters.</td></tr>
+    <tr><td><b>Set descriptions</b> you type</td><td>Sent to Anthropic (Claude) to build the grey 3D set. Not used for anything else.</td></tr>
+    <tr><td><b>Make video inputs:</b> the grey reference video of your camera move, its first frame, your take's motion data and the look you describe</td><td>Only when you press Make video: sent to Higgsfield to generate the video, and kept on our server with the result so you can see, check and download it.</td></tr>
+    <tr><td><b>Technical data:</b> IP address and basic request logs</td><td>To keep the service secure and working (for example, limiting how many accounts or sets one address makes per hour). Logs are kept for a short time by our host.</td></tr>
+  </table>
+  <p><b>What stays on your device:</b> your sets, takes, sequences and exports are saved in your browser (IndexedDB) and are not uploaded unless you make an AI video from them. The phone's motion sensors are only used to move the virtual camera; the iPhone AR app uses the camera only to track movement, and the image is never shown, saved or sent.</p>
+
+  <h2>Who helps us run HandCam</h2>
+  <table>
+    <tr><th>Service</th><th>What it does for us</th><th>What it receives</th></tr>
+    <tr><td>Render (USA)</td><td>Hosts the website and server</td><td>Requests, logs, Make video files</td></tr>
+    <tr><td>Supabase (USA)</td><td>Sign-in and the accounts database</td><td>Email, name, account and plan data</td></tr>
+    <tr><td>Google</td><td>"Continue with Google" sign-in (if you use it)</td><td>Your sign-in with Google, per Google's own policy</td></tr>
+    <tr><td>Dodo Payments</td><td>Merchant of record: checkout, billing, tax, receipts</td><td>Your email, billing details and payment</td></tr>
+    <tr><td>Higgsfield (and the AI model it runs)</td><td>Generates AI videos</td><td>Make video inputs listed above</td></tr>
+    <tr><td>Anthropic</td><td>Builds sets from your description</td><td>The words you typed</td></tr>
+  </table>
+  <p>These services process data on our behalf, some outside your country. We don't share your data with anyone else, except if the law requires it.</p>
+
+  <h2>Cookies and storage</h2>
+  <p>One sign-in cookie (<code>hc_session</code>) keeps you signed in for up to 30 days. Supabase keeps your sign-in session in your browser's storage. We also remember small preferences (like the frame you shoot in) on your device. No advertising or tracking cookies.</p>
+
+  <h2>How long we keep things</h2>
+  <p>Your account and purchase history: while you have an account, and afterwards as long as tax and accounting rules require. AI videos and their inputs: while your account exists, or until you ask us to delete them. Takes in your browser: until you delete them or clear your browser's data.</p>
+
+  <h2>Your choices and rights</h2>
+  <p>You can ask us to show you, correct, export or delete your data, or to close your account, by emailing <a href="mailto:ayucorp1304@gmail.com">ayucorp1304@gmail.com</a>. We'll answer within 30 days. Deleting your account doesn't cancel a plan on its own: cancel it first (Account → Cancel plan) so you aren't billed again. Payment records may need to be kept for tax law.</p>
+
+  <h2>Children</h2>
+  <p>HandCam isn't for children under 13 (or under 16 where the law requires). We don't knowingly collect their data.</p>
+
+  <h2>Security</h2>
+  <p>Data is sent over HTTPS. Passwords are handled by Supabase and never stored in plain text; your own AI key is encrypted. The accounts database only accepts our server's secret key. No system is perfectly secure; if something goes wrong that affects you, we'll tell you.</p>
+
+  <h2>Changes</h2>
+  <p>If we change this policy in a way that matters, we'll update the date above and tell signed-in users in the app.</p>
+</main>
+<footer><a href="/">HandCam</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="mailto:ayucorp1304@gmail.com">Contact</a></footer>
+</body>
+</html>

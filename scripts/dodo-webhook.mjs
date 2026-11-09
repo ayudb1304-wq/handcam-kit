@@ -22,11 +22,13 @@ export async function pointWebhook(base, { env = process.env, log = console.log 
   if (hook) { if (hook.url !== url) await call('PATCH', `/webhooks/${hook.id}`, { url, disabled: false }); }
   else hook = await call('POST', '/webhooks', { url, description: 'HandCam (npm run share keeps this pointed at the current link)', metadata: { handcam: '1' } });
   log(`webhook: ${url}`);
+  // live mode keeps its own secret line (DODO_LIVE_WEBHOOK_SECRET) so the test one isn't overwritten
+  const name = env.DODO_WEBHOOK_SECRET_VAR || (env.DODO_MODE === 'live' ? 'DODO_LIVE_WEBHOOK_SECRET' : 'DODO_WEBHOOK_SECRET');
   const envText = existsSync('.env') ? readFileSync('.env', 'utf8') : '';
-  if (!/^DODO_WEBHOOK_SECRET=.+/m.test(envText) && !env.DODO_WEBHOOK_SECRET) {
+  if (!new RegExp(`^${name}=.+`, 'm').test(envText)) {
     const { secret } = await call('GET', `/webhooks/${hook.id}/secret`);
-    appendFileSync('.env', `${envText && !envText.endsWith('\n') ? '\n' : ''}DODO_WEBHOOK_SECRET=${secret}\n`);
-    log('webhook: signing secret saved to .env');
+    appendFileSync('.env', `${envText && !envText.endsWith('\n') ? '\n' : ''}${name}=${secret}\n`);
+    log(`webhook: signing secret saved to .env as ${name}`);
   }
   return hook.id;
 }
