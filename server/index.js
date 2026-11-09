@@ -39,6 +39,14 @@ const flag = (v) => /^(1|on|true|yes)$/i.test(String(v || ''));
 
 const app = express();
 app.set('trust proxy', true); // behind cloudflared / Render: req.protocol is https when the visitor's is
+// With a custom domain (PUBLIC_URL), pages opened on the old *.onrender.com address move there, so the sign-in cookie,
+// checkout returns and phone links all live on one host. /api stays reachable on both (Dodo's webhook points at Render).
+const canonical = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL) : null;
+app.use((req, res, next) => {
+  const page = (req.method === 'GET' || req.method === 'HEAD') && !req.path.startsWith('/api/');
+  if (canonical && page && req.hostname.endsWith('.onrender.com')) return res.redirect(301, canonical.origin + req.originalUrl);
+  next();
+});
 // ---- accounts, plans and payments (Phase 5, 5c: docs/PRICING-PLAN.md) ----
 const pricing = loadPricing(join(ROOT_DIR, 'config', 'pricing.json'));
 // Supabase (Phase 5d): sign-in and the accounts database. Without its env vars CineHand keeps working on the file.

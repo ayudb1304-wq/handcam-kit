@@ -1,5 +1,5 @@
 # Render Blueprint: one always-on web service + a small disk for accounts and videos. Its https address comes from
-# Render itself (RENDER_EXTERNAL_URL); set PUBLIC_URL only for a custom domain.
+# Render itself (RENDER_EXTERNAL_URL); PUBLIC_URL (cinehand.com) overrides it and old onrender.com pages redirect there.
 # Workspace plan "Hobby" ($0) + instance "starter" (~$7/mo) + 1 GB disk. See README → Hosting.
 services:
   - type: web
@@ -22,6 +22,8 @@ services:
         sync: false
       - key: DODO_PAYMENTS_API_KEY
         sync: false
+      - key: PUBLIC_URL          # the custom domain: links, checkout returns and the phone QR use it
+        value: https://cinehand.com
       - key: DODO_MODE           # live: real payments (live key + live webhook secret in Render's Environment)
         value: live
       - key: DODO_WEBHOOK_SECRET
