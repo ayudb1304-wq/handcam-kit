@@ -6,7 +6,7 @@ const remember = () => { try { localStorage.setItem(KEY, '1'); } catch {} };
 const STEPS = [
   { sel: '[data-tour=set]', title: 'Describe the set', text: 'One sentence becomes a grey blockout: boxes for cars and walls, stick figures for people. It’s rough on purpose: it only has to put things in the right places.' },
   { sel: '[data-tour=stage]', title: 'This is your set', text: 'Drag to look around. When your phone is connected, the white outline is your phone, moving live as you hold it.' },
-  { sel: '[data-tour=phone]', title: 'Your phone is the camera', text: 'Scan the code with your iPhone. Turn it to look around, use the joysticks to walk. Tap ● and move like a real camera operator. Wobbles welcome.' },
+  { sel: '[data-tour=phone]', title: 'Your phone is the camera', text: 'Scan the code with your phone (iPhone or Android). Turn it to look around, use the joysticks to walk. Tap ● and move like a real camera operator. Wobbles welcome.' },
   { sel: '[data-tour=takes]', title: 'Takes, not edits', text: 'Every take lands here with a little curve of your move. Don’t like it? Shoot it again, like on a real set. Nothing is ever smoothed.' },
   { sel: '[data-tour=player]', title: 'Replay the exact move', text: 'Press play or scrub. The orange outline replays your hand frame by frame, and the corner shows what the camera saw.', needsTake: true },
   { sel: '[data-tour=make]', title: 'Make it real', text: 'Describe the look and press Make video. You approve the first frame, then we make versions and check each one moves like your take. You keep the best.' },
