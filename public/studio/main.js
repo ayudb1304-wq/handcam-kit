@@ -489,7 +489,8 @@ function showAccount(account, cfg = acctCfg) {
   const pill = $('acctPill');
   pill.hidden = !!cfg.admin && !account; // the founder on the laptop needs no account
   const v = account?.videos;
-  pill.textContent = !account ? 'Sign in' : account.status === 'on_hold' ? `${account.name} · payment failed` : `${account.name} · ${v.total} video${v.total === 1 ? '' : 's'}`;
+  pill.textContent = !account ? 'Sign in' : account.status === 'on_hold' ? `${account.name} · payment failed`
+    : v?.unlimited ? `${account.name} · unlimited` : `${account.name} · ${v.total} video${v.total === 1 ? '' : 's'}`;
   pill.title = account ? `${account.email}: your plan and videos` : 'Sign in or create an account';
   $('signOut').hidden = !account;
   for (const b of document.querySelectorAll(DATA_EXPORTS)) { b.classList.toggle('locked', !canExportData()); if (!canExportData()) b.title = 'Comes with a paid plan'; }

@@ -173,3 +173,19 @@ test('accounts from before plans keep their videos as top-ups', async () => {
     assert.deepEqual([a.get('u1').topup, a.get('u1').trial, 'videos' in a.get('u1')], [7, 0, false]);
   } finally { await rm(dir, { recursive: true }); }
 });
+
+test('a founder account that subscribed still sees its plan and subscription, with founder access', async () => {
+  const { loadPricing } = await import('./billing.js');
+  const pricing = loadPricing(new URL('../config/pricing.json', import.meta.url).pathname);
+  const now = new Date('2026-11-09T09:00:00Z');
+  const user = { id: 'f', email: 'boss@x.com', trial: 0, topup: 0, sub: { id: 'sub_1', plan: 'creator', interval: 'month', status: 'active', anchor: '2026-11-09T08:30:00Z', paidThrough: '2026-12-09T08:30:00Z' }, allowance: null };
+  const e = entitlements(user, pricing, { now, admin: true });
+  assert.equal(e.plan, 'creator');
+  assert.match(e.name, /Creator · founder/);
+  assert.equal(e.sub.plan, 'creator');
+  assert.equal(e.admin, true);
+  assert.equal(e.videos.unlimited, true);
+  const laptop = entitlements(null, pricing, { now, admin: true });
+  assert.equal(laptop.plan, 'founder');
+  assert.equal(laptop.sub, null);
+});

@@ -16,8 +16,9 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
       headers: { apikey: secretKey, 'Content-Type': 'application/json', ...(prefer && { Prefer: prefer }) },
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!r.ok) throw new Error(`Supabase ${method} ${path.split('?')[0]} ${r.status}: ${(await r.text()).slice(0, 200)}`);
-    return r.status === 204 ? null : r.json();
+    const text = await r.text();
+    if (!r.ok) throw new Error(`Supabase ${method} ${path.split('?')[0]} ${r.status}: ${text.slice(0, 200)}`);
+    return text ? JSON.parse(text) : null; // an upsert with return=minimal answers 201 with an empty body
   }
   async function all(table, select) { // page through everything (a few thousand rows at most for now)
     const rows = [];

@@ -81,7 +81,17 @@ function bestFeatures(...sets) {
 export function entitlements(user, pricing, { now = new Date(), admin = false } = {}) {
   const free = planById(pricing, 'free');
   const none = { included: 0, used: 0, left: 0, topup: 0, trial: 0, total: 0, resetsAt: null };
-  if (admin) return { plan: 'founder', name: 'Founder', status: 'active', admin: true, features: { ...FOUNDER }, videos: { ...none, unlimited: true }, trialQuality: null, sub: null, lifetime: false, hold: false };
+  if (admin) {
+    // the founder: no gates and unlimited videos, but a founder account that subscribed still sees its real plan and
+    // subscription (renewal date, change, cancel), so a test purchase visibly works. The laptop founder has no user.
+    const own = user ? entitlements(user, pricing, { now }) : null;
+    const subscribed = !!own?.sub;
+    return {
+      plan: subscribed ? own.plan : 'founder', name: subscribed ? `${own.name} · founder` : 'Founder', status: subscribed ? own.status : 'active', admin: true,
+      features: { ...FOUNDER }, videos: { ...(own?.videos || none), unlimited: true }, trialQuality: null,
+      sub: own?.sub || null, lifetime: !!own?.lifetime, hold: false,
+    };
+  }
   if (!user) return { plan: null, name: 'Not signed in', status: null, admin: false, features: { ...free.features }, videos: none, trialQuality: pricing.trial?.quality ?? null, sub: null, lifetime: false, hold: false };
 
   const state = subscriptionState(user.sub, now);
