@@ -51,6 +51,8 @@ export function makeDodo({ apiKey, mode = 'test', fetchImpl = fetch }) {
     ready: !!apiKey, mode,
     createProduct: (p) => call('POST', '/products', p),
     updateProduct: (id, p) => call('PATCH', `/products/${id}`, p),
+    listBrands: () => call('GET', '/brands'),
+    createBrand: (b) => call('POST', '/brands', b),
     listProducts: (recurring) => call('GET', `/products?page_size=100&page_number=0&recurring=${recurring ? 'true' : 'false'}`),
     checkout: (body) => call('POST', '/checkouts', body),
     payment: (x) => call('GET', `/payments/${id(x)}`),

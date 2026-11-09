@@ -18,6 +18,11 @@ const currency = pricing.currency || 'USD';
 const out = `config/dodo-products.${mode}.json`;
 const ids = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : {};
 const existing = [...((await dodo.listProducts(false)).items || []), ...((await dodo.listProducts(true)).items || [])];
+// Every product sells under the CineHand brand (its own name, logo, statement descriptor and site at checkout).
+// The live brand was made in the dashboard with its logo; test mode gets a plain one the first time.
+const brands = (await dodo.listBrands()).items || [];
+const brand = brands.find((b) => b.name === 'CineHand') || await dodo.createBrand({ name: 'CineHand', support_email: 'sushi@cinehand.com', url: 'https://cinehand.com' });
+console.log(`brand: CineHand (${brand.brand_id})`);
 
 const describe = (item) => item.kind === 'plan'
   ? `${pricing.plans.find((p) => p.id === item.plan).videosPerMonth} move-checked AI videos a month, JSON and Blender export, your own AI key.`
@@ -28,8 +33,9 @@ for (const [itemKey, item] of Object.entries(catalogueItems(pricing))) {
   if (found) {
     ids[itemKey] = found.product_id;
     const renamed = found.name !== item.name || found.description !== describe(item); // a rename (CineHand) updates the words, never the price
-    if (renamed) await dodo.updateProduct(found.product_id, { name: item.name, description: describe(item) });
-    console.log(`${itemKey}: exists (${found.product_id})${renamed ? `, renamed to "${item.name}"` : ''}`);
+    const rebrand = found.brand_id !== brand.brand_id; // undefined when the list leaves it out: then re-set it, harmless
+    if (renamed || rebrand) await dodo.updateProduct(found.product_id, { name: item.name, description: describe(item), brand_id: brand.brand_id });
+    console.log(`${itemKey}: exists (${found.product_id})${renamed ? `, renamed to "${item.name}"` : ''}${rebrand ? ', on the CineHand brand' : ''}`);
     continue;
   }
   const price = item.kind === 'plan'
@@ -37,7 +43,7 @@ for (const [itemKey, item] of Object.entries(catalogueItems(pricing))) {
         payment_frequency_count: 1, payment_frequency_interval: item.interval === 'year' ? 'Year' : 'Month',
         subscription_period_count: 20, subscription_period_interval: 'Year', trial_period_days: 0 } // 20 years = until cancelled (Dodo's recommendation)
     : { type: 'one_time_price', price: Math.round(item.usd * 100), currency, discount_bps: 0, purchasing_power_parity: false };
-  const made = await dodo.createProduct({ name: item.name, description: describe(item), tax_category: 'saas', price, metadata: { handcam_item: itemKey } });
+  const made = await dodo.createProduct({ name: item.name, description: describe(item), tax_category: 'saas', price, brand_id: brand.brand_id, metadata: { handcam_item: itemKey } });
   ids[itemKey] = made.product_id;
   console.log(`${itemKey}: created (${made.product_id}) at $${item.usd}${item.kind === 'plan' ? `/${item.interval}` : ''}`);
 }
