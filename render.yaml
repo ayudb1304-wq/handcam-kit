@@ -22,8 +22,8 @@ services:
         sync: false
       - key: DODO_PAYMENTS_API_KEY
         sync: false
-      - key: DODO_MODE
-        value: test
+      - key: DODO_MODE           # live: real payments (live key + live webhook secret in Render's Environment)
+        value: live
       - key: DODO_WEBHOOK_SECRET
         sync: false
       - key: HF_API_KEY_ID
