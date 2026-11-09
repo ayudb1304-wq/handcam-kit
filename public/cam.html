@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>CineHand · phone</title>
 <meta name="description" content="Your phone is the camera: shoot the camera move for your CineHand set, then make an AI video that follows it.">
@@ -25,10 +25,14 @@
 <link rel="stylesheet" href="/shared/ui.css">
 <style>
   [hidden] { display: none !important; } /* #gate/#hud set display below, which would otherwise beat the hidden attribute */
-  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* Gestures are blocked only where the camera is driven (the 3D view, the sticks). Blocking them on the whole page
+     stopped iPhone Safari's native controls (the lens slider) and left no pinch to undo an accidental zoom.
+     manipulation = taps and pinch work, double-tap zoom doesn't. */
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  button, input, .tbtn, .pill { touch-action: manipulation; }
   /* width/height are required: a canvas is a replaced element, so inset alone does not stretch it, and with
      setPixelRatio(2) it would show at twice the screen size, cropped to the top-left quarter. */
-  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   /* viewfinder corners */
   .frame { position: fixed; inset: max(64px, calc(env(safe-area-inset-top) + 52px)) 18px max(210px, calc(env(safe-area-inset-bottom) + 196px)); pointer-events: none; }
   .frame i { position: absolute; width: 22px; height: 22px; border: 2px solid rgba(244,237,228,.55); }
@@ -74,7 +78,7 @@
   #gate .btn { width: 100%; }
   #err { color: #ff9b9b; font-size: 13px; min-height: 1em; }
   .solo { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 14px; margin-top: 8px; }
-  .solo .field { flex: 1; min-width: 0; padding: 9px 11px; font-size: 15px; background: rgba(0,0,0,.35); }
+  .solo .field { flex: 1; min-width: 0; padding: 9px 11px; font-size: 16px; background: rgba(0,0,0,.35); } /* under 16px, iPhone zooms in on focus */
   .recwrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .drawer { position: fixed; left: 10px; right: 10px; bottom: 10px; max-height: 70vh; overflow: auto; border-radius: 18px; padding: 14px; z-index: 20; }
   .drawer-head { display: flex; justify-content: space-between; align-items: center; font: 700 18px var(--display); }
@@ -160,6 +164,19 @@ import { putTake, allTakes, putScene, getScene, deleteTake } from './shared/stor
 const WALK_SPEED = 1.4;          // m/s at 1×, a normal walking pace
 const SPEEDS = [1, 3, 10];       // life-size, then faster for big sets
 const SAMPLE_MS = 1000 / 60 - 4; // every frame at 60 Hz, every other frame at 120 Hz
+
+// iPhone Safari ignores user-scalable=no, so a quick second tap anywhere zoomed the page in. Swallow that zoom but
+// keep the tap: a second tap on a button within 350 ms still presses it. The sticks use pointer events, untouched.
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  if (e.timeStamp - lastTouchEnd < 350 && !e.touches.length) {
+    e.preventDefault();
+    const el = e.target.closest?.('button');
+    if (el && !el.disabled) el.click();
+  }
+  lastTouchEnd = e.timeStamp;
+}, { passive: false });
+document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
 
 const params = new URLSearchParams(location.search);
 // Phase 5: without ?room the phone works alone (phone-only mode): describe, shoot, takes and export, all here.

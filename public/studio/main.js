@@ -539,7 +539,9 @@ document.addEventListener('click', (e) => { if (!e.target.closest('#settings')) 
 for (const take of await allTakes().catch(() => [])) takes.set(take.id, take);
 renderList();
 const params = new URLSearchParams(location.search);
-if (params.has('demo')) { await build('parking lot at night'); await loadDemo(); }
+// The demo's live set is the demo take's own set, so the phone shows exactly what the studio shows (building a
+// fresh 'parking lot' here sent the phone a different set: more boxes, two light poles).
+if (params.has('demo')) { useScene(await (await fetch('/demo/scene.json')).json()); await loadDemo(); }
 else {
   let last = null;
   try { const id = localStorage.getItem('handcam.lastSceneId'); if (id) last = await getScene(id); } catch {}
