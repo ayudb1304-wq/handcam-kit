@@ -5,7 +5,7 @@ body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(-
 /* Top bar */
 .topbar { height: 60px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--line); background: rgba(11,11,13,.75); backdrop-filter: blur(14px); position: relative; z-index: 5; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font: 700 17px var(--display); letter-spacing: -.01em; }
-.brand svg { width: 28px; height: 28px; }
+.brand img { width: 28px; height: 28px; display: block; }
 .brand .sub { font: 500 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); padding: 4px 7px; border: 1px solid var(--line-2); border-radius: 6px; }
 .steps { display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.02); }
 .step { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px 0 6px; border-radius: 999px; color: var(--mute); font: 600 13px var(--font); transition: background .25s, color .25s; cursor: default; }
@@ -34,9 +34,9 @@ body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(-
 
 /* Phone card */
 .qr-wrap { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
-.qr { width: 120px; height: 120px; padding: 10px; border-radius: 14px; background: #fff; box-shadow: 0 10px 30px -12px rgba(224,122,82,.5); position: relative; }
+.qr { width: 120px; height: 120px; padding: 10px; border-radius: 14px; background: #fff; box-shadow: 0 10px 30px -12px rgba(229,50,45,.5); position: relative; }
 .qr canvas { width: 100% !important; height: 100% !important; display: block; }
-.qr::after { content: ''; position: absolute; inset: -4px; border-radius: 17px; border: 1px solid rgba(224,122,82,.35); pointer-events: none; }
+.qr::after { content: ''; position: absolute; inset: -4px; border-radius: 17px; border: 1px solid rgba(229,50,45,.35); pointer-events: none; }
 .how { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .how li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; color: var(--fg-2); font-size: 12.5px; }
 .how li span { font: 600 11px/18px var(--mono); color: var(--accent-2); }
@@ -132,7 +132,7 @@ body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(-
 
 /* Tour */
 .tour-veil { position: fixed; inset: 0; z-index: 80; pointer-events: auto; }
-.tour-hole { position: fixed; z-index: 81; border-radius: 18px; box-shadow: 0 0 0 9999px rgba(5,5,7,.72), 0 0 0 2px var(--accent), 0 0 40px 4px rgba(224,122,82,.35); transition: all .45s var(--ease); pointer-events: none; }
+.tour-hole { position: fixed; z-index: 81; border-radius: 18px; box-shadow: 0 0 0 9999px rgba(5,5,7,.72), 0 0 0 2px var(--accent), 0 0 40px 4px rgba(229,50,45,.35); transition: all .45s var(--ease); pointer-events: none; }
 .tour-tip { position: fixed; z-index: 82; width: 340px; padding: 18px; display: flex; flex-direction: column; gap: 10px; transition: top .45s var(--ease), left .45s var(--ease); }
 .tour-tip h4 { margin: 0; font: 700 18px/1.2 var(--display); }
 .tour-tip p { margin: 0; color: var(--fg-2); font-size: 13.5px; }
@@ -140,7 +140,7 @@ body { background: radial-gradient(1200px 600px at 50% -200px, #1a1512 0%, var(-
 .tour-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); transition: all .3s; }
 .tour-dots i.on { width: 18px; border-radius: 3px; background: var(--accent); }
 .welcome { width: min(560px, 100%); padding: 0; overflow: hidden; }
-.welcome .art { height: 200px; position: relative; background: radial-gradient(400px 200px at 50% 120%, rgba(224,122,82,.35), transparent), linear-gradient(180deg, #1c1714, #121214); display: flex; align-items: center; justify-content: center; gap: 4px; }
+.welcome .art { height: 200px; position: relative; background: radial-gradient(400px 200px at 50% 120%, rgba(229,50,45,.35), transparent), linear-gradient(180deg, #1c1714, #121214); display: flex; align-items: center; justify-content: center; gap: 4px; }
 .welcome .art img { width: 120px; height: 120px; object-fit: contain; filter: drop-shadow(0 18px 24px rgba(0,0,0,.5)); animation: float 6s ease-in-out infinite; }
 .welcome .art img:nth-child(2) { width: 150px; height: 150px; animation-delay: -2s; }
 .welcome .art img:nth-child(3) { animation-delay: -4s; }

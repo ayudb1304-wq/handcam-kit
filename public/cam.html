@@ -5,6 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>CineHand · phone</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<link rel="canonical" href="https://cinehand.com/cam">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CineHand">
+<meta property="og:title" content="CineHand · phone">
+<meta property="og:description" content="Your phone is the camera: shoot the move for your CineHand set.">
+<meta property="og:url" content="https://cinehand.com/cam">
+<meta property="og:image" content="https://cinehand.com/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="CineHand: your hand is the camera. The AI follows.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/shared/ui.css">
 <style>
   [hidden] { display: none !important; } /* #gate/#hud set display below, which would otherwise beat the hidden attribute */
@@ -29,7 +45,7 @@
   #status.rec { color: #ffd0d0; border-color: rgba(255,77,77,.5); background: rgba(70,10,10,.6); font-family: var(--mono); }
   .tbtn { height: 34px; padding: 0 12px; border-radius: 999px; font: 600 13px var(--font); display: inline-flex; align-items: center; gap: 6px; }
   .tbtn:active { transform: scale(.96); }
-  .tbtn.on { background: rgba(224,122,82,.55); border-color: rgba(240,160,125,.8); }
+  .tbtn.on { background: rgba(229,50,45,.55); border-color: rgba(240,160,125,.8); }
   #room { font: 600 11px var(--mono); letter-spacing: .12em; }
   .bottom { display: flex; justify-content: space-between; align-items: flex-end; }
   .zoom { align-self: center; display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 999px; margin-top: auto; margin-bottom: 12px; width: min(78vw, 360px); }
@@ -43,9 +59,11 @@
   .stick { position: relative; width: 124px; height: 124px; border-radius: 50%; background: rgba(14,14,17,.42); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); touch-action: none; }
   .stick.vertical { width: 64px; height: 124px; border-radius: 32px; }
   .knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #d8d2c9); box-shadow: 0 6px 16px rgba(0,0,0,.45); pointer-events: none; }
-  #gate { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 28px; background: radial-gradient(500px 360px at 50% 115%, rgba(224,122,82,.35), transparent), linear-gradient(180deg, #17130f, #0b0b0d 60%); }
+  #gate { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 28px; background: radial-gradient(500px 360px at 50% 115%, rgba(229,50,45,.35), transparent), linear-gradient(180deg, #17130f, #0b0b0d 60%); }
   #gate .wrap { max-width: 340px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  #gate img { width: 170px; height: 170px; object-fit: contain; filter: drop-shadow(0 22px 28px rgba(0,0,0,.55)); animation: bob 6s ease-in-out infinite; }
+  .brandline { display: inline-flex; align-items: center; gap: 7px; }
+  .brandline img { width: 15px; height: 15px; }
+  #gate > .wrap > img { width: 170px; height: 170px; object-fit: contain; filter: drop-shadow(0 22px 28px rgba(0,0,0,.55)); animation: bob 6s ease-in-out infinite; }
   @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-3deg) } 50% { transform: translateY(-10px) rotate(3deg) } }
   #gate h1 { margin: 0; font: 800 30px/1.05 var(--display); letter-spacing: -.02em; }
   #gate p { margin: 0; color: var(--fg-2); }
@@ -115,7 +133,7 @@
 <div id="gate">
   <div class="wrap">
     <img src="/assets/obj-phone.webp" alt="">
-    <span class="eyebrow">CineHand</span>
+    <span class="eyebrow brandline"><img src="/assets/logo-on-dark.svg" alt="" width="15" height="15">CineHand</span>
     <h1>Your phone is the camera</h1>
     <ol>
       <li><span>01</span>Tap below and allow motion</li>

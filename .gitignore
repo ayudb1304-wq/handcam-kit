@@ -18,3 +18,12 @@ __pycache__/
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Brand kit work files (candidates, reviews, moodboards); keep only the approved masters and build scripts
+brandkit/*
+!brandkit/build_assets.py
+!brandkit/recolor_shots.py
+!brandkit/state.json
+!brandkit/logo/
+brandkit/logo/*
+!brandkit/logo/export/

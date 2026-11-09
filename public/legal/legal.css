@@ -1,6 +1,6 @@
 /* Privacy, Terms, Refunds: plain reading pages in the landing page's look. */
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Gabarito:wght@600;700;800&display=swap');
-:root { --page: #f4ede4; --card: #fffaf4; --ink: #1b1714; --ink-2: #5b524a; --line: #e4d9cc; --accent: #d9653f; }
+:root { --page: #F6F4EF; --card: #FFFFFF; --ink: #1C1C1E; --ink-2: #5b524a; --line: #D9D5CC; --accent: #E5322D; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 17px/1.65 'Archivo', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 header { max-width: 820px; margin: 0 auto; padding: 22px 20px; display: flex; justify-content: space-between; align-items: center; }

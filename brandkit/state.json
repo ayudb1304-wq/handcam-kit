@@ -1,0 +1,51 @@
+{
+  "brandbookElements": [],
+  "essentialKitApproved": false,
+  "logo": {
+    "approvalSummary": "User switched to candidate 2, Framing hands: \"Actually, let's go with framing hands number 2.\"",
+    "asset": {
+      "id": "549df5f4-452b-4216-a3b0-fcf4b135db3b",
+      "path": "/Users/ayudb/projects/handcam-kit/brandkit/logo/candidate-2.svg",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_35SKydMnLw23e5X6wkCGtMBUNbe/hf_20261109_111717_549df5f4-452b-4216-a3b0-fcf4b135db3b.svg"
+    },
+    "geometryFingerprint": "2a4001b08575f81fd88454f85551c254575ca8625cfc188c2245a4e2c772fbd0",
+    "name": "Framing hands",
+    "origin": "brandkit_generated",
+    "paletteRevision": 1,
+    "revision": 2
+  },
+  "palette": {
+    "approvalSummary": "User chose the Rec Signal palette: \"lets go with rec signal.\"",
+    "colors": [
+      {
+        "hex": "#1c1c1e",
+        "name": "Graphite",
+        "role": "text"
+      },
+      {
+        "hex": "#f6f4ef",
+        "name": "Bright Paper",
+        "role": "background"
+      },
+      {
+        "hex": "#e5322d",
+        "name": "Rec Red",
+        "role": "accent"
+      },
+      {
+        "hex": "#d9d5cc",
+        "name": "Fog",
+        "role": "support"
+      }
+    ],
+    "gradients": [],
+    "origin": "brandkit_generated",
+    "revision": 1
+  },
+  "version": 4,
+  "visualAxes": {
+    "familiarExperimental": 50,
+    "geometricOrganic": 40,
+    "restrainedExpressive": 30
+  }
+}

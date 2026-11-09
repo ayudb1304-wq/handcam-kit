@@ -300,7 +300,7 @@ function renderList() {
   for (const take of list) {
     const li = document.createElement('li');
     li.className = `take${take === current ? ' sel' : ''}`;
-    li.innerHTML = `<span class="t-name"></span><svg viewBox="0 0 92 34" preserveAspectRatio="none"><path d="${curvePath(take, 92, 34)}" fill="none" stroke="${take === current ? '#f0a07d' : '#8b8780'}" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="t-meta"></span>`;
+    li.innerHTML = `<span class="t-name"></span><svg viewBox="0 0 92 34" preserveAspectRatio="none"><path d="${curvePath(take, 92, 34)}" fill="none" stroke="${take === current ? '#F26560' : '#8b8780'}" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="t-meta"></span>`;
     li.querySelector('.t-name').textContent = nice(take);
     if (take.star) li.querySelector('.t-name').insertAdjacentHTML('afterbegin', '<span class="t-star">★</span>');
     if (take.labSent) li.querySelector('.t-name').insertAdjacentHTML('beforeend', ' <span class="badge ok">lab</span>');
@@ -344,7 +344,7 @@ async function selectTake(take) {
   $('playerName').textContent = nice(take);
   $('takeLen').textContent = `${secs(duration(take))} s`;
   $('curve').setAttribute('viewBox', '0 0 600 34');
-  $('curve').innerHTML = `<path d="${curvePath(take, 600, 34)}" fill="none" stroke="#e07a52" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
+  $('curve').innerHTML = `<path d="${curvePath(take, 600, 34)}" fill="none" stroke="#E5322D" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
   $('shot').value = take.label || '';
   $('takeName').value = take.name || '';
   $('starBtn').classList.toggle('on', !!take.star); $('starBtn').textContent = take.star ? '★' : '☆';
