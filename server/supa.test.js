@@ -134,3 +134,27 @@ test('deleting an account removes its row from memory, the file and the database
     assert.equal(await a.remove('nobody'), false);
   } finally { await rm(dir, { recursive: true }); }
 });
+
+test('deleting an account and signing up again does not give the free trial twice: same email, same device or same network', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gone-'));
+  try {
+    const { supa, tables } = fakeSupabase();
+    const store = { ...supa.store, removeUser: async (id) => { tables.handcam_accounts.delete(id); } };
+    const quiet = { log() {}, warn() {} };
+    const a = await makeAccounts({ dir, pricing, store, log: quiet });
+    const first = await a.fromAuth({ authId: 'g1', email: 'again@gmail.com', device: 'devA', network: '203.0.113.7' });
+    assert.equal(first.user.trial, 2);
+    await a.remove(first.user.id);
+    await a.flush();
+    assert.equal((await a.fromAuth({ authId: 'g1-new', email: 'again@gmail.com', device: 'devNEW', network: '198.51.100.1' })).user.trial, 0, 'the same Google account, a fresh browser and network');
+    assert.equal((await a.fromAuth({ authId: 'g2', email: 'other@gmail.com', device: 'devA', network: '198.51.100.2' })).user.trial, 0, 'another account on the same device');
+    assert.equal((await a.fromAuth({ authId: 'g3', email: 'third@gmail.com', device: 'devC', network: '203.0.113.7' })).user.trial, 0, 'another account on the same network');
+    assert.equal((await a.fromAuth({ authId: 'g4', email: 'fresh@gmail.com', device: 'devD', network: '192.0.2.9' })).user.trial, 2, 'someone new still gets it');
+    await a.flush();
+    const marker = [...tables.handcam_payments.values()].find((r) => r.id.startsWith('gone:'));
+    assert.ok(marker, 'the marker is in the database');
+    assert.equal(JSON.stringify(marker).includes('again@gmail.com'), false, 'and it does not hold the email address');
+    const again = await makeAccounts({ dir, pricing, store, log: quiet });
+    assert.equal((await again.fromAuth({ authId: 'g5', email: 'sixth@gmail.com', device: 'devA', network: '192.0.2.77' })).user.trial, 0, 'still remembered after a restart');
+  } finally { await rm(dir, { recursive: true }); }
+});

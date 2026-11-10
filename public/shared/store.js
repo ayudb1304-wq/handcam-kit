@@ -48,9 +48,30 @@ function push(kind, item) {
     try {
       const { labSent, ...clean } = item;
       const r = await fetch(url(kind, item.id), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(clean) });
-      if (r.ok) seen.set(`${kind}:${item.id}`, (await r.json()).v);
+      if (!r.ok) return;
+      seen.set(`${kind}:${item.id}`, (await r.json()).v);
+      if (kind === 'scenes') await replaceOlder(item);
     } catch { /* offline: it goes up at the next sync */ }
   }, 1500));
+}
+/**
+ * Every change to a set is a new version with a new id (older takes keep replaying in the set they were shot in). The
+ * account only needs the newest version of each set, and the versions a take was shot in: the rest are let go.
+ */
+async function worthKeeping() {
+  const scenes = await run('scenes', 'readonly', (s) => s.getAll()), takes = await run('takes', 'readonly', (s) => s.getAll());
+  const keep = new Set(takes.map((t) => t.sceneId).filter(Boolean)), newest = new Map();
+  for (const sc of scenes) { const set = sc.setId || sc.id; if (!newest.has(set) || String(sc.id) > String(newest.get(set))) newest.set(set, sc.id); }
+  for (const id of newest.values()) keep.add(id);
+  return keep;
+}
+const sentOfSet = new Map(); // setId → the version of it this page last sent
+async function replaceOlder(scene) {
+  const set = scene.setId || scene.id, before = sentOfSet.get(set);
+  sentOfSet.set(set, scene.id);
+  if (!before || before === scene.id || (await worthKeeping()).has(before)) return;
+  seen.set(`scenes:${before}`, null);
+  fetch(`${url('scenes', before)}?replaced`, { method: 'DELETE' }).catch(() => {});
 }
 function drop(kind, id) {
   if (!syncing) return;
@@ -75,7 +96,8 @@ export async function syncLibrary() {
       try { const g = await fetch(url(kind, id)); if (g.ok) { const data = await g.json(); await run(kind, 'readwrite', (s) => s.put(data)); seen.set(`${kind}:${id}`, v); } } catch {}
     }
     syncing = true;
-    for (const x of local.values()) if (!there.has(x.id) && !remote.gone[kind].includes(x.id)) push(kind, x);
+    const wanted = kind === 'scenes' ? await worthKeeping() : null; // of the sets, only the versions that matter
+    for (const x of local.values()) if (!there.has(x.id) && !remote.gone[kind].includes(x.id) && (!wanted || wanted.has(x.id))) push(kind, x);
   }
   syncing = true;
   return true;

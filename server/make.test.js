@@ -528,6 +528,9 @@ test('sets and takes saved to the account: paid plans only, each account its own
     assert.equal((await call('a', 'PUT', '/takes/t2', { id: 't2' })).status, 200);
     assert.deepEqual([(await call('a', 'PUT', '/takes/t3', { id: 't3' })).status, (await call('a', 'PUT', '/takes/t2', { id: 't2', star: true })).status], [409, 200], 'full for new ones; a change to one it has still saves');
     await call('a', 'DELETE', '/takes/t1');
+    await call('a', 'PUT', '/scenes/s0', { id: 's0', setId: 's0' });
+    await call('a', 'DELETE', '/scenes/s0?replaced');
+    assert.deepEqual((await call('a', 'GET', '')).body.gone.scenes, [], 'an older version of a set that was replaced leaves no marker');
     const after = (await call('a', 'GET', '')).body;
     assert.deepEqual([after.takes.map((x) => x.id), after.gone.takes], [['t2'], ['t1']]);
     assert.equal((await call('a', 'GET', '/takes/t1')).status, 404);
@@ -536,4 +539,38 @@ test('sets and takes saved to the account: paid plans only, each account its own
     assert.deepEqual((await call('a', 'GET', '')).body.takes, []);
     assert.equal((await call('a', 'GET', '/nope/x')).status, 404);
   } finally { server.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('housekeeping never clears a folder whose files are not safely in storage; Practice and abandoned videos are simply removed', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'keep2-'));
+  try {
+    const bucket = new Map(), table = new Map();
+    let failing = true;
+    const store = {
+      async saveVideo(row) { table.set(row.id, row); }, async loadVideos() { return []; }, async removeVideo(id) { table.delete(id); },
+      files: { async put(k, buf) { if (failing && k.endsWith('lock-1.mp4')) throw new Error('storage is down'); bucket.set(k, buf); }, async get(k) { return bucket.get(k) || null; }, async remove(keys) { for (const k of keys) bucket.delete(k); } },
+    };
+    const old = '2026-10-01T00:00:00.000Z';
+    const keep = makeKeep({ dir, store, ownerOf: () => ({ paid: true }), now: () => new Date('2026-11-10T00:00:00Z').getTime(), log: { warn() {} } });
+    const write = async (job, names) => { await mkdir(join(dir, job.id), { recursive: true }); await writeFile(join(dir, job.id, 'job.json'), JSON.stringify(job)); for (const n of names) await writeFile(join(dir, job.id, n), n); };
+    const loadLocal = async (id) => { try { return JSON.parse(await readFile(join(dir, id, 'job.json'), 'utf8')); } catch { return null; } };
+    const real = { id: 'real', createdAt: old, updatedAt: old, userId: 'u', status: 'done', provider: 'higgsfield' };
+    await write(real, ['video-1.mp4', 'lock-1.mp4']);
+    await write({ id: 'practice', createdAt: old, updatedAt: old, userId: 'u', status: 'done', provider: 'mock' }, ['video-1.mp4']);
+    await write({ id: 'abandoned', createdAt: old, updatedAt: old, userId: 'u', status: 'needs_approval', provider: 'higgsfield' }, ['start-1.png']);
+    await write({ id: 'running', createdAt: old, updatedAt: old, userId: 'u', status: 'making', provider: 'higgsfield' }, ['reference.mp4']);
+    assert.deepEqual(await keep.sweep({ loadLocal }), { expired: 0, cleared: 2 }, 'Practice and the abandoned one');
+    assert.deepEqual([existsSync(join(dir, 'real')), existsSync(join(dir, 'practice')), existsSync(join(dir, 'abandoned')), existsSync(join(dir, 'running'))], [true, false, false, true], 'the real one stays: its logo video did not upload');
+    assert.equal([...bucket.keys()].some((k) => k.startsWith('practice')), false, 'Practice is never put in storage');
+    failing = false;
+    assert.deepEqual(await keep.sweep({ loadLocal }), { expired: 0, cleared: 1 });
+    assert.deepEqual([existsSync(join(dir, 'real')), bucket.has('real/lock-1.mp4'), bucket.has('real/video-1.mp4')], [false, true, true]);
+    // opened again: back on the disk as an ordinary job folder, so new work on it is archived later
+    await keep.restore(await keep.remote.get('real'));
+    assert.equal((await loadLocal('real')).id, 'real');
+    // a logo being locked right now: hands off
+    await writeFile(join(dir, 'real', 'job.json'), JSON.stringify({ ...(await loadLocal('real')), updatedAt: old }));
+    await writeFile(join(dir, 'real', 'locks.json'), JSON.stringify({ 1: { status: 'working' } }));
+    assert.equal((await keep.sweep({ loadLocal })).cleared, 0);
+  } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });

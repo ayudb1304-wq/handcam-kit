@@ -110,11 +110,19 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     return save(job);
   }
 
-  async function begin(id, work) { // run one step chain per job at a time
+  const active = new Map(); // id → the step chain running on that job right now
+  function begin(id, work) { // run one step chain per job at a time
     if (running.has(id)) return;
     running.add(id);
-    try { await work(); } finally { running.delete(id); }
+    const chain = (async () => { try { await work(); } finally { running.delete(id); active.delete(id); } })().catch(() => {});
+    active.set(id, chain);
   }
+  /**
+   * Resolves when nothing is working on the job. A video says "done" a moment before its last steps finish (what isn't
+   * owed is given back, the result is recorded and archived): anything that changes the job next must wait for those,
+   * or it is working on an old copy of it.
+   */
+  const quiet = (id) => active.get(id) || Promise.resolve();
   async function fail(job, e) {
     job.status = 'failed';
     job.error = e.message || String(e);
@@ -312,7 +320,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
 
   return {
     create, load, save, look,
-    path: (id, f) => path(id, f),
+    path: (id, f) => path(id, f), quiet,
     /** A job on this disk only (not the archive), for housekeeping. */
     async local(id) { try { return JSON.parse(await readFile(path(id, 'job.json'), 'utf8')); } catch { return null; } },
     /** A job was deleted: drop it from the list. */
@@ -371,6 +379,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     },
     /** "Try again" after done: one more version, then pick the best of all. */
     async more(id) {
+      await quiet(id);
       const job = await load(id);
       if (!job || job.status !== 'done') return job;
       if (!existsSync(path(id, 'measure.mp4')) || !existsSync(path(id, 'take.json'))) throw Object.assign(new Error('This video’s working files are kept for a week, and that has passed. Make a new video from the take.'), { status: 410 });

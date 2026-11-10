@@ -26,11 +26,12 @@ export function fileLibrary(dir) {
     },
     async get(acct, kind, id) { try { return JSON.parse(await readFile(at(acct, kind, id), 'utf8')).data; } catch { return null; } },
     async put(acct, kind, id, data, v) { await mkdir(at(acct, kind), { recursive: true }); await writeFile(at(acct, kind, id), JSON.stringify({ id, v, data })); },
+    async remove(acct, kind, id) { await rm(at(acct, kind, id), { force: true }); },
     async clear(acct) { await rm(join(dir, acct), { recursive: true, force: true }); },
   };
 }
 
-/** store: { list(acct), get(acct, kind, id), put(acct, kind, id, data | null, v), clear(acct) }. may(req) → the account that may sync, or null. */
+/** store: { list(acct), get(acct, kind, id), put(acct, kind, id, data | null, v), remove(acct, kind, id), clear(acct) }. may(req) → the account that may sync, or null. */
 export function makeLibrary({ store, may, limits = LIBRARY_LIMITS, now = () => Date.now() }) {
   const r = express.Router();
   const writes = rateLimit({ perHour: limits.writesPerHour });
@@ -66,7 +67,10 @@ export function makeLibrary({ store, may, limits = LIBRARY_LIMITS, now = () => D
   });
   r.delete('/:kind/:id', async (req, res) => {
     const v = now();
-    await store.put(req.acct, req.params.kind, req.params.id, null, v); // a marker: "this was deleted", so other computers follow
+    // ?replaced: an older version of a set that a newer one took the place of. It just goes: no marker, because another
+    // computer may still have a take shot in it, and must not be told to delete it.
+    if ('replaced' in req.query) await store.remove(req.acct, req.params.kind, req.params.id);
+    else await store.put(req.acct, req.params.kind, req.params.id, null, v); // a marker: "this was deleted", so other computers follow
     res.json({ v });
   });
   return { routes: r, clear: (acct) => store.clear(acct), count: async (acct) => { const l = (await store.list(acct)).filter((x) => !x.gone); return { takes: l.filter((x) => x.kind === 'takes').length, sets: l.filter((x) => x.kind === 'scenes').length }; } };

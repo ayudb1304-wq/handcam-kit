@@ -42,7 +42,7 @@ export function makeKeep({ dir, store = null, ownerOf = () => null, rules = KEEP
 
   /** Copy a job's record and its files worth keeping to Supabase. Files already there (same size) are not sent again. */
   async function archive(job) {
-    if (!store) return;
+    if (!store || job.provider === 'mock') return; // Practice makes grey copies of the move: nothing worth a place in storage
     try {
       const kept = { ...(job.kept || {}) };
       if (files) for (const name of await readdir(path(job.id)).catch(() => [])) {
@@ -58,12 +58,28 @@ export function makeKeep({ dir, store = null, ownerOf = () => null, rules = KEEP
     } catch (e) { log.warn(`keep ${job.id}:`, e.message); }
   }
 
-  /** Bring a job's kept files back to the disk when its folder has been cleared. */
+  /** Is every file worth keeping in this job's folder in storage, at the size it has now? */
+  async function archived(job) {
+    for (const name of await readdir(path(job.id)).catch(() => [])) {
+      if (KEPT.test(name) && job.kept?.[name] !== (await stat(path(job.id, name))).size) return false;
+    }
+    return true;
+  }
+  /** Is a logo being locked onto this job's video right now? (the folder is being written to) */
+  async function locking(id) {
+    try { return Object.values(JSON.parse(await readFile(path(id, 'locks.json'), 'utf8'))).some((l) => l?.status === 'working'); } catch { return false; }
+  }
+
+  /**
+   * Bring a job's kept files back to the disk when its folder has been cleared. The folder gets its job.json too, dated
+   * now, so it is an ordinary job folder again: new work on it (a logo lock) is archived and the folder cleared later.
+   */
   async function restore(job) {
     if (!files || !job?.kept) return;
     const missing = Object.keys(job.kept).filter((name) => !existsSync(path(job.id, name)));
     if (!missing.length) return;
     await mkdir(path(job.id), { recursive: true });
+    if (!existsSync(path(job.id, 'job.json'))) await writeFile(path(job.id, 'job.json'), JSON.stringify({ ...job, updatedAt: new Date(now()).toISOString() }, null, 2));
     for (const name of missing) {
       try { const buf = await files.get(`${job.id}/${name}`); if (buf) await writeFile(path(job.id, name), buf); }
       catch (e) { log.warn(`keep ${job.id}/${name}:`, e.message); }
@@ -96,11 +112,15 @@ export function makeKeep({ dir, store = null, ownerOf = () => null, rules = KEEP
       for (const job of jobs.values()) {
         const exp = expiry(job);
         if (exp && new Date(exp).getTime() <= t && DONE.has(job.status)) { await remove(job); forget(job.id); out.expired++; continue; }
-        if (!local.has(job.id) || !DONE.has(job.status) || !store) continue;
-        if (t - new Date(job.updatedAt || job.createdAt).getTime() < rules.workingDays * DAY) continue;
+        if (!local.has(job.id) || t - new Date(job.updatedAt || job.createdAt).getTime() < rules.workingDays * DAY) continue;
+        // a week old and still on the disk:
+        if (job.status === 'uploading' || job.status === 'needs_approval' || job.provider === 'mock') { // never finished (nothing was used), or Practice: nothing to keep
+          if (!['uploading', 'needs_approval'].includes(job.status) && !DONE.has(job.status)) continue;
+          await remove(job); forget(job.id); out.cleared++; continue;
+        }
+        if (!DONE.has(job.status) || !store || (await locking(job.id))) continue;
         await archive(job); // anything made since the last time (a logo lock), then let the folder go
-        const safe = Object.keys(job.kept || {}).length > 0 || !(await readdir(path(job.id)).catch(() => [])).some((n) => KEPT.test(n));
-        if (safe) { await rm(path(job.id), { recursive: true, force: true }).catch(() => {}); out.cleared++; }
+        if (await archived(job)) { await rm(path(job.id), { recursive: true, force: true }).catch(() => {}); out.cleared++; } // only when every file is safely in storage
       }
       return out;
     },

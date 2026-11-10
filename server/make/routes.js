@@ -267,6 +267,8 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   }));
   r.post('/:id/more', step(async (req, res) => {
     if (req.job.status !== 'done') return req.job;
+    await jobs.quiet(req.job.id); // the last version's refund is written just after "done": work on the job as it is after that
+    req.job = (await jobs.load(req.job.id)) || req.job;
     const no = canAfford(req.who, req.job, 1);
     if (no) { res.status(402).json(no); return null; }
     if (!within(versionLimit, req.who, req.job, 1, res, 'videos')) return null;

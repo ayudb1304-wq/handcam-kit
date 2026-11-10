@@ -68,10 +68,11 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
     store: dbReady ? {
       async load() {
         const [accounts, payments] = await Promise.all([all('handcam_accounts', 'id,data'), all('handcam_payments', 'id,data')]);
-        const db = { users: {}, payments: {}, refunds: {} };
+        const db = { users: {}, payments: {}, refunds: {}, gone: {} };
         for (const a of accounts) db.users[a.id] = a.data;
         for (const p of payments) {
           if (p.id.startsWith('refund:')) db.refunds[p.id.slice(7)] = p.data;
+          else if (p.id.startsWith('gone:')) db.gone[p.id.slice(5)] = p.data; // a deleted account's marker (accounts.js)
           else db.payments[p.id] = p.data;
         }
         return db;
@@ -98,6 +99,7 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
         async put(acct, kind, id, data, v) {
           await rest('POST', 'handcam_library?on_conflict=account_id,kind,id', [{ account_id: acct, kind, id, v, deleted: data == null, data }], 'resolution=merge-duplicates,return=minimal');
         },
+        async remove(acct, kind, id) { await rest('DELETE', `handcam_library?account_id=eq.${encodeURIComponent(acct)}&kind=eq.${kind}&id=eq.${encodeURIComponent(id)}`, null, 'return=minimal'); },
         async clear(acct) { await rest('DELETE', `handcam_library?account_id=eq.${encodeURIComponent(acct)}`, null, 'return=minimal'); },
       },
       async removeUser(id) { await rest('DELETE', `handcam_accounts?id=eq.${encodeURIComponent(id)}`, null, 'return=minimal'); },

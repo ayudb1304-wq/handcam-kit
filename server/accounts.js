@@ -27,7 +27,7 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
     if (Object.keys(remote.users).length || !Object.keys(local.users || {}).length) db = remote;
     else imported = true; // first start with Supabase: bring the accounts that were in the file over
   }
-  db.users ||= {}; db.payments ||= {}; db.refunds ||= {};
+  db.users ||= {}; db.payments ||= {}; db.refunds ||= {}; db.gone ||= {};
   for (const u of Object.values(db.users)) migrate(u);
   // the cookie key: from env, else one made once and kept next to the accounts
   let key = secret;
@@ -45,6 +45,7 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
     for (const u of Object.values(db.users)) sent.set(`u:${u.id}`, JSON.stringify(u));
     for (const [id, p] of Object.entries(db.payments)) sent.set(`p:${id}`, JSON.stringify(p));
     for (const [id, r] of Object.entries(db.refunds)) sent.set(`r:${id}`, JSON.stringify(r));
+    for (const [id, g] of Object.entries(db.gone)) sent.set(`g:${id}`, JSON.stringify(g));
   };
   if (!imported) mark();
   let saving = Promise.resolve();
@@ -55,8 +56,9 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
         for (const u of Object.values(db.users)) { const j = JSON.stringify(u); if (sent.get(`u:${u.id}`) !== j) { users.push(u); sent.set(`u:${u.id}`, j); } }
         for (const [id, x] of Object.entries(db.payments)) { const j = JSON.stringify(x); if (sent.get(`p:${id}`) !== j) { pays.push([id, x]); sent.set(`p:${id}`, j); } }
         for (const [id, x] of Object.entries(db.refunds)) { const j = JSON.stringify(x); if (sent.get(`r:${id}`) !== j) { pays.push([`refund:${id}`, x]); sent.set(`r:${id}`, j); } }
+        for (const [id, x] of Object.entries(db.gone)) { const j = JSON.stringify(x); if (sent.get(`g:${id}`) !== j) { pays.push([`gone:${id}`, x]); sent.set(`g:${id}`, j); } }
         try { await store.saveUsers(users); await store.savePayments(pays); }
-        catch (e) { for (const u of users) sent.delete(`u:${u.id}`); for (const [id] of pays) sent.delete(id.startsWith('refund:') ? `r:${id.slice(7)}` : `p:${id}`); throw e; } // retried on the next save
+        catch (e) { for (const u of users) sent.delete(`u:${u.id}`); for (const [id] of pays) sent.delete(id.startsWith('refund:') ? `r:${id.slice(7)}` : id.startsWith('gone:') ? `g:${id.slice(5)}` : `p:${id}`); throw e; } // retried on the next save
       }
       const tmp = `${file}.tmp`;
       await writeFile(tmp, JSON.stringify(db, null, 1));
@@ -103,12 +105,18 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
   const newDevice = () => randomBytes(12).toString('base64url');
   const deviceCookie = (id, { secure }) => `${DEVICE}=${id}.${sign(`dev.${id}`)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${DEVICE_AGE_S}${secure ? '; Secure' : ''}`;
   const netKey = (network) => (network ? createHmac('sha256', key).update(`net:${network}`).digest('base64url').slice(0, 22) : null);
-  /** Did another account already get the free videos on this device (ever) or this network (lately)? */
-  function trialTaken(device, net, self = null) {
+  const mailKey = (email) => createHmac('sha256', key).update(`mail:${email}`).digest('base64url').slice(0, 22);
+  /**
+   * Did another account already get the free videos on this device (ever) or this network (lately)? Accounts that were
+   * deleted still count (db.gone keeps their device, network and a keyed hash of the email, nothing else), or deleting
+   * an account and signing up again would be a way to get the trial for ever.
+   */
+  function trialTaken(device, net, email = '') {
     const since = now().getTime() - trialNetworkDays * 86400_000;
-    const got = Object.values(db.users).filter((u) => u !== self && u.origin?.trial);
-    if (device && got.some((u) => u.origin.device === device)) return true;
-    return !!net && got.filter((u) => u.origin.net === net && new Date(u.origin.at).getTime() > since).length >= trialPerNetwork;
+    const got = [...Object.values(db.users).filter((u) => u.origin?.trial).map((u) => u.origin), ...Object.values(db.gone)];
+    if (device && got.some((o) => o.device === device)) return true;
+    if (email && Object.values(db.gone).some((g) => g.mail === mailKey(email))) return true;
+    return !!net && got.filter((o) => o.net === net && new Date(o.at).getTime() > since).length >= trialPerNetwork;
   }
 
   /** Put plan videos back into this month, or (if that month is over or the plan has ended) into top-ups. */
@@ -147,7 +155,7 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
         return { user: u, created: false, trial: true };
       }
       const id = randomBytes(9).toString('base64url');
-      const give = admins.has(email) || !trialTaken(device, net);
+      const give = admins.has(email) || !trialTaken(device, net, email);
       const trial = give ? pricing.trial?.videos ?? 0 : 0;
       db.users[id] = { id, authId, email, name: String(name || '').trim().slice(0, 60), created: now().toISOString(), trial, topup: 0, sub: null, allowance: null, lifetime: null, hold: null, ledger: [], origin: { device, net, at: now().toISOString(), trial: give } };
       note(db.users[id], { trial, why: give ? 'welcome' : 'welcome (free videos already used on this device or network)' });
@@ -241,6 +249,7 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
     async remove(userId) {
       const u = db.users[userId];
       if (!u) return false;
+      db.gone[userId] = { device: u.origin?.device || null, net: u.origin?.net || null, mail: mailKey(u.email), at: now().toISOString() }; // so the trial isn't given twice
       delete db.users[userId];
       sent.delete(`u:${userId}`);
       if (store) await store.removeUser(userId);
