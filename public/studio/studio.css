@@ -106,6 +106,10 @@ body { background: radial-gradient(1100px 520px at 50% -260px, #17130f 0%, #0909
 .vid img, .vid .ph { width: 54px; height: 54px; border-radius: 8px; object-fit: cover; background: #000; display: block; }
 .vid b { display: block; font: 600 13px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vid span { display: block; font: 11.5px var(--mono); color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vid { grid-template-columns: 54px 1fr auto auto; }
+.vid .exp { color: var(--warn); }
+.vid-x { border: 0; background: transparent; color: var(--faint); cursor: pointer; font-size: 12px; padding: 6px; border-radius: 6px; }
+.vid-x:hover { color: var(--rec); background: rgba(255,77,77,.08); }
 .vid .state { font: 600 12px var(--mono); color: var(--fg-2); }
 .vid .state.ok { color: var(--ok); } .vid .state.warn { color: var(--warn); } .vid .state.bad { color: var(--rec); }
 /* a tab that wants attention: a video needs an OK, or has just finished */

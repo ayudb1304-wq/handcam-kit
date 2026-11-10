@@ -43,14 +43,15 @@ async function swap(tmp, dest) {
  * providerFor(job): the provider a job runs on (default: providers[job.provider]); index.js uses it to run a job on the
  * customer's own Higgsfield key. queue: { run(priority, fn), busy } decides when each version may start (queue.js).
  */
-export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000], onSettle = async () => {}, providerFor = null, queue = null, lookDir = join(dir, '..', 'looks') }) {
+export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000], onSettle = async () => {}, providerFor = null, queue = null, lookDir = join(dir, '..', 'looks'), remote = null }) {
   const running = new Set();
   const writes = new Map(); // one job.json write at a time per job: versions finish in parallel
 
   const path = (id, f = '') => join(dir, id, f);
   async function load(id) {
     if (!/^[a-z0-9-]{8,64}$/.test(id)) return null;
-    try { return JSON.parse(await readFile(path(id, 'job.json'), 'utf8')); } catch { return null; }
+    try { return JSON.parse(await readFile(path(id, 'job.json'), 'utf8')); } catch { /* not on the disk */ }
+    return (await remote?.get(id)) || null; // a finished video whose folder was cleared: its record is in the archive (keep.js)
   }
   function save(job) {
     const next = (writes.get(job.id) || Promise.resolve()).then(async () => {
@@ -66,6 +67,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   async function owners() {
     if (index) return index;
     const m = new Map();
+    for (const j of (await remote?.all()) || []) m.set(j.id, { userId: j.userId ?? null, at: j.createdAt || '' });
     for (const id of await readdir(dir).catch(() => [])) { const j = await load(id); if (j) m.set(id, { userId: j.userId ?? null, at: j.createdAt || '' }); }
     return (index ??= m);
   }
@@ -311,13 +313,18 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   return {
     create, load, save, look,
     path: (id, f) => path(id, f),
+    /** A job on this disk only (not the archive), for housekeeping. */
+    async local(id) { try { return JSON.parse(await readFile(path(id, 'job.json'), 'utf8')); } catch { return null; } },
+    /** A job was deleted: drop it from the list. */
+    forget(id) { index?.delete(id); },
     /**
-     * Jobs, newest first. `owner`: only that account's (undefined: everyone's, for the founder). Who owns which job is
-     * read once and remembered, so one account's list never depends on how many videos other people have made.
+     * Jobs, newest first. `owners`: only those accounts' (null in the list: the founder's laptop; undefined: every
+     * job, for housekeeping). Who owns which job is read once and remembered, so one account's list never depends on
+     * how many videos other people have made.
      */
-    async list({ owner, limit = 60 } = {}) {
+    async list({ owners: only, limit = 60 } = {}) {
       const all = await owners();
-      const ids = [...all.entries()].filter(([, o]) => owner === undefined || o.userId === owner).sort((a, b) => (a[1].at < b[1].at ? 1 : -1)).slice(0, limit).map(([id]) => id);
+      const ids = [...all.entries()].filter(([, o]) => only === undefined || only.includes(o.userId)).sort((a, b) => (a[1].at < b[1].at ? 1 : -1)).slice(0, limit).map(([id]) => id);
       return (await Promise.all(ids.map(load))).filter(Boolean);
     },
     /** All files are in: upload to the provider and make the start image. */
@@ -366,6 +373,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     async more(id) {
       const job = await load(id);
       if (!job || job.status !== 'done') return job;
+      if (!existsSync(path(id, 'measure.mp4')) || !existsSync(path(id, 'take.json'))) throw Object.assign(new Error('This video’s working files are kept for a week, and that has passed. Make a new video from the take.'), { status: 410 });
       begin(id, async () => {
         const { recipe, provider } = ctx(job);
         try {

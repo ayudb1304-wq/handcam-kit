@@ -24,7 +24,7 @@ const MEDIA = /^(ref-look\.jpg|ref-subject\.jpg|ref-logo\.png|start-\d+\.(png|jp
  * theirs in full.
  */
 export function publicJob(job, recipe, { admin = true } = {}) {
-  const { urls, log, charge, ...rest } = job;
+  const { urls, log, charge, kept, ...rest } = job;
   const full = admin || job.byok;
   const out = {
     ...rest,
@@ -62,7 +62,7 @@ export function publicLocks(locks, job, { full = true } = {}) {
   return out;
 }
 
-export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForCustomers = false, chargePractice = false, watermark, logolock = null, refsForCustomers = false, limits = MAKE_LIMITS }) {
+export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForCustomers = false, chargePractice = false, watermark, logolock = null, refsForCustomers = false, limits = MAKE_LIMITS, keep = null }) {
   const r = express.Router();
   const DAY = 24 * 3600_000;
   const jobLimit = rateLimit({ perHour: limits.jobsPerHour });
@@ -85,7 +85,10 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   const allowed = (w, recipe) => !!recipe && ready(recipe.provider) && (recipe.provider === 'mock' || w.admin || realAiForCustomers);
   /** …or on their own Higgsfield key? (a paid plan, a saved key, a Higgsfield recipe) */
   const ownKey = (w, recipe) => !!recipe && recipe.provider === 'higgsfield' && !w.admin && !!w.ent?.features.byok && !!w.user?.byok;
-  const owns = (w, job) => w.admin || (w.user && job.userId === w.user.id);
+  // Whose videos this person may see: their own account's, and on the laptop running CineHand the ones made there with
+  // no account. Nobody, the founder included, gets another account's videos through the app (DECISIONS §55).
+  const mine = (w) => [...(w.local ? [null] : []), ...(w.user ? [w.user.id] : [])];
+  const owns = (w, job) => mine(w).includes(job.userId ?? null);
   const unitFor = (w, byok) => (job) => (w.user && !w.admin && !byok ? unitsPerVersion(pricing, job, { chargePractice }) : 0);
   const whyNot = (w, x) => !ready(x.provider) && !ownKey(w, x) ? 'not set up on this server' : 'real AI video is switched off for this test: try Practice';
 
@@ -144,7 +147,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   });
 
   r.get('/', async (req, res) => {
-    const list = (await jobs.list({ owner: req.who.admin ? undefined : req.who.user.id })).filter((j) => owns(req.who, j) && j.status !== 'canceled');
+    const list = (await jobs.list({ owners: mine(req.who) })).filter((j) => owns(req.who, j) && j.status !== 'canceled');
     res.json({ jobs: await Promise.all(list.map((j) => withLocks(j, req.who))) });
   });
 
@@ -172,6 +175,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   r.param('id', async (req, res, next, id) => {
     const job = await jobs.load(id);
     if (!job || !owns(req.who, job)) return res.status(404).json({ error: 'no such job' });
+    await keep?.restore(job); // a video whose folder was cleared comes back from the archive when it is opened
     req.job = job;
     next();
   });
@@ -218,6 +222,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   /** The job for the browser, with its logo locks (kept in their own file, see logolock.js). */
   async function withLocks(job, w) {
     const out = publicJob(job, recipes[job.recipeId], w);
+    if (keep) { out.expiresAt = keep.expiry(job); out.working = keep.working(job); } // when it is deleted by itself; can another version still be made
     if (logolock) { out.locks = publicLocks(await logolock.read(job.id), job, { full: w.admin || job.byok }); out.hasLogo = logolock.hasLogo(job); }
     return out;
   }
@@ -241,6 +246,13 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     }
     return jobs.redoStart(req.job.id, req.body?.look);
   }));
+  /** Delete a video for good: its files, its record, everything. Only when nothing is being made. */
+  r.delete('/:id', async (req, res) => {
+    if (['preparing', 'start_image', 'making', 'checking'].includes(req.job.status)) return res.status(409).json({ error: 'This video is still being made. Delete it when it’s finished.' });
+    if (keep) await keep.remove(req.job); else return res.status(503).json({ error: 'Deleting isn’t set up on this server.' });
+    jobs.forget(req.job.id);
+    res.json({ ok: true });
+  });
   r.post('/:id/cancel', step((req) => jobs.cancel(req.job.id))); // only while the first frame waits for an OK
   r.post('/:id/approve', step(async (req, res) => {
     if (req.job.status !== 'needs_approval') return req.job;

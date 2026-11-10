@@ -20,6 +20,17 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
     if (!r.ok) throw new Error(`Supabase ${method} ${path.split('?')[0]} ${r.status}: ${text.slice(0, 200)}`);
     return text ? JSON.parse(text) : null; // an upsert with return=minimal answers 201 with an empty body
   }
+  // Storage: one private bucket, reachable only with the secret key (the gateway turns `apikey` into the service role).
+  const BUCKET = 'handcam-videos';
+  async function object(method, key, { body, type, json } = {}) {
+    const r = await fetchImpl(`${base}/storage/v1/object/${BUCKET}${key ? `/${key.split('/').map(encodeURIComponent).join('/')}` : ''}`, {
+      method, headers: { apikey: secretKey, ...(type && { 'Content-Type': type }), ...(method === 'POST' && { 'x-upsert': 'true' }), ...(json && { 'Content-Type': 'application/json' }) },
+      body: json ? JSON.stringify(json) : body,
+    });
+    if (r.status === 404 || (r.status === 400 && method === 'GET')) return null; // not there
+    if (!r.ok) throw new Error(`Supabase storage ${method} ${key || ''} ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    return r;
+  }
   async function all(table, select) { // page through everything (a few thousand rows at most for now)
     const rows = [];
     for (let from = 0; ; from += 1000) {
@@ -61,6 +72,17 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
       async saveUsers(users) {
         if (!users.length) return;
         await rest('POST', 'handcam_accounts?on_conflict=id', users.map((u) => ({ id: u.id, auth_id: u.authId || null, email: u.email, data: u, updated_at: new Date().toISOString() })), 'resolution=merge-duplicates,return=minimal');
+      },
+      /** A customer's videos (server/make/keep.js): the job's record, and its files in the private bucket. */
+      async saveVideo(row) {
+        await rest('POST', 'handcam_videos?on_conflict=id', [{ ...row, updated_at: new Date().toISOString() }], 'resolution=merge-duplicates,return=minimal');
+      },
+      async loadVideos() { return all('handcam_videos', 'id,data'); },
+      async removeVideo(id) { await rest('DELETE', `handcam_videos?id=eq.${encodeURIComponent(id)}`, null, 'return=minimal'); },
+      files: {
+        async put(key, buf, type) { await object('POST', key, { body: buf, type }); },
+        async get(key) { const r = await object('GET', key); return r ? Buffer.from(await r.arrayBuffer()) : null; },
+        async remove(keys) { if (keys.length) await object('DELETE', '', { json: { prefixes: keys } }); },
       },
       /** The recipe's memory (server/learn.js): one row per AI version. The same version saved again replaces itself. */
       async saveGenerations(rows) {

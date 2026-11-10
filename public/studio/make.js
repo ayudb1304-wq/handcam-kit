@@ -31,14 +31,34 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     $('videos').innerHTML = list.map((j) => {
       const pic = j.startImages?.filter((x) => x.file).at(-1)?.file, best = j.candidates?.find((c) => c.n === j.best);
       const [state, cls] = j.status === 'done' ? [best?.match != null ? `${best.match}%` : 'Ready', best?.verdict?.pass === false ? 'warn' : 'ok'] : j.status === 'failed' ? ['Failed', 'bad'] : j.status === 'needs_approval' ? ['Your OK', 'warn'] : ['Making…', ''];
+      const busy = ACTIVE.has(j.status);
       return `<li class="vid" data-id="${j.id}" title="${esc(j.look)}">${pic ? `<img src="/api/make/${j.id}/media/${pic}" alt="" loading="lazy">` : '<span class="ph"></span>'}
-        <div class="grow"><b>${esc(j.look)}</b><span>${esc(j.recipe?.label || '')}${j.resolution ? ` · ${esc(j.resolution)}` : ''} · ${when(j.createdAt)}</span></div><span class="state ${cls}">${state}</span></li>`;
+        <div class="grow"><b>${esc(j.look)}</b><span>${esc(j.recipe?.label || '')}${j.resolution ? ` · ${esc(j.resolution)}` : ''} · ${when(j.createdAt)}</span>${j.expiresAt ? `<span class="exp">${expiresIn(j)}</span>` : ''}</div>
+        <span class="state ${cls}">${state}</span>${busy ? '' : '<button class="vid-x" data-del aria-label="Delete this video" title="Delete this video">✕</button>'}</li>`;
     }).join('');
-    for (const li of $('videos').children) li.onclick = () => {
+    for (const li of $('videos').children) {
       const j = jobs.find((x) => x.id === li.dataset.id);
-      if (!j) return;
-      if (j.status === 'done') openResult(j); else { show(j); showPane('make'); }
-    };
+      li.onclick = () => { if (j.status === 'done') openResult(j); else { show(j); showPane('make'); } };
+      li.querySelector('[data-del]')?.addEventListener('click', (e) => { e.stopPropagation(); removeVideo(j); });
+    }
+  }
+
+  /** "Deleted in 9 days": when a video goes by itself (free trial videos, and a paid account's after its plan ends). */
+  function expiresIn(j) {
+    const days = Math.ceil((new Date(j.expiresAt).getTime() - Date.now()) / 86400_000);
+    return days <= 0 ? 'Deleted today' : days === 1 ? 'Deleted tomorrow' : `Deleted in ${days} days`;
+  }
+  async function removeVideo(j) {
+    const act = await ask({ eyebrow: 'Videos', title: 'Delete this video?', rows: [['Video', esc(j.look)], ['Made', when(j.createdAt)]],
+      notes: ['It is deleted for good: the video, its first frame and its logo work. This can’t be undone.'],
+      buttons: [{ act: '', label: 'Keep it', cls: 'quiet' }, { act: 'go', label: 'Delete', cls: 'danger' }] });
+    if (act !== 'go') return;
+    const r = await fetch(`/api/make/${j.id}`, { method: 'DELETE' });
+    if (!r.ok) return toast((await r.json().catch(() => ({}))).error || 'Could not delete it. Try again.', 5000);
+    jobs = jobs.filter((x) => x.id !== j.id);
+    if (job?.id === j.id) showForm();
+    renderVideos(); onJobs();
+    toast('Deleted.');
   }
 
   // ---- a sign that a video wants you: a dot on the Make tab, and the browser tab's title while you're elsewhere ----
@@ -504,7 +524,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
     m.innerHTML = `<div class="card modal-card">
       <div class="modal-head">${ringHtml(j, c, 76)}<div class="grow"><span class="eyebrow">Version ${c.n} of ${j.candidates.filter((x) => x.file).length}${n === j.best ? ' · kept' : ''}</span>
-        <h2 id="resultTitle">${esc(titleText(j, c))}</h2><p class="muted" style="margin:6px 0 0">${esc(verdictText(j, c))}</p>${billText(j) ? `<p class="note" style="margin:4px 0 0">${billText(j)}</p>` : ''}</div>
+        <h2 id="resultTitle">${esc(titleText(j, c))}</h2><p class="muted" style="margin:6px 0 0">${esc(verdictText(j, c))}</p>${billText(j) || j.expiresAt ? `<p class="note" style="margin:4px 0 0">${[billText(j), j.expiresAt && `${expiresIn(j)}: download it to keep it`].filter(Boolean).join(' · ')}</p>` : ''}</div>
         <button class="btn quiet icon" data-act="close" aria-label="Close">✕</button></div>
       <div class="compare">
         <figure><video id="rv0" src="/api/make/${j.id}/media/reference.mp4" muted loop playsinline></video><figcaption><span class="eyebrow">Your move</span><span class="badge">grey reference</span></figcaption></figure>
@@ -514,7 +534,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
       ${c.score ? `<div class="why"><div><b>${c.score.timing_offset_s == null ? '—' : `${c.score.timing_offset_s > 0 ? '+' : ''}${c.score.timing_offset_s.toFixed(2)} s`}</b><span>Timing vs your take</span></div>
         <div><b>${pct(c.score.turn_corr)}</b><span>Turns that match yours</span></div><div><b>${pct(c.score.walk_ratio)}</b><span>Of your walking distance</span></div></div>` : ''}
       <div class="row wrap"><div class="versions grow">${j.candidates.filter((x) => x.file).map((x) => `<button class="version${x.n === c.n ? ' sel' : ''}" data-v="${x.n}">${x.verdict?.pass ? '✓' : x.verdict?.pass === false ? '⚠' : '·'} V${x.n}${x.match != null ? ` · ${x.match}%` : ''}${x.free ? ' · free' : ''}</button>`).join('')}</div>
-        <button class="btn ghost" data-act="more">Make another version</button>
+        ${j.working === false ? '' : '<button class="btn ghost" data-act="more">Make another version</button>'}
         ${c.preview ? '<span class="note">Free version: watch only.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="cinehand-${j.id}-v${c.n}.mp4">Download</a>`}</div>
       ${c.preview ? '' : lockBoxHtml(j, c)}
     </div>`;
@@ -531,7 +551,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
       else { a.pause(); b.pause(); cancelAnimationFrame(raf); e.target.textContent = '▶ Play both'; }
     };
     for (const v of m.querySelectorAll('[data-v]')) v.onclick = () => { close(); openResult(j, Number(v.dataset.v)); };
-    m.querySelector('[data-act=more]').onclick = () => { close(); another(j); };
+    m.querySelector('[data-act=more]')?.addEventListener('click', () => { close(); another(j); });
     if (!c.preview) wireLockBox(m, j, c, (fresh) => { close(); openResult(fresh, n); });
   }
 

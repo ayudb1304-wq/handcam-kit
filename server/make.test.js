@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fill, pick, judge, checkRecipe, loadRecipes, badness, matchPercent, pickQuality, pickVersions, videoCost } from './make/recipe.js';
@@ -414,10 +414,11 @@ test('a person’s videos are theirs however many others have made: the list is 
     const scene = await loadTemplate('parking-lot');
     const mine = await jobs.create({ take, scene, look: 'my old video', recipeId: 'practice', userId: 'me' });
     for (let i = 0; i < 4; i++) await jobs.create({ take, scene, look: `someone else ${i}`, recipeId: 'practice', userId: 'them' });
-    assert.deepEqual((await jobs.list({ owner: 'me' })).map((j) => j.id), [mine.id]);
-    assert.equal((await jobs.list({ owner: 'them', limit: 2 })).length, 2);
-    assert.equal((await jobs.list()).length, 6, 'the founder sees everything (5 here + the helper’s own)');
-    assert.equal((await jobs.list({ owner: 'nobody' })).length, 0);
+    assert.deepEqual((await jobs.list({ owners: ['me'] })).map((j) => j.id), [mine.id]);
+    assert.equal((await jobs.list({ owners: ['them'], limit: 2 })).length, 2);
+    assert.equal((await jobs.list()).length, 6, 'housekeeping sees everything (5 here + the helper’s own)');
+    assert.deepEqual((await jobs.list({ owners: [null] })).length, 1, 'the laptop’s own, made with no account');
+    assert.equal((await jobs.list({ owners: ['nobody'] })).length, 0);
   } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });
 
@@ -451,4 +452,53 @@ test('the recipe’s memory: one row per version with the move, the references a
     await learn.record(job); await learn.record(job);
     assert.equal((await learn.rows()).length, 3);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+import { makeKeep, expiresAt } from './make/keep.js';
+import { existsSync } from 'node:fs';
+test('keeping videos: trial videos go after 14 days, a paid account’s 30 days after its plan ends; archived files come back when the folder is gone; delete removes everything', async () => {
+  const made = '2026-11-01T00:00:00.000Z', job0 = { id: '2026-11-01-aaaaaaaa', createdAt: made, userId: 'u1', status: 'done' };
+  assert.equal(expiresAt({ ...job0, userId: null }), null, 'the founder’s laptop');
+  assert.equal(expiresAt({ ...job0, watermark: true }, { owner: 'u1' }), '2026-11-15T00:00:00.000Z', 'a free trial video');
+  assert.equal(expiresAt({ ...job0, watermark: true }, { owner: 'u1', paid: true }), null, 'upgraded in time: kept');
+  assert.equal(expiresAt(job0, { owner: 'u1', paid: true }), null, 'a paying customer');
+  assert.equal(expiresAt(job0, { owner: 'u1', planEnded: '2026-12-01T00:00:00.000Z' }), '2026-12-31T00:00:00.000Z', '30 days after the plan ended');
+  assert.equal(expiresAt(job0, { owner: 'u1', admin: true }), null);
+
+  const dir = await mkdtemp(join(tmpdir(), 'keep-'));
+  try {
+    const bucket = new Map(), table = new Map();
+    const store = {
+      async saveVideo(row) { table.set(row.id, JSON.parse(JSON.stringify(row))); }, async loadVideos() { return [...table.values()].map(({ id, data }) => ({ id, data })); }, async removeVideo(id) { table.delete(id); },
+      files: { async put(k, buf) { bucket.set(k, Buffer.from(buf)); }, async get(k) { return bucket.get(k) || null; }, async remove(keys) { for (const k of keys) bucket.delete(k); } },
+    };
+    const owners = { u1: { paid: false }, u2: { paid: true } };
+    let clock = new Date('2026-11-02T00:00:00Z').getTime();
+    const keep = makeKeep({ dir, store, ownerOf: (id) => owners[id], now: () => clock, log: { warn() {} } });
+    const write = async (job, names) => { await mkdir(join(dir, job.id), { recursive: true }); await writeFile(join(dir, job.id, 'job.json'), JSON.stringify(job)); for (const n of names) await writeFile(join(dir, job.id, n), n); };
+    const loadLocal = async (id) => { try { return JSON.parse(await readFile(join(dir, id, 'job.json'), 'utf8')); } catch { return null; } };
+    const trial = { ...job0, watermark: true, updatedAt: made }, paid = { ...job0, id: '2026-11-01-bbbbbbbb', userId: 'u2', updatedAt: made };
+    for (const j of [trial, paid]) { await write(j, ['video-1.mp4', 'reference.mp4', 'start-1.png', 'measure.mp4', 'take.json']); await keep.archive(j); }
+    assert.deepEqual([...bucket.keys()].filter((k) => k.startsWith(trial.id)).sort(), [`${trial.id}/reference.mp4`, `${trial.id}/start-1.png`, `${trial.id}/video-1.mp4`], 'the videos and the move, not the working files');
+    assert.equal(table.get(trial.id).expires_at, '2026-11-15T00:00:00.000Z');
+    assert.equal(table.get(paid.id).expires_at, null);
+    assert.equal(keep.working(trial), true);
+    // a week on: the working folders are cleared, the videos stay
+    clock = new Date('2026-11-09T00:00:01Z').getTime();
+    assert.deepEqual(await keep.sweep({ loadLocal }), { expired: 0, cleared: 2 });
+    assert.equal(existsSync(join(dir, paid.id)), false);
+    assert.equal(keep.working(paid), false, 'another version needs the working files');
+    const back = await keep.remote.get(paid.id);
+    await keep.restore(back);
+    assert.equal(await readFile(join(dir, paid.id, 'video-1.mp4'), 'utf8'), 'video-1.mp4', 'opened again: back from the archive');
+    assert.equal(existsSync(join(dir, paid.id, 'measure.mp4')), false);
+    // day 15: the trial video is deleted everywhere; the paying customer's is not
+    clock = new Date('2026-11-15T00:00:01Z').getTime();
+    const forgot = [];
+    assert.equal((await keep.sweep({ loadLocal, forget: (id) => forgot.push(id) })).expired, 1);
+    assert.deepEqual([forgot, table.has(trial.id), [...bucket.keys()].some((k) => k.startsWith(trial.id)), table.has(paid.id)], [[trial.id], false, false, true]);
+    // the owner deletes one
+    await keep.remove(await keep.remote.get(paid.id));
+    assert.deepEqual([table.size, bucket.size, existsSync(join(dir, paid.id))], [0, 0, false]);
+  } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });

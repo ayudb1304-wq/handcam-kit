@@ -26,6 +26,7 @@ import { loadPricing } from './billing.js';
 import { makeDodo, makePayRoutes, productIds } from './payments.js';
 import { rateLimit, clientIp, networkOf } from './limits.js';
 import { makeLearn } from './learn.js';
+import { makeKeep } from './make/keep.js';
 import { readFile } from 'node:fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -188,7 +189,13 @@ const providerFor = (job) => {
 };
 // The recipe's memory: what every AI version did, kept so the recipe can be refined on real results (DECISIONS §53).
 const learn = makeLearn({ dir: DATA_DIR, store: supa.store, recipes, readTake: async (job) => JSON.parse(await readFile(join(DATA_DIR, 'jobs', job.id, 'take.json'), 'utf8')) });
+// Where videos are kept and for how long (DECISIONS §55): the disk is the workshop, Supabase the lasting copy.
+const keep = makeKeep({
+  dir: join(DATA_DIR, 'jobs'), store: supa.store,
+  ownerOf: (id) => { const u = accounts.get(id); if (!u) return null; const e = accounts.ent(u); return { paid: !!(e.sub || e.lifetime), admin: accounts.isAdmin(u), planEnded: u.sub?.paidThrough || null }; },
+});
 const jobs = makeJobs({
+  remote: keep.remote,
   dir: join(DATA_DIR, 'jobs'), recipes, providers, score: runScore, providerFor,
   queue: makeQueue({ slots: Number(process.env.MAKE_SLOTS || 6) }), // AI versions at once on our key; higher plans first when busy
   // give back what the customer doesn't owe (free and failed versions), to where it came from
@@ -200,6 +207,7 @@ const jobs = makeJobs({
       job.charge.refunded += back;
     }
     await learn.record(job);
+    await keep.archive(job);
   },
 });
 // The founder's view of that record: pass rates and reasons per recipe wording, per kind of move, with and without the look.
@@ -207,8 +215,12 @@ app.get('/api/learn', async (req, res) => {
   if (!isLocal(req) && !accounts.isAdmin(accounts.userFrom(req))) return res.status(404).end();
   res.json(await learn.summary());
 });
-app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, watermark, logolock: makeLogoLock({ jobs }), refsForCustomers: flag(process.env.REFS_FOR_CUSTOMERS), realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
+app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, watermark, keep, logolock: makeLogoLock({ jobs }), refsForCustomers: flag(process.env.REFS_FOR_CUSTOMERS), realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
 jobs.resume().catch((e) => console.warn('could not resume make jobs:', e.message));
+// Housekeeping, at start and every six hours: delete videos whose time is up, clear week-old working folders.
+const sweep = () => keep.sweep({ loadLocal: jobs.local, forget: jobs.forget }).then((r) => { if (r.expired || r.cleared) console.log(`videos: ${r.expired} expired and deleted, ${r.cleared} working folders cleared`); }).catch((e) => console.warn('sweep:', e.message));
+setTimeout(sweep, 30_000).unref();
+setInterval(sweep, 6 * 3600_000).unref();
 
 // ---- WebSocket relay -------------------------------------------------------
 const server = createServer(app);
