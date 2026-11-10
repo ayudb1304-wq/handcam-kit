@@ -7,6 +7,7 @@ import { OneEuroQuat } from '../shared/one-euro.js';
 import { putTake, allTakes, deleteTake, putScene, getScene } from '../shared/store.js';
 import { sampleAt, takeOutput } from '../shared/frames.js';
 import { setupMake } from './make.js';
+import { setupTabs, showPane } from './tabs.js';
 import { photoToJpeg } from '../shared/image.js';
 import { addPicture } from '../shared/refs.js';
 import { setupTour } from './tour.js';
@@ -24,6 +25,7 @@ export function toast(text, ms = 3200) {
 
 let make = { onTake() {}, hasVideo: () => false }; // replaced by setupMake() below; takes can arrive before it runs
 
+setupTabs();
 // --- progress steps (top bar) ------------------------------------------------
 const progress = { set: false, shoot: false, takes: false, make: false };
 function markStep(name, done = true) {
@@ -321,7 +323,7 @@ async function editWithWords() {
 $('editBtn').onclick = editWithWords;
 $('editPrompt').addEventListener('keydown', (e) => { if (e.key === 'Enter') editWithWords(); });
 buildBtn.onclick = () => build($('prompt').value.trim() || (photo ? '' : 'parking lot'));
-for (const chip of document.querySelectorAll('#examples .chip')) chip.onclick = () => { $('prompt').value = chip.textContent; build(chip.textContent); };
+for (const chip of document.querySelectorAll('#examples .chip')) chip.onclick = () => { $('prompt').value = chip.dataset.prompt; build(chip.dataset.prompt); };
 $('prompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) buildBtn.click(); });
 
 // --- the move as a curve (take cards + timeline) ---------------------------------------
@@ -403,7 +405,8 @@ async function selectTake(take) {
   if (take !== current) setCompare(null);
   current = take; playing = false; playhead = 0;
   player.hidden = !take;
-  $('takePanel').hidden = !take;
+  $('takePanel').hidden = $('exportBox').hidden = !take;
+  $('exportEmpty').hidden = !!take;
   replay.group.visible = !!take;
   renderList();
   make.onTake(take);
@@ -500,6 +503,8 @@ async function loadDemo() {
   return take;
 }
 $('demoBtn').onclick = $('demoBtn2').onclick = loadDemo;
+// Send to lab (and the lab shot name) is the founder's tool and only works on the laptop running CineHand: hidden everywhere else
+getAccount().then((a) => { $('labRow').hidden = !a.local; });
 
 // --- Phase 4b: star, rename, compare -------------------------------------------------------
 const saveTake = (take) => { if (!take.demo) putTake(take).catch(() => {}); };

@@ -1,3 +1,4 @@
+import { reveal, showPane } from './tabs.js';
 // First-run tour: a welcome card, then a spotlight on each part of the studio. Esc closes, ← → move.
 const KEY = 'handcam.tour.seen.v1';
 const seen = () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } };
@@ -81,7 +82,7 @@ export function setupTour({ loadDemo }) {
     if (!els) return;
     const t = document.querySelector(STEPS[i].sel);
     if (!t) return;
-    t.scrollIntoView({ block: 'nearest' });
+    reveal(t); // the side panels show one pane at a time
     const r = t.getBoundingClientRect(), pad = 8;
     Object.assign(els.hole.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
     const tw = 340, th = els.tip.offsetHeight || 200, gap = 18, vw = innerWidth, vh = innerHeight;
@@ -101,7 +102,7 @@ export function setupTour({ loadDemo }) {
       <p>It’s a real move with a real AI result. Press <b>Make video</b> in practice mode: no phone, no credits, about 20 seconds.</p>
       <div class="row"><button class="btn primary lg" data-a="demo">Load the demo take</button><button class="btn quiet" data-a="x">Close</button></div></div></div>`;
     document.body.append(m);
-    m.querySelector('[data-a=demo]').onclick = async () => { m.remove(); await loadDemo(); document.querySelector('[data-tour=make]').scrollIntoView({ block: 'center' }); document.getElementById('look')?.focus(); };
+    m.querySelector('[data-a=demo]').onclick = async () => { m.remove(); await loadDemo(); showPane('make'); document.getElementById('look')?.focus(); };
     m.querySelector('[data-a=x]').onclick = () => m.remove();
   }
 

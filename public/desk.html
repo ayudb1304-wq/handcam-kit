@@ -38,75 +38,73 @@
     CineHand <span class="sub">Studio</span>
   </a>
   <nav class="steps" aria-label="Progress" data-tour="steps">
-    <div class="step" data-step="set"><span class="n">1</span><span class="label">Set</span></div><i class="step-sep"></i>
-    <div class="step" data-step="shoot"><span class="n">2</span><span class="label">Shoot</span></div><i class="step-sep"></i>
-    <div class="step" data-step="takes"><span class="n">3</span><span class="label">Takes</span></div><i class="step-sep"></i>
-    <div class="step" data-step="make"><span class="n">4</span><span class="label">Make video</span></div>
+    <div class="step" data-step="set" data-go="set" role="button" tabindex="0"><span class="n">1</span><span class="label">Set</span></div><i class="step-sep"></i>
+    <div class="step" data-step="shoot" data-go="phone" role="button" tabindex="0"><span class="n">2</span><span class="label">Shoot</span></div><i class="step-sep"></i>
+    <div class="step" data-step="takes" data-go="takes" role="button" tabindex="0"><span class="n">3</span><span class="label">Takes</span></div><i class="step-sep"></i>
+    <div class="step" data-step="make" data-go="make" role="button" tabindex="0"><span class="n">4</span><span class="label">Make video</span></div>
   </nav>
   <div class="top-right">
     <button class="pill acct-pill" id="acctPill" title="Your account">Sign in</button>
     <span class="pill" id="phonePill" title="Phone"><span class="dot" id="phoneDot"></span><span id="status">No phone yet</span></span>
-    <button class="btn quiet sm" id="demoBtn" title="Load an example take to try everything without a phone">Try the demo take</button>
+    <button class="btn quiet sm" id="demoBtn" title="Load an example take to try everything without a phone">Demo take</button>
     <button class="btn quiet icon" id="helpBtn" title="Take the tour" aria-label="Take the tour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.8-.9 1.4v.6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button>
     <button class="btn quiet icon" id="settingsBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
   </div>
   <div class="popover card" id="settings" hidden>
     <span class="eyebrow">Settings</span>
-    <label class="switch">Smooth the live camera outline<input type="checkbox" id="filter" checked></label>
-    <p class="note">Display only. Takes are always recorded raw, exactly as your hand moved.</p>
+    <label class="switch" title="Display only. Takes are always recorded raw.">Smooth the live camera outline<input type="checkbox" id="filter" checked></label>
     <button class="btn ghost sm" id="replayTour">Show the tour again</button>
     <button class="btn quiet sm" id="signOut" hidden>Sign out</button>
   </div>
 </header>
 
 <main class="layout">
-  <!-- Left: set + phone -->
-  <aside class="col">
-    <section class="card panel" data-tour="set">
-      <div class="panel-head"><span class="eyebrow">01 · Set</span><span class="badge" id="src" hidden></span></div>
-      <h3>Describe the set, or show it</h3>
-      <p>One sentence, a photo of the real thing, or both. You get a grey blockout: boxes for things, stick figures for people. That’s on purpose.</p>
-      <textarea class="field" id="prompt" rows="3" placeholder="Empty parking lot at night, one parked car, a man standing beside the driver’s door"></textarea>
+  <!-- Left: the set, the phone, the sequence. One pane at a time (studio/tabs.js). -->
+  <aside class="col card">
+    <div class="tabs" role="tablist" aria-label="Set, phone and sequence">
+      <button class="tab on" role="tab" data-tab="set" aria-selected="true">Set</button>
+      <button class="tab" role="tab" data-tab="phone" aria-selected="false">Phone</button>
+      <button class="tab" role="tab" data-tab="sequence" aria-selected="false">Sequence <span class="count" id="seqLen">empty</span></button>
+    </div>
+
+    <section class="pane" data-pane="set" data-tour="set">
+      <textarea class="field" id="prompt" rows="3" placeholder="Describe the set: empty parking lot at night, one parked car, a man by the driver’s door" aria-label="Describe the set"></textarea>
       <div class="photo-row">
         <input type="file" id="photoFile" accept="image/*" hidden>
-        <button class="btn ghost sm" id="photoBtn" type="button" title="Build the set from a photo of your product or place">＋ Use a photo</button>
+        <button class="btn ghost sm" id="photoBtn" type="button" title="Build the set from a photo of your product or place">＋ Photo</button>
         <span class="photo-chip" id="photoChip" hidden><img id="photoThumb" alt=""><span id="photoName">Photo</span><button type="button" id="photoClear" aria-label="Remove the photo">✕</button></span>
+        <span class="grow"></span><span class="badge" id="src" hidden></span>
       </div>
+      <button class="btn primary" id="build" title="You get a grey blockout: boxes for things, stick figures for people">Build the set</button>
       <div class="chips" id="examples">
-        <button class="chip" type="button">Parking lot at night, a man between two cars</button>
-        <button class="chip" type="button">Office, two people at a desk</button>
-        <button class="chip" type="button">Street corner, a woman waiting</button>
+        <button class="chip" type="button" data-prompt="Parking lot at night, a man between two cars">Parking lot</button>
+        <button class="chip" type="button" data-prompt="Office, two people at a desk">Office</button>
+        <button class="chip" type="button" data-prompt="Street corner, a woman waiting">Street corner</button>
       </div>
-      <button class="btn primary" id="build">Build the set</button>
       <div class="edit-words" id="editWords" hidden>
-        <span class="eyebrow">Fix the set</span>
-        <div class="row"><input class="field grow" id="editPrompt" placeholder="“Move the car closer to the wall”" aria-label="Change the set with words"><button class="btn ghost sm" id="editBtn">Change</button></div>
-        <p class="note">Or click an object in the set: drag to move it, hold <b>R</b> and drag to turn it, <b>Delete</b> removes it.</p>
-        <button class="btn quiet sm" id="undoBtn" disabled title="Undo the last change (⌘Z)">Undo</button>
+        <span class="eyebrow">Change it</span>
+        <div class="row"><input class="field grow" id="editPrompt" placeholder="Move the car closer to the wall" aria-label="Change the set with words"><button class="btn ghost sm" id="editBtn">Change</button><button class="btn quiet icon sm" id="undoBtn" disabled title="Undo the last change (⌘Z)" aria-label="Undo">↶</button></div>
       </div>
     </section>
 
-    <section class="card panel" data-tour="phone">
-      <div class="panel-head"><span class="eyebrow">02 · Shoot</span><span class="room" id="room"></span></div>
-      <h3>Your phone is the camera</h3>
+    <section class="pane" data-pane="phone" data-tour="phone" hidden>
       <div class="qr-wrap">
         <div class="qr" id="qr"></div>
-        <ol class="how">
-          <li><span>1</span><div>Scan with your phone’s camera (iPhone or Android)</div></li>
-          <li><span>2</span><div>Tap <b>Enable motion</b></div></li>
-          <li><span>3</span><div>Tap <b>Re&#8209;anchor</b>, then <b>●</b> to record</div></li>
-        </ol>
+        <span class="room" id="room"></span>
       </div>
+      <ol class="how">
+        <li><span>1</span><div>Scan with your phone</div></li>
+        <li><span>2</span><div>Tap <b>Enable motion</b></div></li>
+        <li><span>3</span><div><b>Re&#8209;anchor</b>, then <b>●</b></div></li>
+      </ol>
       <div class="link" id="link"></div>
       <div class="warn-box" id="httpsWarn" hidden>Phone motion needs <b>https</b>. Run <code>npm run tunnel</code>, then restart with <code>PUBLIC_URL=https://… npm run dev</code>.</div>
     </section>
 
-    <section class="card panel" id="seqPanel" data-tour="sequence">
-      <div class="panel-head"><span class="eyebrow">05 · Sequence</span><span class="badge" id="seqLen">empty</span></div>
-      <h3>Shots</h3>
-      <p id="seqEmpty">Put takes in order and trim them: they play back to back as an animatic.</p>
+    <section class="pane" id="seqPanel" data-pane="sequence" data-tour="sequence" hidden>
+      <p class="hint" id="seqEmpty">Add takes as shots. They play back to back.</p>
       <ol class="shots" id="shots"></ol>
-      <div class="row"><button class="btn ghost sm grow" id="addShot">Add shot</button><button class="btn primary sm grow" id="playSeq">Play sequence</button></div>
+      <div class="row"><button class="btn ghost sm grow" id="addShot">Add shot</button><button class="btn primary sm grow" id="playSeq">Play</button></div>
       <div class="actions three"><button class="btn ghost sm" id="seqVideo" title="All shots cut together as one grey video">Video</button><button class="btn ghost sm" id="seqJson">JSON</button><button class="btn ghost sm" id="seqBlender" title="One camera per shot, cut with markers">Blender</button></div>
     </section>
   </aside>
@@ -115,7 +113,7 @@
   <section class="stage" data-tour="stage">
     <canvas id="view"></canvas>
     <div class="stage-top">
-      <span class="pill"><span class="eyebrow" style="color:var(--fg-2)">Overview</span><span class="muted small">drag to look around</span></span>
+      <span class="pill"><span class="muted small">Drag to look around</span></span>
       <span class="pill sel-pill" id="selPill" hidden><b id="selName"></b><span class="muted small" id="selHint">drag · R+drag turns · Delete</span><label class="start-height small" id="startHeight" hidden>Height <input type="range" id="startHeightIn" min="0.2" max="3" step="0.05" aria-label="Camera start height"><output id="startHeightOut"></output></label></span>
       <span class="pill rec-chip" id="recChip" hidden><span class="dot rec"></span><span id="recTime">REC</span></span>
     </div>
@@ -131,55 +129,55 @@
     <div class="stage-veil" id="veil" hidden><div class="card"><span class="spinner"></span><span id="veilText">Building the set…</span></div></div>
   </section>
 
-  <!-- Right: takes + make video -->
-  <aside class="col">
-    <section class="card panel" data-tour="takes">
-      <div class="panel-head"><span class="eyebrow">03 · Takes</span><span class="badge" id="takeCount">0</span></div>
+  <!-- Right: takes, export, make video. One pane at a time. -->
+  <aside class="col card">
+    <div class="tabs" role="tablist" aria-label="Takes, export and make video">
+      <button class="tab on" role="tab" data-tab="takes" aria-selected="true">Takes <span class="count" id="takeCount">0</span></button>
+      <button class="tab" role="tab" data-tab="export" aria-selected="false">Export</button>
+      <button class="tab" role="tab" data-tab="make" aria-selected="false">Make video <span class="count accent" id="recipeStatus" hidden></span></button>
+    </div>
+
+    <section class="pane" data-pane="takes" data-tour="takes">
       <ul class="takes" id="takes"></ul>
       <div class="empty" id="noTakes">
         <img src="/assets/obj-phone.webp" alt="" onerror="this.src='/assets/obj-camera.webp'">
         <b>No takes yet</b>
-        <p>Shoot one with your phone, or load the demo take to try everything now.</p>
         <button class="btn ghost sm" id="demoBtn2">Load the demo take</button>
+      </div>
+      <div class="take-bar" id="takePanel" hidden>
+        <div class="row"><button class="btn quiet icon sm star" id="starBtn" title="Star the best take" aria-label="Star this take">☆</button><input class="field grow" id="takeName" placeholder="Name this take" aria-label="Take name" maxlength="60"><span class="count" id="takeLen"></span></div>
+        <div class="row"><select id="compareSel" class="grow" aria-label="Compare with another take"><option value="">Compare with…</option></select><button class="btn quiet sm" id="deleteTake" title="Remove this take from this computer">Delete</button></div>
+        <div class="row" id="labRow" hidden><select id="shot" class="grow" aria-label="Which test shot is this? (lab)"><option value="">Lab test shot…</option></select><button class="btn ghost sm" id="toLab" title="Save take + set into lab/takes for recipe tests">Send to lab</button></div>
+        <span class="note" id="takeNote"></span>
       </div>
     </section>
 
-    <section class="card panel" id="takePanel" hidden>
-      <div class="panel-head"><span class="eyebrow">Selected take</span><span class="badge" id="takeLen"></span></div>
-      <div class="row"><button class="btn quiet icon star" id="starBtn" title="Star the best take (the circled take)" aria-label="Star this take">☆</button><input class="field grow" id="takeName" placeholder="Name this take" aria-label="Take name" maxlength="60"></div>
-      <div class="row"><select id="compareSel" class="grow" aria-label="Compare with another take"><option value="">Compare with…</option></select></div>
-      <select id="shot" aria-label="Which test shot is this? (lab)"><option value="">Lab test shot…</option></select>
-      <div class="export-box">
-        <span class="eyebrow">Export</span>
+    <section class="pane" data-pane="export" hidden>
+      <p class="hint" id="exportEmpty">Pick a take to export it.</p>
+      <div class="export-box" id="exportBox" hidden>
         <div class="actions three">
           <button class="btn ghost" id="exportBtn" title="Grey video of this take in its frame + the first frame as a picture">Video</button>
           <button class="btn ghost" id="jsonBtn" title="The take and its set in one file">JSON</button>
           <button class="btn ghost" id="blenderBtn" title="A folder for Blender: set, camera, lens and movement">Blender</button>
         </div>
-        <label class="smooth-row">Smoothing <input type="range" id="smooth" min="0" max="1" step="0.05" value="0"><span id="smoothVal">off (raw)</span></label>
-        <div class="prompt-box"><textarea class="field" id="movePrompt" rows="3" readonly aria-label="Prompt describing this move"></textarea><button class="btn quiet sm" id="copyPrompt">Copy prompt</button></div>
+        <label class="smooth-row" title="Applied to the exported copy only. The take stays raw.">Smoothing <input type="range" id="smooth" min="0" max="1" step="0.05" value="0"><span id="smoothVal">off (raw)</span></label>
+        <span class="eyebrow">Prompt for other AI tools</span>
+        <div class="prompt-box"><textarea class="field" id="movePrompt" rows="4" readonly aria-label="Prompt describing this move"></textarea><button class="btn quiet sm" id="copyPrompt">Copy</button></div>
       </div>
-      <div class="actions">
-        <button class="btn ghost" id="toLab" title="Save take + set into lab/takes for recipe tests">Send to lab</button>
-        <button class="btn quiet" id="deleteTake" title="Remove this take from this computer">Delete take</button>
-      </div>
-      <span class="note" id="takeNote"></span>
     </section>
 
-    <section class="card panel" id="makePanel" data-tour="make">
-      <div class="panel-head"><span class="eyebrow">04 · Make video</span><span class="badge accent" id="recipeStatus" hidden></span></div>
+    <section class="pane" id="makePanel" data-pane="make" data-tour="make" hidden>
       <div id="makeForm">
-        <h3>Make it real</h3>
-        <p style="margin:6px 0 12px">Describe the look. We turn your move into a real video, and check that it moves like you did.</p>
-        <textarea class="field" id="look" rows="3" placeholder="Wet parking lot at night, orange street light, man in a grey hoodie, shot on an old phone"></textarea>
-        <div class="row" style="margin-top:10px"><select id="recipe" class="grow" aria-label="Video model"></select></div>
-        <div class="row" style="margin-top:8px;gap:8px"><select id="quality" class="grow" style="min-width:0" aria-label="Video quality" title="Higher quality costs more" hidden></select><select id="versions" class="grow" style="min-width:0" aria-label="How many versions to make" title="More versions: more chances one follows your move, and more cost"></select></div>
-        <div class="note refs-row" id="lookRow" hidden><span id="lookThumb"></span><span class="grow" id="lookText"></span><button class="btn ghost sm" id="lookBtn" type="button">Make the look</button><span class="badge" title="Being tested: only you see this">testing</span></div>
-        <label class="note refs-row" id="refsRow" hidden><input type="checkbox" id="useRefs" checked><span id="refThumbs"></span><span class="grow" id="refsText">Keep my product exactly as in my photo</span><span class="badge" title="Being tested: only you see this">testing</span></label>
-        <label class="note" id="ownKeyRow" style="margin-top:8px;display:flex;align-items:center;gap:8px" hidden><input type="checkbox" id="ownKey"> Use my own Higgsfield key (uses none of my videos)</label>
-        <div class="note" id="recipeWhy" style="margin-top:6px"></div>
-        <div class="cost" style="margin-top:10px"><span id="costText">Pick a take first</span><span id="costEta"></span></div>
-        <button class="btn primary lg" id="makeBtn" style="margin-top:12px;width:100%" disabled>Make video</button>
+        <textarea class="field" id="look" rows="3" placeholder="Describe the look: wet parking lot at night, orange street light, shot on an old phone" aria-label="Describe the look"></textarea>
+        <select id="recipe" aria-label="Video model"></select>
+        <div class="row"><select id="quality" class="grow" aria-label="Video quality" title="Higher quality costs more" hidden></select><select id="versions" class="grow" aria-label="How many versions to make" title="More versions: more chances one follows your move, and more cost"></select></div>
+        <div class="refs-row" id="lookRow" hidden title="One wide picture of the whole place. Every video in this set starts from it, so the place stays the same."><span id="lookThumb"></span><span class="grow" id="lookText"></span><button class="btn ghost sm" id="lookBtn" type="button">Make</button></div>
+        <label class="refs-row" id="refsRow" hidden><input type="checkbox" id="useRefs" checked><span id="refThumbs"></span><span class="grow" id="refsText">Keep my product as in my photo</span></label>
+        <label class="refs-row" id="ownKeyRow" hidden title="Uses none of your videos"><input type="checkbox" id="ownKey"> Use my own Higgsfield key</label>
+        <div class="note" id="recipeWhy"></div>
+        <span class="grow"></span>
+        <div class="cost"><span id="costText">Pick a take first</span><span id="costEta"></span></div>
+        <button class="btn primary lg" id="makeBtn" disabled>Make video</button>
       </div>
       <div id="makeJob" hidden></div>
     </section>

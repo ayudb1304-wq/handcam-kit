@@ -3,6 +3,7 @@
 import { signIn, buyTopups, openPlans } from '../shared/account.js';
 import { logoToPng, photoToJpeg, blobOf } from '../shared/image.js';
 import { getKit, setLogo, setLook } from '../shared/refs.js';
+import { showPane } from './tabs.js';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ACTIVE = new Set(['uploading', 'preparing', 'start_image', 'making', 'checking']);
@@ -45,8 +46,8 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     $('refsText').textContent = subject ? `Keep my product exactly as in my photo${logo ? ', with my logo' : ''}` : 'Keep my logo exactly as it is';
     lookRow.hidden = false;
     $('lookThumb').innerHTML = look ? `<img src="${look.dataUrl}" alt="">` : '';
-    $('lookText').textContent = look ? 'Look of this set: every video here is in this place' : 'Look of this set: one wide picture of the whole place, so it stays the same in every video';
-    $('lookBtn').textContent = look ? 'Redo' : 'Make the look';
+    $('lookText').textContent = look ? 'Set look saved' : 'Set look';
+    $('lookBtn').textContent = look ? 'Redo' : 'Make';
   }
 
   // ---- the look of the set: one wide picture of the whole place, approved once (DECISIONS §50) ----
@@ -86,7 +87,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     const m = $('resultModal');
     m.innerHTML = `<div class="card modal-card">
       <div class="modal-head"><div class="grow"><span class="eyebrow">Look of this set</span><h2>Is this the place?</h2>
-        <p class="muted" style="margin:6px 0 0">Every video you make in this set starts from this picture, so the place stays the same in every shot. It was made from the view you have in the studio: to change what’s in it, turn the studio view so the whole place is in the picture, then make it again.</p></div>
+        <p class="muted" style="margin:6px 0 0">Every video in this set starts from this picture. To change the view, turn the studio view and try again.</p></div>
         <button class="btn quiet icon" data-act="close" aria-label="Close">✕</button></div>
       <img src="${look.dataUrl}" alt="The look of this set" style="max-width:100%;max-height:58vh;display:block;margin:0 auto;border-radius:10px">
       <div class="row wrap"><span class="grow"></span><button class="btn ghost" data-act="again">Try again</button><button class="btn primary" data-act="use">Use this look</button></div>
@@ -255,7 +256,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
   }
 
   // ---- show a job ----
-  const STEPS = [['Preparing your move', ['uploading', 'preparing']], ['First frame', ['start_image']], ['Your OK', ['needs_approval']], ['Making the video', ['making']], ['Checking it follows your move', ['checking']], ['Done', ['done']]];
+  const STEPS = [['Preparing your move', ['uploading', 'preparing']], ['First frame', ['start_image']], ['Your OK', ['needs_approval']], ['Making the video', ['making']], ['Checking the move', ['checking']], ['Done', ['done']]];
   function show(j) {
     const was = job?.id === j.id ? job.status : undefined; // only a change of the same job counts as news
     job = j;
@@ -273,10 +274,10 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
       const s = j.startImages.filter((x) => x.file).at(-1);
       html += `<div class="approve" style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
         <img src="/api/make/${j.id}/media/${s.file}" alt="First frame of your video">
-        <p class="note">This is the first frame. Same layout as your set? Then make the video.</p>
+        <p class="note">First frame. Same layout as your set?</p>
         <div class="row"><select id="approveVersions" class="grow" aria-label="How many versions">${Array.from({ length: cfg.maxVersions || 4 }, (_, i) => `<option value="${i + 1}" ${i + 1 === (j.versions || 2) ? 'selected' : ''}>${i + 1} version${i ? 's' : ''}${j.charge ? ` · up to ${(i + 1) * j.charge.unit} video${(i + 1) * j.charge.unit === 1 ? '' : 's'}` : ''}</option>`).join('')}</select></div>
         <button class="btn primary" data-act="approve" data-n="${s.n}">Looks right · make the video</button>
-        <details><summary class="note" style="cursor:pointer">Try other words for the look</summary>
+        <details><summary class="note" style="cursor:pointer">Try other words</summary>
           <textarea class="field" id="relook" rows="2" style="margin-top:8px">${esc(j.look)}</textarea>
           <button class="btn ghost sm" data-act="redo" style="margin-top:8px">New first frame</button></details></div>`;
     }
@@ -288,7 +289,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
       const billLine = b && (j.provider !== 'mock' || j.charge)
         ? `<p class="note" style="margin:10px 0 0">${j.byok ? 'Made on your own Higgsfield key' : paidUnits != null ? `Used ${paidUnits} video${paidUnits === 1 ? '' : 's'}${j.watermark ? ' (free trial: watermarked)' : ''}` : `Charged for ${b.charged} of ${b.videos} version${b.videos > 1 ? 's' : ''}`}${b.free ? ` · ${b.free} version${b.free > 1 ? 's' : ''} free (under ${b.freeBelow}% move match)` : ''}${b.apiUsd != null ? ` · AI cost ≈ ${usd(b.apiUsd)}` : ''}</p>` : '';
       const retry = b?.tryAgain
-        ? `<div class="warn-box" style="margin:12px 0 0"><b>It didn’t follow your move closely enough.</b> Under ${b.freeBelow}% move match, so it isn’t charged. Make another version?
+        ? `<div class="warn-box" style="margin:12px 0 0"><b>It didn’t follow your move</b> (under ${b.freeBelow}%), so it isn’t charged.
             <div style="margin-top:8px"><button class="btn primary sm" data-act="again">Try again</button></div></div>` : '';
       html += `<div class="result-card" style="margin-top:12px">
         <video src="/api/make/${j.id}/media/${best.file}" muted loop playsinline autoplay></video>
@@ -307,7 +308,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     const i = jobs.findIndex((x) => x.id === j.id);
     if (i >= 0) jobs[i] = j; else { jobs.unshift(j); onJobs(); }
     if (j.status === 'done' && was && was !== 'done') { onDone(); onJobs(); openResult(j); }
-    if (was && j.status !== was) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (was && j.status !== was && ['needs_approval', 'done', 'failed'].includes(j.status)) showPane('make'); // it needs you, or it's finished
     poll();
   }
 
@@ -324,14 +325,13 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
         <figure><video id="rv0" src="/api/make/${j.id}/media/reference.mp4" muted loop playsinline></video><figcaption><span class="eyebrow">Your move</span><span class="badge">grey reference</span></figcaption></figure>
         <figure><video id="rv1" src="/api/make/${j.id}/media/${c.file}" muted loop playsinline></video><figcaption><span class="eyebrow">AI video</span><span class="badge accent">${j.demo && j.provider === 'mock' ? 'Example result · Seedance 2.5' : esc(j.recipe?.label || '')}${j.resolution ? ` · ${esc(j.resolution)}` : ''}</span></figcaption></figure>
       </div>
-      <div class="row wrap"><button class="btn light" data-act="play">▶ Play both</button><span class="muted small grow">Both play in sync, so you can see the camera do what your hand did.</span></div>
+      <div class="row wrap"><button class="btn light" data-act="play">▶ Play both</button><span class="grow"></span></div>
       ${c.score ? `<div class="why"><div><b>${c.score.timing_offset_s == null ? '—' : `${c.score.timing_offset_s > 0 ? '+' : ''}${c.score.timing_offset_s.toFixed(2)} s`}</b><span>Timing vs your take</span></div>
         <div><b>${pct(c.score.turn_corr)}</b><span>Turns that match yours</span></div><div><b>${pct(c.score.walk_ratio)}</b><span>Of your walking distance</span></div></div>` : ''}
       <div class="row wrap"><div class="versions grow">${j.candidates.filter((x) => x.file).map((x) => `<button class="version${x.n === c.n ? ' sel' : ''}" data-v="${x.n}">${x.verdict?.pass ? '✓' : x.verdict?.pass === false ? '⚠' : '·'} V${x.n}${x.match != null ? ` · ${x.match}%` : ''}${x.free ? ' · free' : ''}</button>`).join('')}</div>
         <button class="btn ghost" data-act="more">Make another version</button>
-        ${c.preview ? '<span class="note">This version was free (not charged): it’s here to watch, not to download.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="cinehand-${j.id}-v${c.n}.mp4">Download</a>`}</div>
+        ${c.preview ? '<span class="note">Free version: watch only.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="cinehand-${j.id}-v${c.n}.mp4">Download</a>`}</div>
       ${c.preview ? '' : lockBoxHtml(j, c)}
-      <p class="note">Move match compares the camera’s turns, timing and walking in the AI video with your take. It’s measured, not guessed: the score is the same every time for the same video.</p>
     </div>`;
     m.hidden = false;
     const [a, b] = [m.querySelector('#rv0'), m.querySelector('#rv1')];
@@ -362,7 +362,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
         <span class="note">${l.oldLogo ? 'You changed the logo since: place it again to update. ' : ''}${l.locked < 0.9 ? `Hidden in ${Math.round((1 - l.locked) * 100)}% of the frames, where the product left the picture or changed too much to follow.` : 'Held in every frame.'}</span>`;
     else body = `${l?.status === 'failed' ? `<span class="warn-box">${esc(l.error)}</span>` : ''}<button class="btn primary sm" data-act="place">Place your logo</button>
         <label class="btn quiet sm">Change logo<input type="file" data-act="logofile" accept="image/png,image/svg+xml,.svg,.png" hidden></label>`;
-    return `<div class="lock-box"><div><b>Logo lock</b> <span class="muted small">Your exact logo on the product in every frame. It is never redrawn, so it can’t change shape.</span></div><div class="row wrap">${body}</div></div>`;
+    return `<div class="lock-box"><div><b>Logo lock</b> <span class="muted small">Your exact logo, in every frame.</span></div><div class="row wrap">${body}</div></div>`;
   }
 
   function wireLockBox(m, j, c, reopen) {
@@ -415,7 +415,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     const prev = j.locks?.[c.n]?.quad;
     m.innerHTML = `<div class="card modal-card">
       <div class="modal-head"><div class="grow"><span class="eyebrow">Logo lock · version ${c.n}</span><h2>Put your logo on the product</h2>
-        <p class="muted" style="margin:6px 0 0">This is the first frame. Drag the logo onto the product, then pull its four corners so it lies flat on the surface (the label, the box side). It will stay there in every frame.</p></div>
+        <p class="muted" style="margin:6px 0 0">Drag the logo onto the product, then pull its corners so it lies flat.</p></div>
         <button class="btn quiet icon" data-act="close" aria-label="Close">✕</button></div>
       <div class="place-stage" id="placeStage"><img class="place-frame" id="placeFrame" src="/api/make/${j.id}/media/frame-${c.n}.jpg" alt="First frame"><img class="place-logo" id="placeLogo" src="/api/make/${j.id}/media/logo.png?${Date.now()}" alt="Your logo"><svg class="place-svg" id="placeSvg"><polygon id="placePoly"></polygon></svg></div>
       <div class="row wrap"><label class="small"><input type="checkbox" id="placeCover" checked> Paint over the AI’s own logo underneath</label><span class="grow"></span>
@@ -512,7 +512,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
   function ringHtml(j, c, size = 64) {
     const unchecked = j.outcome === 'unchecked' || c?.match == null;
     const cls = unchecked ? 'none' : c.verdict?.pass ? '' : 'warn';
-    return `<div class="ring ${cls}" style="--p:${unchecked ? 0 : c.match};width:${size}px;height:${size}px" title="Move match"><b>${unchecked ? '–' : `${c.match}%`}</b></div>`;
+    return `<div class="ring ${cls}" style="--p:${unchecked ? 0 : c.match};width:${size}px;height:${size}px" title="Move match: the camera’s turns, timing and walking in the AI video, measured against your take"><b>${unchecked ? '–' : `${c.match}%`}</b></div>`;
   }
   function titleText(j, c) {
     if (j.outcome === 'unchecked' || !c.verdict || c.verdict.pass === null) return 'Your video is ready';
