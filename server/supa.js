@@ -62,6 +62,12 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
         if (!users.length) return;
         await rest('POST', 'handcam_accounts?on_conflict=id', users.map((u) => ({ id: u.id, auth_id: u.authId || null, email: u.email, data: u, updated_at: new Date().toISOString() })), 'resolution=merge-duplicates,return=minimal');
       },
+      /** The recipe's memory (server/learn.js): one row per AI version. The same version saved again replaces itself. */
+      async saveGenerations(rows) {
+        if (!rows.length) return;
+        await rest('POST', 'handcam_generations?on_conflict=id', rows.map((r) => ({ id: r.id, job_id: r.job_id, account_id: r.account_id, recipe_id: r.recipe_id, recipe_hash: r.recipe_hash, status: r.status, move_match: r.match, created_at: r.created_at, data: r })), 'resolution=merge-duplicates,return=minimal');
+      },
+      async loadGenerations() { return (await all('handcam_generations', 'id,data')).map((x) => x.data); },
       async savePayments(entries) {
         if (!entries.length) return;
         await rest('POST', 'handcam_payments?on_conflict=id', entries.map(([id, p]) => ({ id, account_id: p.userId || null, data: p })), 'resolution=merge-duplicates,return=minimal');

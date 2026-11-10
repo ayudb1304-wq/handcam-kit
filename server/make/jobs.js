@@ -358,7 +358,9 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       if (!job || job.status !== 'needs_approval') return job;
       job.status = 'canceled';
       say(job, 'Cancelled before the video was made');
-      return save(job);
+      await save(job);
+      await settle(job); // nothing to give back; it lets the record of what happened be kept
+      return job;
     },
     /** "Try again" after done: one more version, then pick the best of all. */
     async more(id) {

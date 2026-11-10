@@ -25,6 +25,8 @@ import { makeSupabase } from './supa.js';
 import { loadPricing } from './billing.js';
 import { makeDodo, makePayRoutes, productIds } from './payments.js';
 import { rateLimit, clientIp, networkOf } from './limits.js';
+import { makeLearn } from './learn.js';
+import { readFile } from 'node:fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Optional .env in the project root (gitignored) for ANTHROPIC_API_KEY etc. Needs Node ≥ 20.12; otherwise use `export`.
@@ -42,6 +44,16 @@ app.set('trust proxy', true); // behind cloudflared / Render: req.protocol is ht
 // With a custom domain (PUBLIC_URL), pages opened on the old *.onrender.com address move there, so the sign-in cookie,
 // checkout returns and phone links all live on one host. /api stays reachable on both (Dodo's webhook points at Render).
 const canonical = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL) : null;
+// Headers every answer carries: no guessing of file types, no showing CineHand inside someone else's page (clickjacking),
+// no full addresses leaked to other sites, and https only once a browser has seen us on https.
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (req.protocol === 'https') res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
 app.use((req, res, next) => {
   const page = (req.method === 'GET' || req.method === 'HEAD') && !req.path.startsWith('/api/');
   if (canonical && page && req.hostname.endsWith('.onrender.com')) return res.redirect(301, canonical.origin + req.originalUrl);
@@ -174,6 +186,8 @@ const providerFor = (job) => {
   const env = job.userId && accounts.byokEnv(job.userId);
   return env ? makeHiggsfield({ env }) : { name: 'higgsfield', upload: noKey, submit: noKey, status: noKey, download: noKey };
 };
+// The recipe's memory: what every AI version did, kept so the recipe can be refined on real results (DECISIONS §53).
+const learn = makeLearn({ dir: DATA_DIR, store: supa.store, recipes, readTake: async (job) => JSON.parse(await readFile(join(DATA_DIR, 'jobs', job.id, 'take.json'), 'utf8')) });
 const jobs = makeJobs({
   dir: join(DATA_DIR, 'jobs'), recipes, providers, score: runScore, providerFor,
   queue: makeQueue({ slots: Number(process.env.MAKE_SLOTS || 6) }), // AI versions at once on our key; higher plans first when busy
@@ -185,7 +199,13 @@ const jobs = makeJobs({
       await accounts.refund(job.userId, job.charge.from, back, `refund ${job.id} (free or failed versions)`);
       job.charge.refunded += back;
     }
+    await learn.record(job);
   },
+});
+// The founder's view of that record: pass rates and reasons per recipe wording, per kind of move, with and without the look.
+app.get('/api/learn', async (req, res) => {
+  if (!isLocal(req) && !accounts.isAdmin(accounts.userFrom(req))) return res.status(404).end();
+  res.json(await learn.summary());
 });
 app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, watermark, logolock: makeLogoLock({ jobs }), refsForCustomers: flag(process.env.REFS_FOR_CUSTOMERS), realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
 jobs.resume().catch((e) => console.warn('could not resume make jobs:', e.message));

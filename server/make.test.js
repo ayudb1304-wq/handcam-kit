@@ -420,3 +420,35 @@ test('a person’s videos are theirs however many others have made: the list is 
     assert.equal((await jobs.list({ owner: 'nobody' })).length, 0);
   } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });
+
+import { rowsOf, recipeHash, summarise, moveOf, makeLearn } from './learn.js';
+test('the recipe’s memory: one row per version with the move, the references and the result; a changed prompt is a new recipe hash', async () => {
+  const recipes = await loadRecipes(fileURLToPath(new URL('../recipes', import.meta.url)));
+  const r = recipes['seedance-2.5'];
+  assert.match(recipeHash(r), /^[0-9a-f]{12}$/);
+  assert.notEqual(recipeHash(r), recipeHash({ ...r, video: { ...r.video, input: { ...r.video.input, prompt: 'other words' } } }), 'a new wording is a new version');
+  assert.equal(recipeHash(r), recipeHash({ ...r, label: 'renamed', cost: {} }), 'the name and the price are not the recipe');
+  assert.equal(moveOf(take).seconds > 0, true);
+  const job = { id: 'j1', createdAt: '2026-11-10T00:00:00Z', recipeId: 'seedance-2.5', provider: 'higgsfield', userId: 'u1', resolution: '480p', durationS: 6, aspect: '16:9', look: 'night', refs: true,
+    urls: { 'ref-look.jpg': 'x', 'first-frame.png': 'y' }, startImages: [{ n: 1 }, { n: 2 }], best: 2, status: 'done',
+    candidates: [{ n: 1, file: 'video-1.mp4', match: 55, free: true, verdict: { pass: false, reasons: ['turns don’t match your move'] }, score: bad },
+      { n: 2, file: 'video-2.mp4', match: 91, verdict: { pass: true, reasons: [] }, score: good }, { n: 3, file: null, error: 'blocked by content filter' }] };
+  const rows = rowsOf(job, r, take);
+  assert.deepEqual(rows.map((x) => [x.id, x.status, x.match, x.kept, x.has_look, x.has_subject, x.first_frames]), [['j1-1', 'made', 55, false, true, false, 2], ['j1-2', 'made', 91, true, true, false, 2], ['j1-3', 'failed', null, false, true, false, 2]]);
+  assert.equal(rows[0].recipe_hash, recipeHash(r));
+  // a video cancelled at the first frame is one row that says so; an unfinished one is nothing yet
+  assert.deepEqual(rowsOf({ ...job, id: 'j2', candidates: [], status: 'canceled' }, r, take).map((x) => [x.id, x.status]), [['j2-0', 'canceled']]);
+  assert.deepEqual(rowsOf({ ...job, id: 'j3', candidates: [], status: 'needs_approval' }, r, take), []);
+  const sum = summarise([...rows, ...rowsOf({ ...job, id: 'j2', candidates: [], status: 'canceled' }, r, take), { ...rows[1], id: 'p-1', provider: 'mock' }]);
+  const g = Object.values(sum.byRecipe)[0];
+  assert.deepEqual([sum.rows, g.videos, g.versions, g.failed, g.cancelledAtFirstFrame, g.passRate, g.under70Rate, g.medianMatch], [4, 2, 3, 1, 1, 0.5, 0.5, 91]);
+  assert.equal(g.topReasons.length, 2);
+  assert.ok(sum.bySetLook['with the set look']);
+  // kept in a file when there is no database; the same version recorded twice counts once
+  const dir = await mkdtemp(join(tmpdir(), 'learn-'));
+  try {
+    const learn = makeLearn({ dir, recipes, readTake: async () => take, log: { warn() {} } });
+    await learn.record(job); await learn.record(job);
+    assert.equal((await learn.rows()).length, 3);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
