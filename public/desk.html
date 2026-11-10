@@ -83,7 +83,8 @@
       </div>
       <div class="edit-words" id="editWords" hidden>
         <span class="eyebrow">Change it</span>
-        <div class="row"><input class="field grow" id="editPrompt" placeholder="Move the car closer to the wall" aria-label="Change the set with words"><button class="btn ghost sm" id="editBtn">Change</button><button class="btn quiet icon sm" id="undoBtn" disabled title="Undo the last change (⌘Z)" aria-label="Undo">↶</button></div>
+        <textarea class="field" id="editPrompt" rows="3" placeholder="Change it with words: move the car closer to the wall, add a second person by the door" aria-label="Change the set with words"></textarea>
+        <div class="row"><button class="btn ghost grow" id="editBtn" title="Ctrl + Enter">Change the set</button><button class="btn quiet icon" id="undoBtn" disabled title="Undo the last change (⌘Z)" aria-label="Undo">↶</button></div>
       </div>
     </section>
 

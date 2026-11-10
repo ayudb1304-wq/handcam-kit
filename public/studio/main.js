@@ -318,10 +318,10 @@ async function editWithWords() {
     $('editPrompt').value = '';
     toast('Set changed. Undo if it isn’t right.');
   } catch { toast('Could not change the set. Try again.'); }
-  finally { btn.disabled = false; btn.textContent = 'Change'; }
+  finally { btn.disabled = false; btn.textContent = 'Change the set'; }
 }
 $('editBtn').onclick = editWithWords;
-$('editPrompt').addEventListener('keydown', (e) => { if (e.key === 'Enter') editWithWords(); });
+$('editPrompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) editWithWords(); }); // Enter is a new line, like the box above
 buildBtn.onclick = () => build($('prompt').value.trim() || (photo ? '' : 'parking lot'));
 for (const chip of document.querySelectorAll('#examples .chip')) chip.onclick = () => { $('prompt').value = chip.dataset.prompt; build(chip.dataset.prompt); };
 $('prompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) buildBtn.click(); });
