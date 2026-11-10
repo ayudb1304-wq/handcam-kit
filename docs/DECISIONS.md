@@ -212,3 +212,14 @@ Seedance 2.5 accepts at most 10 s of reference video, so the phone stops recordi
 - **On the free trial every version counts.** `bill()` marks no version free on a job paid with trial videos (`job.watermark`), so 2 free videos are 2 versions, whatever their move match. Failed versions still come back. Paid videos keep the under-70% rule (§30).
 - **Caps on what one account may ask of our key** (`MAKE_LIMITS` in `server/make/routes.js`, in memory, per account): 30 new videos an hour; 4 first frames per video; per day 6 first frames and 6 versions without a plan, 60 and 60 with one. They count versions that come back free too, which is the part videos don't pay for. Practice, own-key jobs and the founder are not counted.
 - Not done on purpose: no CAPTCHA, no phone number, no browser fingerprinting. The watermark, 480p and `REAL_AI` (the kill switch) still stand behind this.
+
+## 50. The look of a set: one wide picture, approved once, behind every video
+**Found (10 Nov 2026, lab P1 and P2, `lab/recipe.md` rules 11 and 12).** Seedance only knows what is in the first frame, the grey move and the reference pictures. A first frame that shows no background made it invent a different place on a pull-out. A first frame and a wide picture made separately gave a video whose mountains changed two seconds in. With one wide picture of the whole place as a reference, the reveal matched the set.
+
+So a set can have a **look**: one wide photoreal picture of the whole place.
+- **Made in the studio** (Make video → "Make the look"): the grey set is rendered from the studio's own view, in the take's frame, and sent with the look words (and the product photo, if ticked) to `POST /api/make/look`. The recipe's `setLook` step makes the picture (else `startImage`). The person approves it ("Is this the place?") or tries again.
+- **Kept with the set, in the browser** (`refs.js`, `kit.look`), like the product photo. The server keeps nothing: the picture is sent back and its folder removed.
+- **Sent with every video in that set** as `ref-look.jpg`, the first reference picture of both steps, with its own note (`refsNote` in `jobs.js`). The first frame is therefore always made from the look, never on its own, and the video gets the look too.
+- It counts as a first frame in the day's cap (§49) and costs the customer nothing.
+- **Founder only until tested**, behind the same switch as product references (§47, `REFS_FOR_CUSTOMERS`): the lab runs used GPT Image and the Higgsfield connector, not the app's Qwen step, so the app path still needs real generations.
+- Not built on purpose: a last frame (Seedance accepts one with a motion reference, but it gave nothing a reference didn't), and the reversed route (start wide, play backwards: best on one product, worst on the next).

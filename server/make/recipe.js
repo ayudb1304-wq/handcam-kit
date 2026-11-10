@@ -17,6 +17,8 @@ export function checkRecipe(r) {
     if (!r[step]?.input || typeof r[step].input !== 'object') e.push(`${step}.input missing`);
     if (typeof r[step]?.output !== 'string') e.push(`${step}.output missing (where the URL is in the result, e.g. "images.0.url")`);
   }
+  // optional: its own step for the look of a set (one wide picture of the whole place); else startImage is used
+  if (r.setLook != null && !(typeof r.setLook.endpoint === 'string' && r.setLook.input && typeof r.setLook.input === 'object' && typeof r.setLook.output === 'string')) e.push('setLook needs endpoint, input and output');
   if (!Number.isInteger(r.candidates) || r.candidates < 1 || r.candidates > 4) e.push('candidates must be 1 to 4');
   if (!Number.isInteger(r.extraTries ?? 0) || r.extraTries < 0 || r.extraTries > 3) e.push('extraTries must be 0 to 3');
   if (!r.pass || typeof r.pass !== 'object') e.push('pass marks missing');

@@ -4,6 +4,16 @@
   "status": "draft",
   "provider": "higgsfield",
   "notes": "Lab recipe v0.1 (lab/recipe.md) moved to Higgsfield's public API. Not yet tested on this API: reference-to-video takes the start image as a reference picture, not a locked first frame (the lab used the connector's omni_reference mode). Re-test with lab takes, then set status to final.",
+  "setLook": {
+    "endpoint": "alibaba/qwen-image-3/edit",
+    "input": {
+      "image_urls": ["{{firstFrameUrl}}"],
+      "aspect_ratio": "{{aspect}}",
+      "resolution": "1k",
+      "prompt": "Turn this grey 3D blockout into a photoreal wide film still of the whole place, keeping the exact same layout, object positions, horizon height and camera angle. Every grey box becomes the real object it stands for and every stick figure a real person, in the same place and pose. {{look}}. Everything in focus, natural light, slight grain, no text."
+    },
+    "output": "images.0.url"
+  },
   "startImage": {
     "endpoint": "alibaba/qwen-image-3/edit",
     "input": {

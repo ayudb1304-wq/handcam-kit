@@ -1,14 +1,14 @@
 // Make video panel: look → (render grey move + measuring twin) → server job → approve first frame → result.
 // The server does the AI work and the checking (server/make). This file only renders and uploads.
 import { signIn, buyTopups, openPlans } from '../shared/account.js';
-import { logoToPng, blobOf } from '../shared/image.js';
-import { getKit, setLogo } from '../shared/refs.js';
+import { logoToPng, photoToJpeg, blobOf } from '../shared/image.js';
+import { getKit, setLogo, setLook } from '../shared/refs.js';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ACTIVE = new Set(['uploading', 'preparing', 'start_image', 'making', 'checking']);
 const DEMO_LOOK = 'Wet parking lot at night, orange sodium street light, a man in a grey hoodie by the cars, shot on an old phone';
 
-export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}, onAccount = () => {} }) {
+export function setupMake({ getTake, takeScene, toast, getView = () => null, onDone, onJobs = () => {}, onAccount = () => {} }) {
   const form = $('makeForm'), box = $('makeJob'), btn = $('makeBtn'), sel = $('recipe'), qsel = $('quality'), vsel = $('versions');
   let recipes = [], job = null, timer = null, blocked = null, freeBelow = 70, cfg = {};
   // FOUNDER ONLY: the real AI cost in dollars. Must be replaced by the customer price (videos/credits) before going live: PLAN Phase 5.
@@ -23,23 +23,85 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
   function showForm() { clearTimeout(timer); job = null; box.hidden = true; form.hidden = false; costLine(); }
 
   const recipe = () => recipes.find((r) => r.id === sel.value);
-  /** The product as it really is, for this take's set: its photo (from building the set) and the brand's logo. */
+  /**
+   * The pictures the AI must keep, for this take's set: the look of the set (one wide picture of the whole place), the
+   * product's photo (from building the set) and the brand's logo.
+   */
+  const setIdOf = (scene) => scene?.setId || scene?.id;
   async function productRefs(take) {
     const scene = take && (await takeScene(take));
-    const [kit, brand] = await Promise.all([getKit(scene?.setId || scene?.id), getKit('__brand')]);
-    return { subject: kit.subject[0] || null, logo: brand.logo || null };
+    const [kit, brand] = await Promise.all([getKit(setIdOf(scene)), getKit('__brand')]);
+    return { look: kit.look || null, subject: kit.subject[0] || null, logo: brand.logo || null };
   }
   let refsFor = null;
   async function showRefs(take) {
-    const row = $('refsRow');
-    if (!cfg.refs || !take || recipe()?.provider === 'mock') { row.hidden = true; refsFor = null; return; }
+    const row = $('refsRow'), lookRow = $('lookRow');
+    if (!cfg.refs || !take || recipe()?.provider === 'mock') { row.hidden = lookRow.hidden = true; refsFor = null; return; }
     if (refsFor === take.id) return;
     refsFor = take.id;
-    const { subject, logo } = await productRefs(take).catch(() => ({}));
+    const { look, subject, logo } = await productRefs(take).catch(() => ({}));
     row.hidden = !subject && !logo;
     $('refThumbs').innerHTML = [subject, logo].filter(Boolean).map((p) => `<img src="${p.dataUrl}" alt="">`).join('');
     $('refsText').textContent = subject ? `Keep my product exactly as in my photo${logo ? ', with my logo' : ''}` : 'Keep my logo exactly as it is';
+    lookRow.hidden = false;
+    $('lookThumb').innerHTML = look ? `<img src="${look.dataUrl}" alt="">` : '';
+    $('lookText').textContent = look ? 'Look of this set: every video here is in this place' : 'Look of this set: one wide picture of the whole place, so it stays the same in every video';
+    $('lookBtn').textContent = look ? 'Redo' : 'Make the look';
   }
+
+  // ---- the look of the set: one wide picture of the whole place, approved once (DECISIONS §50) ----
+  /** Grey picture of the set from the studio's own view, in this take's frame. */
+  async function wideView(take, scene) {
+    const v = getView();
+    if (!v) throw new Error('The studio view isn’t ready yet.');
+    const { exportTake } = await import('../shared/export-video.js');
+    const still = { id: 'look', frame: take.frame, view: { fov: v.fov, aspect: take.view?.aspect ?? 16 / 9 }, samples: [{ ts: 0, p: v.p, q: v.q }, { ts: 1, p: v.p, q: v.q }] };
+    return exportTake(still, scene); // one frame: its PNG is the picture
+  }
+  const dataUrlOf = (blob) => new Promise((resolve, reject) => { const fr = new FileReader(); fr.onload = () => resolve(fr.result); fr.onerror = () => reject(fr.error); fr.readAsDataURL(blob); });
+  async function makeLook() {
+    const take = getTake(), r = recipe(), words = $('look').value.trim(), b = $('lookBtn');
+    if (!take || !r) return;
+    if (words.length < 3) { $('look').focus(); return toast('Describe the look in a few words first.'); }
+    const scene = await takeScene(take);
+    if (!scene) return toast('The set this take was shot in isn’t saved on this computer.');
+    const label = b.textContent;
+    b.disabled = true; b.innerHTML = '<span class="spinner"></span>Making…';
+    try {
+      const wide = await wideView(take, scene);
+      const { subject } = await productRefs(take);
+      const b64 = async (blob) => (await dataUrlOf(blob)).split(',')[1];
+      const res = await fetch('/api/make/look', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+        recipeId: r.id, look: words, aspect: wide.width < wide.height ? '9:16' : '16:9', byok: r.ownKey ? ownKey() : undefined,
+        wide: { data: await b64(wide.png) }, subject: subject && $('useRefs').checked ? { data: subject.dataUrl.split(',')[1] } : undefined,
+      }) });
+      if (!res.ok) { const out = await res.json().catch(() => ({})); if (await needAccount(out)) return; throw new Error(out.error || 'The look could not be made. Try again.'); }
+      const pic = await photoToJpeg(await res.blob());
+      approveLook({ dataUrl: pic.dataUrl, width: pic.width, height: pic.height, words, at: Date.now() }, setIdOf(scene));
+    } catch (e) { toast(e.message, 6000); }
+    finally { b.disabled = false; b.textContent = label; }
+  }
+  /** Show the picture; nothing is kept until the person says it's the place. */
+  function approveLook(look, setId) {
+    const m = $('resultModal');
+    m.innerHTML = `<div class="card modal-card">
+      <div class="modal-head"><div class="grow"><span class="eyebrow">Look of this set</span><h2>Is this the place?</h2>
+        <p class="muted" style="margin:6px 0 0">Every video you make in this set starts from this picture, so the place stays the same in every shot. It was made from the view you have in the studio: to change what’s in it, turn the studio view so the whole place is in the picture, then make it again.</p></div>
+        <button class="btn quiet icon" data-act="close" aria-label="Close">✕</button></div>
+      <img src="${look.dataUrl}" alt="The look of this set" style="max-width:100%;max-height:58vh;display:block;margin:0 auto;border-radius:10px">
+      <div class="row wrap"><span class="grow"></span><button class="btn ghost" data-act="again">Try again</button><button class="btn primary" data-act="use">Use this look</button></div>
+    </div>`;
+    m.hidden = false;
+    const close = () => { m.hidden = true; m.innerHTML = ''; };
+    m.querySelector('[data-act=close]').onclick = close;
+    m.querySelector('[data-act=again]').onclick = () => { close(); makeLook(); };
+    m.querySelector('[data-act=use]').onclick = async () => {
+      try { await setLook(setId, look); } catch { return toast('The look could not be saved on this computer.', 5000); }
+      close(); refsFor = null; costLine();
+      toast('Saved. Videos in this set now start from this look.');
+    };
+  }
+  $('lookBtn').onclick = makeLook;
   function costLine() {
     const r = recipe(), take = getTake();
     showRefs(take).catch(() => {});
@@ -154,11 +216,15 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const ref = await exportTake(take, scene, { onProgress: (f) => step(`Preparing your move ${Math.round(f * 50)}%`) });
       const twin = await exportTake(take, scene, { decorate: speckle, onProgress: (f) => step(`Preparing your move ${50 + Math.round(f * 50)}%`) });
       const { labSent, ...cleanTake } = take;
-      const refs = !$('refsRow').hidden && $('useRefs').checked ? await productRefs(take) : null;
-      const res = await fetch('/api/make', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: cleanTake, scene, look, recipeId: r.id, demo: !!take.demo, quality: qsel.hidden ? undefined : qsel.value, versions: Number(vsel.value) || undefined, byok: r.ownKey ? ownKey() : undefined, refs: !!refs || undefined }) });
+      // the look of the set always goes along when there is one; the product photo and logo when the box is ticked
+      const kept = !$('lookRow').hidden ? await productRefs(take) : null;
+      const refs = kept && { look: kept.look, ...(!$('refsRow').hidden && $('useRefs').checked ? { subject: kept.subject, logo: kept.logo } : {}) };
+      const anyRefs = !!(refs?.look || refs?.subject || refs?.logo);
+      const res = await fetch('/api/make', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ take: cleanTake, scene, look, recipeId: r.id, demo: !!take.demo, quality: qsel.hidden ? undefined : qsel.value, versions: Number(vsel.value) || undefined, byok: r.ownKey ? ownKey() : undefined, refs: anyRefs || undefined }) });
       const out = await res.json();
       if (!res.ok) { if (await needAccount(out)) return; throw new Error(out.error); }
       const files = { 'reference.mp4': ref.mp4, 'measure.mp4': twin.mp4, 'first-frame.png': ref.png };
+      if (out.refUploads && refs?.look) files['ref-look.jpg'] = blobOf(refs.look.dataUrl);
       if (out.refUploads && refs?.subject) files['ref-subject.jpg'] = blobOf(refs.subject.dataUrl);
       if (out.refUploads && refs?.logo) files['ref-logo.png'] = blobOf(refs.logo.dataUrl);
       let i = 0;

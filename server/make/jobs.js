@@ -1,20 +1,30 @@
 // Make video jobs: take + set + look -> start image -> (you approve) -> videos -> scored -> best one.
 // Each job is a folder under data/jobs/<id>/ with job.json and its files, so a server restart resumes it.
 // The steps run here, in the server process; the browser only uploads files and polls job.json.
-import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fill, pick, judge, badness, matchPercent, pickQuality, pickVersions, videoCost, FREE_BELOW_MATCH } from './recipe.js';
 
 export const UPLOADS = Object.freeze({ 'reference.mp4': 'video/mp4', 'measure.mp4': 'video/mp4', 'first-frame.png': 'image/png' });
-// Optional: the product as it really is (a photo, the logo). Sent to the AI with the first frame, so it keeps the product's
-// shape, label and colours. Only on jobs made with refs (routes.js decides who may: the founder until it's tested).
-export const REF_UPLOADS = Object.freeze({ 'ref-subject.jpg': 'image/jpeg', 'ref-logo.png': 'image/png' });
-const REFS_NOTE = 'The extra reference images show the real product. Keep it exactly as it is in them: same shape, proportions, colours, label and logo. Do not redesign, restyle or reletter it.';
+// Optional reference pictures, sent to the AI after the step's own pictures (DECISIONS §47, §50). Only on jobs made with
+// refs (routes.js decides who may: the founder until it's tested).
+//  - ref-look.jpg: the look of the set, one wide picture of the whole place, approved once per set. The first frame is
+//    made from it and the video gets it too, so the place is the same in every shot and never changes mid-video.
+//  - ref-subject.jpg, ref-logo.png: the product as it really is, so the AI keeps its shape, label and colours.
+export const REF_UPLOADS = Object.freeze({ 'ref-look.jpg': 'image/jpeg', 'ref-subject.jpg': 'image/jpeg', 'ref-logo.png': 'image/png' });
+const LOOK_NOTE = 'The first extra reference image is a wide view of the whole place this shot is in. This shot is in that same place: the same landscape, buildings and objects, the same colours, light and weather, wherever they come into view. Do not invent a different place.';
+const PRODUCT_NOTE = 'extra reference images show the real product. Keep it exactly as it is in them: same shape, proportions, colours, label and logo. Do not redesign, restyle or reletter it.';
+
+/** What to tell the AI about the reference pictures a job has (names from REF_UPLOADS), in the order they are sent. */
+export function refsNote(names, productNote) {
+  const look = names.includes('ref-look.jpg'), product = names.some((n) => n !== 'ref-look.jpg');
+  return [look && LOOK_NOTE, product && (productNote || `The ${look ? 'other ' : ''}${PRODUCT_NOTE}`)].filter(Boolean).join(' ');
+}
 
 /** A filled AI step input with the job's reference pictures added after its own images, and the note added to its prompt. */
-export function withRefs(input, refUrls, note = REFS_NOTE) {
+export function withRefs(input, refUrls, note = refsNote(['ref-subject.jpg'])) {
   if (!refUrls?.length) return input;
   const out = { ...input, image_urls: [...(input.image_urls || []), ...refUrls] };
   if (typeof out.prompt === 'string') out.prompt = `${out.prompt}\n\n${note}`;
@@ -33,7 +43,7 @@ async function swap(tmp, dest) {
  * providerFor(job): the provider a job runs on (default: providers[job.provider]); index.js uses it to run a job on the
  * customer's own Higgsfield key. queue: { run(priority, fn), busy } decides when each version may start (queue.js).
  */
-export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000], onSettle = async () => {}, providerFor = null, queue = null }) {
+export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000], onSettle = async () => {}, providerFor = null, queue = null, lookDir = join(dir, '..', 'looks') }) {
   const running = new Set();
   const writes = new Map(); // one job.json write at a time per job: versions finish in parallel
 
@@ -118,7 +128,11 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     }
   }
 
-  const refUrls = (job) => (job.refs ? Object.keys(REF_UPLOADS).map((n) => job.urls[n]).filter(Boolean) : []);
+  /** A filled AI step input with this job's reference pictures and the note about them. */
+  function refd(job, recipe, input) {
+    const names = job.refs ? Object.keys(REF_UPLOADS).filter((n) => job.urls[n]) : [];
+    return withRefs(input, names.map((n) => job.urls[n]), refsNote(names, recipe.refsNote));
+  }
   function vars(job, extra = {}) {
     return { look: job.look, aspect: job.aspect, durationS: job.durationS, resolution: job.resolution ?? '480p', demo: job.demo, firstFrameUrl: job.urls['first-frame.png'], referenceUrl: job.urls['reference.mp4'], ...extra };
   }
@@ -130,7 +144,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     job.status = 'start_image';
     say(job, `Making start image ${n}`);
     await save(job);
-    const { requestId } = await provider.submit(recipe.startImage.endpoint, withRefs(fill(recipe.startImage.input, vars(job)), refUrls(job), recipe.refsNote), `${job.id}-start-${n}`);
+    const { requestId } = await provider.submit(recipe.startImage.endpoint, refd(job, recipe, fill(recipe.startImage.input, vars(job))), `${job.id}-start-${n}`);
     entry.requestId = requestId;
     await save(job);
     const s = await poll(provider, requestId);
@@ -152,7 +166,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     job.candidates.push(c);
     await save(job);
     const start = job.startImages.find((s) => s.n === job.approvedStart);
-    const input = withRefs(fill(recipe.video.input, vars(job, { startImageUrl: start.url })), refUrls(job), recipe.refsNote);
+    const input = refd(job, recipe, fill(recipe.video.input, vars(job, { startImageUrl: start.url })));
     const { requestId } = await provider.submit(recipe.video.endpoint, input, `${job.id}-video-${n}`);
     c.requestId = requestId;
     await save(job);
@@ -254,8 +268,40 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     }
   }
 
+  /**
+   * The look of a set: one wide photoreal picture of the whole place, made from a grey wide view of the blockout (and
+   * the product photo, when there is one). Not a job: the picture goes back to the browser, which keeps it with the
+   * set, and nothing stays here. → { file, done() } (call done() once the file has been sent)
+   */
+  async function look({ recipeId, words, aspect = '16:9', wide, subject = null, byok = false, userId = null }) {
+    const recipe = recipes[recipeId];
+    if (!recipe) throw Object.assign(new Error(`unknown recipe ${recipeId}`), { status: 400 });
+    if (typeof words !== 'string' || words.trim().length < 3) throw Object.assign(new Error('Describe the look in a few words first.'), { status: 400 });
+    const id = `look-${randomUUID().slice(0, 12)}`, at = join(lookDir, id);
+    const done = () => rm(at, { recursive: true, force: true }).catch(() => {});
+    try {
+      await mkdir(at, { recursive: true });
+      const provider = providerFor ? providerFor({ provider: recipe.provider, byok, userId }) : providers[recipe.provider];
+      await writeFile(join(at, 'wide.png'), wide);
+      const wideUrl = await provider.upload(join(at, 'wide.png'), 'image/png');
+      let subjectUrl = null;
+      if (subject) { await writeFile(join(at, 'subject.jpg'), subject); subjectUrl = await provider.upload(join(at, 'subject.jpg'), 'image/jpeg'); }
+      const step = recipe.setLook || recipe.startImage;
+      const filled = fill(step.input, { look: words.trim(), aspect, resolution: '480p', durationS: 0, demo: false, firstFrameUrl: wideUrl, referenceUrl: '' });
+      const input = subjectUrl ? withRefs(filled, [subjectUrl], refsNote(['ref-subject.jpg'], recipe.refsNote)) : filled;
+      const { requestId } = await provider.submit(step.endpoint, input, id);
+      const s = await poll(provider, requestId);
+      if (s.status !== 'completed') throw new Error(s.status === 'nsfw' ? 'The picture was blocked by the AI’s content filter. Try other words for the look.' : `the look ${s.status}${s.error ? `: ${s.error}` : ''}`);
+      const url = pick(s.result, step.output);
+      if (!url) throw new Error('the look finished without a picture');
+      const file = join(at, `look${/\.png($|\?)/.test(url) ? '.png' : '.jpg'}`);
+      await provider.download(url, file);
+      return { file, done };
+    } catch (e) { await done(); throw e; }
+  }
+
   return {
-    create, load, save,
+    create, load, save, look,
     path: (id, f) => path(id, f),
     async list() {
       const ids = (await readdir(dir).catch(() => [])).sort().reverse().slice(0, 50);

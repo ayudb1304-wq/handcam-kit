@@ -1,5 +1,6 @@
 // The reference kit of a set: the pictures the AI video must keep exactly. Today one subject photo (often the photo the
-// set was built from) and an optional logo; the slots already take more (subject angles, environment) for later.
+// set was built from), an optional logo, and the look of the set (one wide picture of the whole place, approved once:
+// DECISIONS §50); the slots already take more (subject angles, environment) for later.
 // Its own small IndexedDB, like shot lists (store.js): a new database never waits on an upgrade of 'handcam'.
 // Pictures stay in this browser; they are uploaded only with a Make video that uses them.
 
@@ -24,7 +25,7 @@ async function run(mode, fn) {
   });
 }
 
-const empty = (setId) => ({ setId, subject: [], environment: [], logo: null });
+const empty = (setId) => ({ setId, subject: [], environment: [], logo: null, look: null });
 
 /** The kit of a set (an empty one when there is none). */
 export async function getKit(setId) {
@@ -43,6 +44,13 @@ export async function addPicture(setId, slot, pic) {
 export async function setLogo(setId, logo) {
   const kit = await getKit(setId);
   kit.logo = logo;
+  await saveKit(kit);
+  return kit;
+}
+/** The look of the set: { dataUrl, width, height, words, at }, or null to forget it. */
+export async function setLook(setId, look) {
+  const kit = await getKit(setId);
+  kit.look = look;
   await saveKit(kit);
   return kit;
 }

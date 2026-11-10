@@ -180,5 +180,6 @@ Raised from "optional": every hand-held competitor has positional tracking (Virt
 - **Camera start**: drag the green camera on the laptop (R + drag aims it, height slider); **Start here** on the phone. Checked with a simulated phone.
 - **Logo lock**: Open result → Logo lock → add your logo (PNG or SVG) → place it on frame 1 → Lock logo. Checked: ground truth under 0.5 px, a real AI clip held until the scene changed, the whole flow in the studio.
 - **Keep my product exact** (photo + logo to the AI): built, founder only, needs 3 test generations (your approval, 2026-11-09) to tune before customers see it.
+- **Look of the set** (2026-11-10, founder only, checked in Chrome with Practice standing in for the AI; needs real generations on the hosted site): Make video → Make the look → "Is this the place?" → Use this look. Every video in that set then starts from that picture (DECISIONS §50).
 - Acceptance: build a set from a photo of a real product; set the start from the phone; make a video; lock your logo on it and check frame by frame that it never changes shape.
 

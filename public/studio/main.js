@@ -549,7 +549,7 @@ var sequence = setupSequence({ takes, getLiveScene: () => liveScene, takeScene, 
 var exporter = setupExport({ getTake: () => current, takeScene, toast });
 
 // --- Make video + tour ---------------------------------------------------------------
-make = setupMake({ getTake: () => current, takeScene, toast, onDone: () => markStep('make'), onJobs: () => renderList(), onAccount: showAccount });
+make = setupMake({ getTake: () => current, takeScene, toast, getView: () => ({ p: camera.position.toArray(), q: camera.quaternion.toArray(), fov: camera.fov }), onDone: () => markStep('make'), onJobs: () => renderList(), onAccount: showAccount });
 
 // --- Phase 5, 5c: account pill and paid features (docs/PRICING-PLAN.md) ---------------------------------
 let acctCfg = {};

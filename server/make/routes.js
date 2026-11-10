@@ -16,7 +16,7 @@ import { unitsPerVersion } from '../billing.js';
 import { isPng, cleanQuad } from './logolock.js';
 import { rateLimit } from '../limits.js';
 
-const MEDIA = /^(ref-subject\.jpg|ref-logo\.png|start-\d+\.(png|jpg)|video-\d+\.mp4|wm-\d+\.mp4|reference\.mp4|first-frame\.png|lock-\d+\.mp4|lockwm-\d+\.mp4|frame-\d+\.jpg|logo\.png)$/;
+const MEDIA = /^(ref-look\.jpg|ref-subject\.jpg|ref-logo\.png|start-\d+\.(png|jpg)|video-\d+\.mp4|wm-\d+\.mp4|reference\.mp4|first-frame\.png|lock-\d+\.mp4|lockwm-\d+\.mp4|frame-\d+\.jpg|logo\.png)$/;
 
 /**
  * What the browser may see of a job: no provider URLs, no internal request ids; our AI cost only for the founder.
@@ -115,6 +115,32 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
         why: allowed(w, x) || ownKey(w, x) ? null : whyNot(w, x),
       })),
     });
+  });
+
+  /**
+   * The look of a set (DECISIONS §50): a grey wide view of the blockout + words → one photoreal picture of the whole
+   * place, sent straight back. The browser keeps it with the set and sends it along with every video made there.
+   * Costs us one picture and the customer nothing, so it counts as a first frame in the day's cap.
+   */
+  const pictureOf = (x, magic) => { // { data: base64 } of a PNG or JPEG, at most ~3 MB → Buffer | null
+    if (!x || typeof x.data !== 'string' || x.data.length > 4_200_000) return null;
+    const buf = Buffer.from(x.data, 'base64');
+    return magic.some((m) => buf.subarray(0, m.length).equals(m)) ? buf : null;
+  };
+  const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]), JPG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
+  r.post('/look', async (req, res) => {
+    const w = req.who, recipe = recipes[req.body?.recipeId];
+    if (!(w.admin || refsForCustomers)) return res.status(403).json({ error: 'The look of a set isn’t open yet.' });
+    if (!recipe) return res.status(400).json({ error: 'Choose a video model first.' });
+    const byok = ownKey(w, recipe) && (req.body?.byok === true || !allowed(w, recipe));
+    if (!byok && !allowed(w, recipe)) return res.status(400).json({ error: `${recipe.label}: ${whyNot(w, recipe)}.` });
+    const wide = pictureOf(req.body?.wide, [PNG_MAGIC]), subject = req.body?.subject ? pictureOf(req.body.subject, [JPG_MAGIC]) : null;
+    if (!wide || (req.body?.subject && !subject)) return res.status(400).json({ error: 'That picture can’t be used.' });
+    if (!within(startLimit, w, { provider: recipe.provider, byok, userId: w.user?.id }, 1, res, 'first frames')) return;
+    try {
+      const { file, done } = await jobs.look({ recipeId: recipe.id, words: req.body?.look, aspect: req.body?.aspect === '9:16' ? '9:16' : '16:9', wide, subject, byok, userId: w.user?.id || null });
+      res.sendFile(file, () => done());
+    } catch (e) { res.status(e.status || 502).json({ error: e.message }); }
   });
 
   r.get('/', async (req, res) => {

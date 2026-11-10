@@ -336,3 +336,61 @@ test('a paying customer: a free (under 70%) version plays as a watermarked copy,
     await settled();
   } finally { server.close(); await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });
+
+import { refsNote, REF_UPLOADS } from './make/jobs.js';
+import { readdir } from 'node:fs/promises';
+test('the look of a set: sent first among the references, with its own note; made by POST /look and never kept on the server', async () => {
+  assert.equal(Object.keys(REF_UPLOADS)[0], 'ref-look.jpg', 'the look goes right after the step’s own picture');
+  assert.match(refsNote(['ref-look.jpg']), /^The first extra reference image is a wide view of the whole place/);
+  assert.match(refsNote(['ref-look.jpg', 'ref-subject.jpg']), /Do not invent a different place\. The other extra reference images show the real product/);
+  assert.match(refsNote(['ref-subject.jpg', 'ref-logo.png']), /^The extra reference images show the real product/);
+  assert.equal(refsNote(['ref-look.jpg', 'ref-logo.png'], 'KEEP IT').endsWith('KEEP IT'), true, 'a recipe’s own product note is used');
+
+  const dir = await mkdtemp(join(tmpdir(), 'look-'));
+  const pricing = loadPricing(fileURLToPath(new URL('../config/pricing.json', import.meta.url)));
+  const recipes = await loadRecipes(fileURLToPath(new URL('../recipes', import.meta.url)));
+  const accounts = await makeAccounts({ dir: join(dir, 'acct'), pricing });
+  const sent = [], mock = makeMock({ delay: { start: 5, video: 5 } });
+  const spy = { ...mock, submit: (endpoint, input, key) => { sent.push({ endpoint, input }); return mock.submit(endpoint, input, key); } };
+  const jobs = makeJobs({ dir: join(dir, 'jobs'), recipes, providers: { mock: spy }, pollMs: [5, 10], score: async (t, videos) => ({ scores: videos.map(() => good) }) });
+  const app = express();
+  app.use(express.json({ limit: '5mb' }));
+  app.use('/api/make', makeRoutes({ jobs, recipes, ready: () => true, accounts, pricing }));
+  const server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
+  const base = `http://127.0.0.1:${server.address().port}/api/make`;
+  try {
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('a grey wide view')]);
+    const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from('the product')]);
+    const body = { recipeId: 'practice', look: 'Himalayan valley, morning', wide: { data: png.toString('base64') }, subject: { data: jpg.toString('base64') } };
+    const post = (b, headers = {}) => fetch(`${base}/look`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(b) });
+    // the founder's laptop: the picture comes straight back (Practice hands back the grey view)
+    const ok = await post(body);
+    assert.equal(ok.status, 200);
+    assert.deepEqual(Buffer.from(await ok.arrayBuffer()), png);
+    assert.deepEqual(sent.at(-1).input.image_urls.length, 2, 'the grey wide view, then the product photo');
+    assert.match(sent.at(-1).input.prompt, /Himalayan valley, morning[\s\S]*show the real product/);
+    await new Promise((r) => setTimeout(r, 100));
+    assert.deepEqual(await readdir(join(dir, 'looks')), [], 'nothing is kept on the server');
+    assert.equal((await post({ ...body, look: 'x' })).status, 400, 'needs words');
+    assert.equal((await post({ ...body, wide: { data: jpg.toString('base64') } })).status, 400, 'the wide view must be a PNG');
+    // a customer: closed until it is tested (REFS_FOR_CUSTOMERS)
+    const { user: u } = await accounts.fromAuth({ authId: 'g-look', email: 'look@x.co' });
+    const cookie = accounts.cookieFor(u, { secure: false }).split(';')[0];
+    assert.equal((await post(body, { cookie, 'x-forwarded-for': '1.2.3.4' })).status, 403);
+
+    // a video made with the look: it is the first reference of the first frame AND of the video
+    const scene = await loadTemplate('parking-lot');
+    const job = await jobs.create({ take, scene, look: 'wet night', recipeId: 'practice', versions: 1, refs: true });
+    for (const f of ['reference.mp4', 'measure.mp4', 'first-frame.png', 'ref-look.jpg', 'ref-subject.jpg']) await writeFile(jobs.path(job.id, f), f);
+    await jobs.start(job.id);
+    await until(jobs, job.id, 'needs_approval');
+    const first = sent.at(-1).input;
+    assert.deepEqual(first.image_urls.map((u) => u.split(/[\\/]/).pop()), ['first-frame.png', 'ref-look.jpg', 'ref-subject.jpg']);
+    assert.match(first.prompt, /wide view of the whole place[\s\S]*The other extra reference images show the real product/);
+    await jobs.approve(job.id, 1);
+    await until(jobs, job.id, 'done');
+    await new Promise((r) => setTimeout(r, 150));
+    assert.equal(sent.at(-1).endpoint, 'mock/video');
+    assert.deepEqual(sent.at(-1).input.image_urls.map((u) => u.split(/[\\/]/).pop()), ['first-frame.png', 'ref-look.jpg', 'ref-subject.jpg'], 'Practice’s first frame is the grey one; the look and product follow it');
+  } finally { server.close(); await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
+});
