@@ -11,7 +11,7 @@ const DEMO_LOOK = 'Wet parking lot at night, orange sodium street light, a man i
 
 export function setupMake({ getTake, takeScene, toast, getView = () => null, onDone, onJobs = () => {}, onAccount = () => {} }) {
   const form = $('makeForm'), box = $('makeJob'), btn = $('makeBtn'), sel = $('recipe'), qsel = $('quality'), vsel = $('versions');
-  let recipes = [], job = null, timer = null, blocked = null, freeBelow = 70, cfg = {};
+  let recipes = [], job = null, timer = null, blocked = null, cfg = {};
   // FOUNDER ONLY: the real AI cost in dollars. Must be replaced by the customer price (videos/credits) before going live: PLAN Phase 5.
   const usd = (x) => `$${x.toFixed(2)}`;
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
@@ -95,7 +95,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     if (!b || (j.provider === 'mock' && !j.charge)) return '';
     const paid = j.charge ? b.charged * j.charge.unit : null, v = cfg.ent?.videos;
     return `${j.byok ? 'Made on your own Higgsfield key' : paid != null ? `Used ${plural(paid)}${j.watermark ? ' (free trial: watermarked)' : ''}` : `Charged for ${b.charged} of ${plural(b.videos, 'version')}`}`
-      + `${b.free ? ` · ${plural(b.free, 'version')} free (under ${b.freeBelow}%)` : ''}${paid != null && v && !v.unlimited ? ` · ${v.total} left` : ''}${b.apiUsd != null ? ` · AI cost ≈ ${usd(b.apiUsd)}` : ''}`;
+      + `${paid != null && v && !v.unlimited ? ` · ${v.total} left` : ''}${b.apiUsd != null ? ` · AI cost ≈ ${usd(b.apiUsd)}` : ''}`;
   }
   function showForm() { clearTimeout(timer); job = null; box.hidden = true; form.hidden = false; costLine(); }
 
@@ -223,18 +223,20 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     const p = plan(), b = p.own ? null : balance(p.need);
     if (p.free) return 'go';
     const noLook = !$('lookRow').hidden && !$('lookThumb').firstChild;
-    const rows = [['Model', `${esc(p.r.label)}${qsel.hidden ? '' : ` · ${esc(qsel.value)}`}`], ['Video', `${plural(p.n, 'version')} of ${p.secs} s`], ['First frame', 'Free. You approve it before anything is used.']];
+    const direct = p.r.lookLeads && !$('lookRow').hidden && !noLook; // recipe v0.2: the set's look leads, no first frame
+    const rows = [['Model', `${esc(p.r.label)}${qsel.hidden ? '' : ` · ${esc(qsel.value)}`}`], ['Video', `${plural(p.n, 'version')} of ${p.secs} s`],
+      direct ? ['First frame', 'None needed: the look of your set leads. The video starts straight away.'] : ['First frame', 'Free. You approve it before anything is used.']];
     if (p.own) rows.push(['Uses', 'None of your videos: your own Higgsfield key']);
     else if (cfg.admin) rows.push(['AI cost', `≈ ${usd(p.usd)}`]);
     else { rows.push(['Uses', `Up to <b>${plural(p.need)}</b>`]); if (b) rows.push(['Your videos', balanceRow(b)]); }
     const notes = [];
     if (b?.trial && !b.short) notes.push(`Free trial: every version counts, ${esc(cfg.ent.trialQuality || '480p')}, watermarked.`);
-    else if (b && !b.short) notes.push(`Versions under ${freeBelow}% move match come back to you.`);
+    else if (b && !b.short) notes.push('Every version made is counted. A version that fails to generate comes back to you.');
     const warn = b?.short ? `This needs ${plural(p.need)} and you have ${b.have}. Choose fewer versions, or get more.`
       : noLook ? 'This set has no look yet. The AI will invent whatever the first frame doesn’t show.' : '';
     return ask({ eyebrow: 'Make video', title: b?.short ? 'Not enough videos' : 'Make this video?', rows, notes, warn, buttons: [
       ...(b?.short ? [{ act: 'more', label: cfg.ent?.features?.topups ? 'Buy more' : 'See plans' }] : noLook ? [{ act: 'look', label: 'Make the look first' }] : [{ act: '', label: 'Not now', cls: 'quiet' }]),
-      { act: 'go', label: 'Make the first frame', cls: 'primary', disabled: !!b?.short },
+      { act: 'go', label: direct ? 'Make video' : 'Make the first frame', cls: 'primary', disabled: !!b?.short },
     ] });
   }
   /** Before one more version of a finished video. → true to go ahead. */
@@ -245,7 +247,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     if (j.byok) rows.push(['Uses', 'None of your videos: your own Higgsfield key']);
     else if (b) rows.push(['Uses', `<b>${plural(unit)}</b>`], ['Your videos', balanceRow(b)]);
     const act = await ask({ eyebrow: 'Make video', title: b?.short ? 'Not enough videos' : 'Make another version?', rows,
-      notes: b && !b.short ? [j.watermark ? 'Free trial: every version counts.' : `It comes back to you if it’s under ${freeBelow}% move match.`] : [],
+      notes: b && !b.short ? [j.watermark ? 'Free trial: every version counts.' : 'It counts once it’s made. It comes back to you only if it fails to generate.'] : [],
       warn: b?.short ? `This needs ${plural(unit)} and you have ${b.have}.` : '',
       buttons: [b?.short ? { act: 'more', label: cfg.ent?.features?.topups ? 'Buy more' : 'See plans' } : { act: '', label: 'Not now', cls: 'quiet' }, { act: 'go', label: 'Make it', cls: 'primary', disabled: !!b?.short }] });
     if (act === 'more') topUp();
@@ -324,7 +326,6 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     cfg = await res.json();
     onAccount(cfg.account, cfg);
     ({ recipes } = cfg);
-    freeBelow = cfg.freeBelowMatch ?? 70;
     const keepV = vsel.value, keepR = sel.value;
     fillVersions(cfg.maxVersions);
     if (keepV) vsel.value = keepV;
@@ -465,12 +466,13 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     const was = job?.id === j.id ? job.status : undefined; // only a change of the same job counts as news
     job = j;
     form.hidden = true; box.hidden = false;
-    const at = STEPS.findIndex(([, s]) => s.includes(j.status));
+    const steps = j.noFirstFrame ? STEPS.filter(([, s]) => !s.includes('start_image') && !s.includes('needs_approval')) : STEPS;
+    const at = steps.findIndex(([, s]) => s.includes(j.status));
     const made = j.candidates.filter((c) => c.file).length;
     let html = `<h3 style="margin:0 0 10px">${j.status === 'failed' ? 'Something went wrong' : j.status === 'done' ? 'Your video is ready' : j.status === 'needs_approval' ? 'First frame ready' : 'Making your video'}</h3><ul class="timeline-steps">`;
-    STEPS.forEach(([label], i) => {
+    steps.forEach(([label, st], i) => {
       const cls = j.status === 'failed' ? (i < at ? 'done' : '') : i < at || j.status === 'done' ? 'done' : i === at ? 'now' : '';
-      const extra = cls !== 'now' ? '' : [i === 3 && j.candidates.length > 1 ? `${made}/${j.candidates.length}` : '', etaText(j)].filter(Boolean).join(' · ');
+      const extra = cls !== 'now' ? '' : [st.includes('making') && j.candidates.length > 1 ? `${made}/${j.candidates.length}` : '', etaText(j)].filter(Boolean).join(' · ');
       html += `<li class="${cls}"><span class="ic">${cls === 'now' ? '<span class="spinner"></span>' : ''}</span>${label}<span class="when">${extra}</span></li>`;
     });
     html += '</ul>';
@@ -486,15 +488,11 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     if (j.status === 'done') {
       const best = j.candidates.find((c) => c.n === j.best);
       const ring = ringHtml(j, best);
-      const b = j.billing;
       const billLine = billText(j) ? `<p class="note" style="margin:10px 0 0">${billText(j)}</p>` : '';
-      const retry = b?.tryAgain
-        ? `<div class="warn-box" style="margin:12px 0 0"><b>It didn’t follow your move</b> (under ${b.freeBelow}%), so it isn’t charged.
-            <div style="margin-top:8px"><button class="btn primary sm" data-act="again">Try again</button></div></div>` : '';
       html += `<div class="result-card" style="margin-top:12px">
         <video src="/api/make/${j.id}/media/${best.file}" muted loop playsinline autoplay></video>
         <div style="display:flex;flex-direction:column;gap:8px">${ring}<span class="note">${esc(verdictText(j, best))}</span></div></div>
-        ${retry}<div class="actions" style="margin-top:12px"><button class="btn ${b?.tryAgain ? 'ghost' : 'primary'}" data-act="open">Open result</button><button class="btn ghost" data-act="new">New video</button></div>${billLine}`;
+        <div class="actions" style="margin-top:12px"><button class="btn primary" data-act="open">Open result</button><button class="btn ghost" data-act="new">New video</button></div>${billLine}`;
     }
     if (j.status === 'failed') {
       html += `<p class="warn-box" style="margin:10px 0 0">${failText(j)}</p><button class="btn primary" data-act="new" style="margin-top:10px">Try again</button>`;
@@ -505,7 +503,6 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     for (const b of box.querySelectorAll('[data-act=big]')) b.addEventListener('click', () => openFrame(j));
     $('approveVersions')?.addEventListener('change', (e) => { $('approveUse').innerHTML = useLine(j, Number(e.target.value)); });
     box.querySelector('[data-act=open]')?.addEventListener('click', () => openResult(j));
-    box.querySelector('[data-act=again]')?.addEventListener('click', () => another(j));
     for (const b of box.querySelectorAll('[data-act=new]')) b.addEventListener('click', showForm);
     const i = jobs.findIndex((x) => x.id === j.id);
     if (i >= 0) jobs[i] = j; else { jobs.unshift(j); onJobs(); }
@@ -533,7 +530,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
       <div class="row wrap"><button class="btn light" data-act="play">▶ Play both</button><span class="grow"></span></div>
       ${c.score ? `<div class="why"><div><b>${c.score.timing_offset_s == null ? '—' : `${c.score.timing_offset_s > 0 ? '+' : ''}${c.score.timing_offset_s.toFixed(2)} s`}</b><span>Timing vs your take</span></div>
         <div><b>${pct(c.score.turn_corr)}</b><span>Turns that match yours</span></div><div><b>${pct(c.score.walk_ratio)}</b><span>Of your walking distance</span></div></div>` : ''}
-      <div class="row wrap"><div class="versions grow">${j.candidates.filter((x) => x.file).map((x) => `<button class="version${x.n === c.n ? ' sel' : ''}" data-v="${x.n}">${x.verdict?.pass ? '✓' : x.verdict?.pass === false ? '⚠' : '·'} V${x.n}${x.match != null ? ` · ${x.match}%` : ''}${x.free ? ' · free' : ''}</button>`).join('')}</div>
+      <div class="row wrap"><div class="versions grow">${j.candidates.filter((x) => x.file).map((x) => `<button class="version${x.n === c.n ? ' sel' : ''}" data-v="${x.n}">${x.verdict?.pass ? '✓' : x.verdict?.pass === false ? '⚠' : '·'} V${x.n}${x.match != null ? ` · ${x.match}%` : ''}</button>`).join('')}</div>
         ${j.working === false ? '' : '<button class="btn ghost" data-act="more">Make another version</button>'}
         ${c.preview ? '<span class="note">Free version: watch only.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="cinehand-${j.id}-v${c.n}.mp4">Download</a>`}</div>
       ${c.preview ? '' : lockBoxHtml(j, c)}

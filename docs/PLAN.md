@@ -125,7 +125,7 @@ Steadier shots without smoothing, and the tools directors use to pick the take.
 - Empty-state copy, onboarding hints on both pages (max three sentences each).
 - Error states: no HTTPS (explain, link to tunnel), motion permission denied, phone/desk disconnected (reconnect with backoff, rejoin the room, resend takes the desk never got).
 - **Before going live: never show customers our AI cost.** The studio's Make video cost line and result line show the real Higgsfield dollar cost (`costLine()` and `billLine` in `public/studio/make.js`; `job.billing.apiUsd`). That is for the founder only. For customers, show the price in our own unit (videos or credits from their plan, DECISIONS §30), never `$` of AI cost; keep `apiUsd` server-side for our own margin tracking.
-- Before charging: fix the walk-only false fail (lab/recipe.md rule 10) and make free (under 70%) versions preview-only or watermarked (DECISIONS §30).
+- Move match can't be trusted on product sets yet (DECISIONS §56): the walking measure reads ~0 when the background is far away. Fix it before the score is shown to customers as a verdict.
 - Deploy to a URL. Constraints from DECISIONS §15: one always-on host for the WebSocket relay (or an external room store), and `/api/scene` protected (rate limit + per-browser quota or a passcode) before the URL is public. Update README.
 
 **Accept:** Hand the URL to someone who has never seen it, phone only. They describe a set, shoot a take and export the video in under 5 minutes with no help. Then repeat with phone + laptop (SPEC flow steps 1–6). Record what confused them in `DECISIONS.md`.
@@ -181,5 +181,6 @@ Raised from "optional": every hand-held competitor has positional tracking (Virt
 - **Logo lock**: Open result → Logo lock → add your logo (PNG or SVG) → place it on frame 1 → Lock logo. Checked: ground truth under 0.5 px, a real AI clip held until the scene changed, the whole flow in the studio.
 - **Keep my product exact** (photo + logo to the AI): built, founder only, needs 3 test generations (your approval, 2026-11-09) to tune before customers see it.
 - **Look of the set** (2026-11-10, founder only, checked in Chrome with Practice standing in for the AI; needs real generations on the hosted site): Make video → Make the look → "Is this the place?" → Use this look. Every video in that set then starts from that picture (DECISIONS §50).
+- **Recipe v0.2** (2026-11-11, built, tests only; DECISIONS §58): with a set look there is no first frame, and Seedance gets a shot brief written from the set and the take. Move match now compares walking over the whole move (§57). Needs: Higgsfield API credit, then the same take on v0.1 and v0.2 (480p, 2 versions each, ~4 generations).
 - Acceptance: build a set from a photo of a real product; set the start from the phone; make a video; lock your logo on it and check frame by frame that it never changes shape.
 

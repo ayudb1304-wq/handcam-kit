@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs';
 import { writeFile, rename } from 'node:fs/promises';
 import { checkLabTake, isLocal } from '../lab.js';
 import { UPLOADS, REF_UPLOADS } from './jobs.js';
-import { FREE_BELOW_MATCH, MAX_VERSIONS } from './recipe.js';
+import { MAX_VERSIONS } from './recipe.js';
 import { unitsPerVersion } from '../billing.js';
 import { isPng, cleanQuad } from './logolock.js';
 import { rateLimit } from '../limits.js';
@@ -46,8 +46,8 @@ export function publicJob(job, recipe, { admin = true } = {}) {
 
 /**
  * What one account may ask of OUR AI key (DECISIONS §49). Videos are already paid for in videos; these caps stop the
- * parts that cost us money and the customer nothing: first frames (never charged) and versions that come back free
- * (under the move-match line) or fail. `free` is an account with no plan; `paid` has a plan or Lifetime.
+ * parts that cost us money and the customer nothing: first frames (never charged) and versions that
+ * fail to generate. `free` is an account with no plan; `paid` has a plan or Lifetime.
  */
 export const MAKE_LIMITS = Object.freeze({ jobsPerHour: 30, startsPerJob: 4, startsPerDay: { free: 6, paid: 60 }, versionsPerDay: { free: 6, paid: 60 } });
 
@@ -103,7 +103,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   r.get('/config', (req, res) => {
     const w = req.who;
     res.json({
-      freeBelowMatch: FREE_BELOW_MATCH, maxVersions: MAX_VERSIONS, maxStarts: limits.startsPerJob, admin: w.admin, signedIn: !!(w.user || w.local), refs: w.admin || refsForCustomers,
+      maxVersions: MAX_VERSIONS, maxStarts: limits.startsPerJob, admin: w.admin, signedIn: !!(w.user || w.local), refs: w.admin || refsForCustomers,
       account: accounts?.pub(w.user) || null,
       ent: w.ent,
       pricing: pricing && { qualityUnits: pricing.qualityUnits, longTakeSeconds: pricing.longTakeSeconds, currency: pricing.currency, trial: pricing.trial || null },
@@ -113,7 +113,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
         minDurationS: x.minDurationS ?? 4, maxDurationS: x.maxDurationS ?? 15,
         qualities: x.qualities ? (w.admin ? x.qualities : Object.fromEntries(Object.keys(x.qualities).map((k) => [k, null]))) : null,
         ...(w.admin && { cost: x.cost || null }),
-        ready: allowed(w, x) || ownKey(w, x),
+        ready: allowed(w, x) || ownKey(w, x), lookLeads: !!x.lookLeads,
         ourKey: allowed(w, x), ownKey: ownKey(w, x),
         why: allowed(w, x) || ownKey(w, x) ? null : whyNot(w, x),
       })),
@@ -235,8 +235,19 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     } catch (e) { if (!res.headersSent) res.status(e.status || 500).json({ error: e.message }); }
   };
   // a first frame costs us money and the customer nothing: capped per job and per account per day
-  r.post('/:id/start', step((req, res) => {
-    if (req.job.status === 'uploading' && !within(startLimit, req.who, req.job, 1, res, 'first frames')) return null;
+  /** The videos are about to be made: can this account pay for `count` versions, within today's cap? Reserves them. */
+  async function chargeFor(req, res, count) {
+    const no = canAfford(req.who, req.job, count); // before the day's cap counts anything
+    if (no) { res.status(402).json(no); return false; }
+    if (!within(versionLimit, req.who, req.job, count, res, 'videos')) return false;
+    return reserve(req.job, count, res);
+  }
+  r.post('/:id/start', step(async (req, res) => {
+    if (req.job.status === 'uploading') {
+      // a set with a look has no first frame (recipe v0.2): the videos start now, so they are paid for now
+      if (jobs.skipsFirstFrame(req.job)) { if (!(await chargeFor(req, res, req.job.versions ?? recipes[req.job.recipeId]?.candidates ?? 1))) return null; }
+      else if (!within(startLimit, req.who, req.job, 1, res, 'first frames')) return null;
+    }
     return jobs.start(req.job.id);
   }));
   r.post('/:id/redo-start', step((req, res) => {
@@ -258,11 +269,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     if (req.job.status !== 'needs_approval') return req.job;
     const ask = Number(req.body?.versions);
     if (Number.isInteger(ask) && ask >= 1 && ask <= MAX_VERSIONS && ask !== req.job.versions) { req.job.versions = ask; await jobs.save(req.job); } // changed on the approval card
-    const count = req.job.versions ?? recipes[req.job.recipeId]?.candidates ?? 1;
-    const no = canAfford(req.who, req.job, count); // before the day's cap counts anything
-    if (no) { res.status(402).json(no); return null; }
-    if (!within(versionLimit, req.who, req.job, count, res, 'videos')) return null;
-    if (!(await reserve(req.job, count, res))) return null;
+    if (!(await chargeFor(req, res, req.job.versions ?? recipes[req.job.recipeId]?.candidates ?? 1))) return null;
     return jobs.approve(req.job.id, Number(req.body?.n));
   }));
   r.post('/:id/more', step(async (req, res) => {

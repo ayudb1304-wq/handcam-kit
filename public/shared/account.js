@@ -160,7 +160,7 @@ export async function openPlans({ account = null, reason = '', from = 'desk', on
       </div>
       ${cat.lifetime && !account?.lifetime ? `<div class="life"><div><b>${esc(cat.lifetime.name)} · ${money(cat.lifetime.usd)} once</b><span class="muted small">${esc(cat.lifetime.tagline)}. JSON and Blender export, your own Higgsfield key for AI videos, top-ups. No monthly videos.</span></div>
         <button class="btn ghost" data-life ${cat.lifetime.soldOut ? 'disabled' : ''}>${cat.lifetime.soldOut ? 'Sold out' : 'Buy Lifetime'}</button></div>` : ''}
-      <p class="note">One video = one 480p version up to 8 s; 720p uses 2, 1080p uses 5. Versions under 70% move match use nothing (the 2 free trial videos are 2 versions, whatever their match). Plan videos reset monthly; top-ups never expire. ${live ? 'Upgrades start now and you pay the difference today; switching down happens when your paid period ends.' : 'Cancel any time: you keep the plan until the end of what you paid for.'}</p>
+      <p class="note">One video = one 480p version up to 8 s; 720p uses 2, 1080p uses 5. Every version made counts; one that fails to generate uses nothing. Plan videos reset monthly; top-ups never expire. ${live ? 'Upgrades start now and you pay the difference today; switching down happens when your paid period ends.' : 'Cancel any time: you keep the plan until the end of what you paid for.'}</p>
       <div class="acct-err" id="planErr">${esc(msg)}</div>`;
     for (const b of body.querySelectorAll('[data-iv]')) b.onclick = () => { interval = b.dataset.iv; store.set(interval); render(); };
     for (const b of body.querySelectorAll('[data-pick]')) b.onclick = () => pick(b.dataset.pick, b);

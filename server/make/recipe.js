@@ -100,8 +100,6 @@ export function pickQuality(recipe, asked) {
   return asked;
 }
 
-/** A version whose move match is below this is not charged, and the studio offers to try again. */
-export const FREE_BELOW_MATCH = 70;
 export const MAX_VERSIONS = 4;
 
 /** How many versions to make: the number asked for (1 to MAX_VERSIONS), else the recipe's default. */

@@ -68,16 +68,14 @@ test('practice job: start image, waits for approval, makes 2 versions, keeps the
     assert.equal(j.candidates.length, 2);
     assert.equal(j.best, 2, 'the run that followed the move wins');
     assert.equal(j.outcome, 'passed');
-    assert.deepEqual([j.candidates[0].free, j.candidates[1].free], [true, false], 'under 70% move match is free');
-    assert.equal(j.billing.charged, 1);
-    assert.equal(j.billing.tryAgain, false);
+    assert.equal(j.billing.charged, 2, 'every version made is charged, whatever its move match');
     const pub = publicJob(j, { id: 'practice' });
     assert.equal(pub.urls, undefined, 'provider URLs never reach the browser');
     assert.equal(pub.candidates[0].requestId, undefined);
   } finally { await rm(dir, { recursive: true }); }
 });
 
-test('you choose the number of versions: no automatic extra; if the kept one is under 70% it is free and Try again adds one', async () => {
+test('you choose the number of versions: no automatic extra; another version adds one, and every version is charged', async () => {
   const { dir, jobs, job } = await practiceJob({ scores: [bad, bad, { ...bad, turn_rms_after_shift_deg: 20 }], versions: 2 });
   try {
     assert.equal(job.versions, 2);
@@ -87,14 +85,14 @@ test('you choose the number of versions: no automatic extra; if the kept one is 
     let j = await until(jobs, job.id, 'done');
     assert.equal(j.candidates.length, 2, 'no extra version made on its own');
     assert.equal(j.outcome, 'best_effort');
-    assert.deepEqual({ charged: j.billing.charged, free: j.billing.free, tryAgain: j.billing.tryAgain }, { charged: 0, free: 2, tryAgain: true });
+    assert.equal(j.billing.charged, 2);
     await jobs.more(job.id);
     await new Promise((r) => setTimeout(r, 50));
     j = await until(jobs, job.id, 'done');
     assert.equal(j.candidates.length, 3);
     assert.equal(j.best, 3);
     assert.equal(j.candidates[2].match, 74);
-    assert.deepEqual({ charged: j.billing.charged, tryAgain: j.billing.tryAgain }, { charged: 1, tryAgain: false }, '74% is charged even though it misses the pass marks');
+    assert.equal(j.billing.charged, 3);
   } finally { await rm(dir, { recursive: true }); }
 });
 
@@ -158,7 +156,7 @@ test('quality: the recipe’s first quality is the default, others must be on it
   assert.equal(pickQuality(sd, '1080p'), '1080p');
   assert.throws(() => pickQuality(sd, '4k'), /480p, 720p, 1080p/);
   assert.equal(pickQuality(recipes.practice, '1080p'), null); // practice has no qualities: ignored
-  assert.equal(fill(sd.video.input, { look: 'x', aspect: '9:16', durationS: 6, resolution: '720p', startImageUrl: 'a', referenceUrl: 'b' }).resolution, '720p');
+  assert.equal(fill(sd.video.input, { look: 'x', aspect: '9:16', durationS: 6, resolution: '720p', startImageUrl: 'a', referenceUrl: 'b', pictures: '', set: '', move: '' }).resolution, '720p');
   assert.ok(checkRecipe({ ...sd, qualities: { big: 1 } }).some((e) => /qualities/.test(e)));
 });
 
@@ -224,8 +222,8 @@ test('customer Make video: trial videos are spent and watermarked, every trial v
     assert.equal(ok.body.account.videos.trial, 0, 'both trial videos reserved');
     const j = await until(jobs, id, 'done');
     assert.equal(j.watermark, true);
-    assert.equal(accounts.get(u.id).trial, 0, 'on the free trial a version under 70% still counts: two videos are two tries');
-    assert.deepEqual([j.candidates[0].free, j.billing.charged, j.billing.tryAgain], [false, 2, false]);
+    assert.equal(accounts.get(u.id).trial, 0, 'on the free trial two videos are two tries');
+    assert.equal(j.billing.charged, 2);
     const pub = (await call(`/${id}`, undefined, 'GET')).body.job;
     assert.deepEqual(pub.candidates.map((c) => c.file), ['wm-1.mp4', 'wm-2.mp4'], 'trial videos: the watermarked copies, both playable');
     assert.equal((await fetch(`${base}/${id}/media/video-2.mp4`, { headers })).status, 403, 'never the clean file');
@@ -313,12 +311,11 @@ test('a paying customer: a free (under 70%) version plays as a watermarked copy,
     const settled = () => new Promise((r) => setTimeout(r, 150)); // the refund is written just after 'done'
     const j = await until(jobs, id, 'done');
     await settled();
-    assert.deepEqual([j.candidates[0].free, j.candidates[1].free, j.watermark], [true, false, undefined]);
-    assert.equal(accounts.pub(accounts.get(u.id)).videos.left, 14, 'a plan still pays only for the version that followed');
+    assert.equal(j.watermark, undefined);
+    assert.equal(accounts.pub(accounts.get(u.id)).videos.left, 13, 'a plan pays for both versions, whatever their move match');
     const pub = (await call(`/${id}`, undefined, 'GET')).body.job;
-    assert.deepEqual(pub.candidates.map((c) => [c.file, c.preview]), [['wm-1.mp4', true], ['video-2.mp4', false]], 'the free version is a video to watch; the paid one is theirs');
-    assert.equal((await fetch(`${base}/${id}/media/wm-1.mp4`, { headers })).status, 200);
-    assert.equal((await fetch(`${base}/${id}/media/video-1.mp4`, { headers })).status, 403, 'never the clean file of a free version');
+    assert.deepEqual(pub.candidates.map((c) => [c.file, c.preview]), [['video-1.mp4', false], ['video-2.mp4', false]], 'both versions are paid for, so both are theirs');
+    assert.equal((await fetch(`${base}/${id}/media/video-1.mp4`, { headers })).status, 200);
     assert.equal((await fetch(`${base}/${id}/media/video-2.mp4`, { headers })).status, 200);
     // the day's caps: 3 versions (2 made), 3 first frames (2 made)
     assert.equal((await call(`/${id}/more`)).status, 200);
@@ -326,7 +323,7 @@ test('a paying customer: a free (under 70%) version plays as a watermarked copy,
     await until(jobs, id, 'done');
     await settled();
     const over = await call(`/${id}/more`);
-    assert.deepEqual([over.status, over.body.code], [429, 'limit'], 'versions on our key per day are capped, free ones included');
+    assert.deepEqual([over.status, over.body.code], [429, 'limit'], 'versions on our key per day are capped');
     const id2 = await begin();
     assert.equal((await call(`/${id2}/start`)).status, 200);
     const id3 = await begin();
@@ -573,4 +570,39 @@ test('housekeeping never clears a folder whose files are not safely in storage; 
     await writeFile(join(dir, 'real', 'locks.json'), JSON.stringify({ 1: { status: 'working' } }));
     assert.equal((await keep.sweep({ loadLocal })).cleared, 0);
   } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
+});
+
+test('recipe v0.2: a set with a look skips the first frame, sends the pictures in order and the shot brief', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'jobs-'));
+  try {
+    const recipes = await loadRecipes(fileURLToPath(new URL('../recipes', import.meta.url)));
+    const sd = recipes['seedance-2.5'];
+    recipes.lead = { ...recipes.practice, id: 'lead', lookLeads: true, video: { ...recipes.practice.video, input: { ...recipes.practice.video.input, prompt: sd.video.input.prompt }, brief: sd.video.brief } };
+    const mock = makeMock({ delay: { start: 5, video: 5 } }), sent = [];
+    const provider = { ...mock, submit: (endpoint, input, key) => { sent.push({ endpoint, input }); return mock.submit(endpoint, input, key); } };
+    const jobs = makeJobs({ dir, recipes, providers: { mock: provider }, score: async (t, v) => ({ scores: v.map(() => good) }), pollMs: [5, 10] });
+    const scene = await loadTemplate('parking-lot');
+    const make = async (withLook) => {
+      const job = await jobs.create({ take, scene, look: 'wet parking lot at night.', recipeId: 'lead', versions: 1, refs: true });
+      for (const f of ['reference.mp4', 'measure.mp4', 'first-frame.png', ...(withLook ? ['ref-look.jpg', 'ref-subject.jpg'] : [])]) await writeFile(jobs.path(job.id, f), f);
+      return job;
+    };
+    const a = await make(true);
+    assert.equal(jobs.skipsFirstFrame(a), true);
+    await jobs.start(a.id);
+    const done = await until(jobs, a.id, 'done');
+    assert.equal(done.noFirstFrame, true);
+    assert.equal(done.startImages.length, 0, 'no first frame was made');
+    assert.equal(sent.filter((s) => s.endpoint.includes('start')).length, 0);
+    const v = sent.find((s) => s.endpoint.includes('video')).input;
+    assert.deepEqual(v.image_urls.map((u) => u.split('/').pop()), ['ref-look.jpg', 'ref-subject.jpg'], 'the look first, then the product');
+    assert.match(v.prompt, /Reference image 1 is a wide view of the whole place.*Reference image 2 is the real product/);
+    assert.match(v.prompt, /Look: wet parking lot at night\. Camera:/, 'one full stop after the look words');
+    assert.doesNotMatch(v.prompt, /\{\{|\{\w+\}/, 'every blank filled');
+    assert.equal(JSON.parse(await readFile(jobs.path(a.id, 'job.json'), 'utf8')).candidates[0].prompt, v.prompt, 'what was asked is kept');
+    const b = await make(false);
+    assert.equal(jobs.skipsFirstFrame(b), false, 'no look: the first frame and its OK, as before');
+    await jobs.start(b.id);
+    assert.equal((await until(jobs, b.id, 'needs_approval')).startImages.length, 1);
+  } finally { await rm(dir, { recursive: true }); }
 });

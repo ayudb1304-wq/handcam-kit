@@ -7,16 +7,16 @@ with its numbers re-costed against our real API bill (DECISIONS §29). Every num
 ## What "a video" is
 
 - **A video** is the unit customers see and pay with: one Make video *version* at 480p, up to 8 s.
-  720p uses 2, 1080p uses 5; a take over 8 s uses double. Versions under 70% move match use **nothing**
-  (DECISIONS §30). The doc called these "AI render takes" or "credits"; we keep the word *video*.
+  720p uses 2, 1080p uses 5; a take over 8 s uses double. Every version made counts, whatever its move
+  match; a version that fails to generate uses nothing (DECISIONS §56, which replaced the under-70% rule of §30). The doc called these "AI render takes" or "credits"; we keep the word *video*.
 - **Not a video** (free, unlimited, runs in the browser): the grey blockout, shooting takes, the grey reference
   video export, Practice mode. The first-frame picture is part of Make video and is never charged on its own.
 
 ## Why the doc's allowances were changed
 
 The doc assumed an AI render costs us $0.25–0.35. Our bill says a 6 s 480p version costs **$1.00**, plus $0.04
-for the first frame, and about 1 in 4 versions is free (under 70%), so a charged video costs us about **$1.36**
-(up to ~$2.25 for 8 s takes with a poor pass rate). At the doc's numbers Creator (60 renders for $49) would cost
+for the first frame. Until 11 Nov 2026 about 1 in 4 versions was free (under 70%), so a charged video cost us about **$1.36**;
+with every version charged (DECISIONS §56) it is about $1.04 (more for 8 to 10 s takes). At the doc's numbers Creator (60 renders for $49) would cost
 ~$82 a month to serve. Prices and plan names are kept; the monthly videos are scaled to what the margin allows.
 
 | | Price (monthly / yearly per month) | Videos a month | Our AI cost at full use | Gross margin at full use · at 65% use |
@@ -56,10 +56,10 @@ Rules that cut across plans:
   watermarked; plan videos and top-ups are any quality, no watermark. A Free account that still has top-ups
   (bought while on a plan) can spend them at any quality.
 - **Spend order:** this month's plan videos first (they reset), then top-ups (they never expire), then trial videos.
-  Videos that come back (free or failed versions) return to where they came from, last-taken first. If that month
+  Videos that come back (failed versions) return to where they came from, last-taken first. If that month
   is already over, they come back as top-ups, so nobody loses a video they didn't get.
 - **Your own Higgsfield key (BYOK):** the job runs on the customer's Higgsfield account. It uses no videos, has no
-  watermark, every quality, and every version is a full download (under 70% is not "free" when we're not paying).
+  watermark, every quality, and every version is a full download.
   It works even when real AI is switched off for customers (`REAL_AI`), because it doesn't spend our money.
   The key is stored encrypted on the server and never sent back to the browser (only its last 4 characters).
 - **Grey video export stays free** on every plan: it is what the five-minute stranger test (SPEC) ends with.
@@ -110,8 +110,8 @@ seats/teams, coupons (Dodo discount codes can be added later without code), and 
 ## Risks and what handles them
 
 - **Trial farming** (many accounts, 2 free videos each): it happened on 10 Nov 2026 with throwaway emails. Now
-  sign-in is Google only, the trial is given once per device and network, every trial version counts (no free retries
-  under 70% on the trial), and first frames and versions on our key are capped per account per day (DECISIONS §49).
+  sign-in is Google only, the trial is given once per device and network, every version counts (on the trial and, since
+  DECISIONS §56, everywhere), and first frames and versions on our key are capped per account per day (DECISIONS §49).
   Watermark + 480p still make trial videos poor value; `REAL_AI` stays the kill switch.
 - **Heavy users at full use**: worst case (8 s takes, 60% pass, ~$2.23 a video) Studio's margin drops to ~27%. Watch `apiUsd`
   per account; the answer is a new plan id with fewer videos, not editing an existing one.

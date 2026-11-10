@@ -3,11 +3,14 @@
   "label": "Seedance 2.5",
   "status": "draft",
   "provider": "higgsfield",
-  "notes": "Lab recipe v0.1 (lab/recipe.md) moved to Higgsfield's public API. Not yet tested on this API: reference-to-video takes the start image as a reference picture, not a locked first frame (the lab used the connector's omni_reference mode). Re-test with lab takes, then set status to final.",
+  "notes": "Recipe v0.2 (11 Nov 2026, lab/recipe.md rules 11-14, DECISIONS §58). With a set look: no first frame; the look, the product photo and the logo go straight to Seedance as reference pictures, each named for what it is, and the prompt is a shot brief written from the set and the take (server/make/brief.js). Without a look (customers until REFS_FOR_CUSTOMERS): v0.1's first frame. Untested on real generations: test, then set status to final.",
+  "lookLeads": true,
   "setLook": {
     "endpoint": "alibaba/qwen-image-3/edit",
     "input": {
-      "image_urls": ["{{firstFrameUrl}}"],
+      "image_urls": [
+        "{{firstFrameUrl}}"
+      ],
       "aspect_ratio": "{{aspect}}",
       "resolution": "1k",
       "prompt": "Turn this grey 3D blockout into a photoreal wide film still of the whole place, keeping the exact same layout, object positions, horizon height and camera angle. Every grey box becomes the real object it stands for and every stick figure a real person, in the same place and pose. {{look}}. Everything in focus, natural light, slight grain, no text."
@@ -17,7 +20,9 @@
   "startImage": {
     "endpoint": "alibaba/qwen-image-3/edit",
     "input": {
-      "image_urls": ["{{firstFrameUrl}}"],
+      "image_urls": [
+        "{{firstFrameUrl}}"
+      ],
       "aspect_ratio": "{{aspect}}",
       "resolution": "1k",
       "prompt": "Turn this grey 3D blockout into a photoreal film still, keeping the exact same layout, object positions, horizon height and camera angle. Every grey box becomes the real object it stands for and every stick figure a real person, in the same place and pose. {{look}}. Shot on a phone at eye level, natural light, slight grain, no text."
@@ -27,21 +32,55 @@
   "video": {
     "endpoint": "bytedance/seedance-2.5/reference-to-video",
     "input": {
-      "image_urls": ["{{startImageUrl}}"],
-      "video_urls": ["{{referenceUrl}}"],
+      "image_urls": [
+        "{{startImageUrl}}"
+      ],
+      "video_urls": [
+        "{{referenceUrl}}"
+      ],
       "duration": "{{durationS}}",
       "resolution": "{{resolution}}",
       "aspect_ratio": "{{aspect}}",
       "generate_audio": false,
-      "prompt": "Handheld phone footage. The reference image sets the look of the scene and the first frame: {{look}}. The reference video shows only the camera movement: follow the camera movement of the reference video exactly, including its timing, small shakes and corrections. Do not copy the grey look of the reference video; keep the scene photoreal like the reference image. People stay where they are unless the reference shows them moving. Do not add any camera movement that is not in the reference."
+      "prompt": "Handheld phone footage, one continuous shot with no cuts. {{pictures}} The reference video is a grey 3D blockout of this exact set, filmed with the real camera move: it shows where things are and how the camera moves, nothing else. Do not copy its grey look: every grey shape becomes the real thing it stands for, at the same size and in the same place. {{set}} Look: {{look}}. Camera: {{move}} Follow the camera movement of the reference video exactly: the same path, distance, turns and timing, with its small shakes and corrections. People and objects stay where they are unless the reference shows them moving. Do not add any camera movement, zoom or cut that is not in the reference."
     },
-    "output": "video.url"
+    "output": "video.url",
+    "brief": {
+      "start": "Reference image {i} is the opening frame of this shot.",
+      "look": "Reference image {i} is a wide view of the whole place this shot is in: keep the same landscape, objects, colours, light and weather wherever they come into view, and never invent a different place.",
+      "subject": "Reference image {i} is the real product, {subject}: keep it exactly as it is, with the same shape, proportions, colours, label and logo. Do not redesign, restyle or reletter it.",
+      "logo": "Reference image {i} is the brand's logo as printed on {subject}: keep its letters and shapes exact.",
+      "seeThrough": "If the product is see-through, ignore whatever shows through it in its picture: show this shot's place through it instead.",
+      "set": "The set: {words} Near the camera, at real size: {near}. {far}",
+      "far": "Far in the background: {far}.",
+      "opensClose": "it opens close on {subject}, about {d} away",
+      "move": "{move}. The take lasts {s} s.",
+      "fullDistance": "Travel the full distance the reference travels; never shorten the move.",
+      "endsAway": "At the end the camera is turned away from {subject} and it is out of frame: do not turn back to it.",
+      "toTheEnd": "Keep following the reference to the very last frame."
+    }
   },
   "candidates": 2,
   "extraTries": 1,
   "minDurationS": 4,
   "maxDurationS": 10,
-  "pass": { "turnCorrMin": 0.95, "maxOffsetS": 0.3, "walkRatio": [0.7, 1.3], "walkCorrMin": 0.9 },
-  "qualities": { "480p": 0.167, "720p": 0.389, "1080p": 0.889 },
-  "cost": { "startImage": 0.04, "unit": "USD", "basis": "Higgsfield API billing 2026-11-04: 480p video $0.88 for 5 s, $1.00 for 6 s; start image $0.04. 720p/1080p scaled by Higgsfield's own price ratios (42/18, 96/18), not yet measured. qualities = USD per second of video." }
+  "pass": {
+    "turnCorrMin": 0.95,
+    "maxOffsetS": 0.3,
+    "walkRatio": [
+      0.7,
+      1.3
+    ],
+    "walkCorrMin": 0.9
+  },
+  "qualities": {
+    "480p": 0.167,
+    "720p": 0.389,
+    "1080p": 0.889
+  },
+  "cost": {
+    "startImage": 0.04,
+    "unit": "USD",
+    "basis": "Higgsfield API billing 2026-11-04: 480p video $0.88 for 5 s, $1.00 for 6 s; start image $0.04. 720p/1080p scaled by Higgsfield's own price ratios (42/18, 96/18), not yet measured. qualities = USD per second of video."
+  }
 }

@@ -143,6 +143,11 @@ def moves_vertically(take, pitch):
     return max(heights) - min(heights) > 0.2 or float(np.ptp(pitch)) > 8
 
 
+def walked(f):
+    """Did the camera walk (forward or back) at some point? f: cumulative zoom %. Not just the end: in and back out counts."""
+    return float(np.max(np.abs(f))) > 5
+
+
 def wobble(t, v, fast=None):
     """The shake: what is left after removing the slow move (0.25 s moving average), ignoring fast moves
     (whips), where the residual is the move itself. Pass `fast` to reuse the truth's mask for the result."""
@@ -179,7 +184,7 @@ def score(take, result, measure=None):
         qt, qf, qb = flow_motion(result)
         flows = (mt, mf, mb, qt, qf, qb)
         if not turning:
-            if abs(mf[-1]) > 5:  # walked: line up on forward motion
+            if walked(mf):  # walked: line up on forward motion
                 s_ = align_by_motion(grid, mt, mf, qt, qf, shifts)
                 if s_ is not None: best, timing_from = s_, "walk"
             elif moves_vertically(take, tp):  # crouch / lift: line up on up-down motion
@@ -195,7 +200,9 @@ def score(take, result, measure=None):
         walk = {
             "fwd_take_pct": round(float(Mf[-1]), 1),     # how much closer the take got, as zoom %
             "fwd_result_pct": round(float(Qf[-1]), 1),
-            "walk_ratio": round(float(Qf[-1] / Mf[-1]), 2) if abs(Mf[-1]) > 5 else None,  # 1.0 = walked as far
+            # 1.0 = walked as far. Fitted over the whole move, not read off the last frame: one late wander (or a take that
+            # walks in and back out, ending where it began) made the last-frame ratio meaningless (DECISIONS §57).
+            "walk_ratio": round(float((Qf * Mf).sum() / (Mf * Mf).sum()), 2) if walked(Mf) else None,
             "walk_corr": round(float(np.corrcoef(Qf, Mf)[0, 1]), 3) if np.std(Mf) > 1 else None,
             # only when the take really goes up/down (crouch) or tilts; otherwise it is just noise
             "updown_corr": round(float(np.corrcoef(Qb, Mb)[0, 1]), 3) if moves_vertically(take, tp) else None,

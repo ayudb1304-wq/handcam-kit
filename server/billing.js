@@ -18,8 +18,8 @@ export function unitsPerVersion(pricing, { provider, resolution, durationS }, { 
 }
 
 /**
- * Settle a job against what was reserved: the customer pays only for versions at or above the move-match line
- * (job.billing.charged); free and failed versions come back. → videos to refund now (≥ 0).
+ * Settle a job against what was reserved: the customer pays for every version made
+ * (job.billing.charged); versions that failed to generate come back. → videos to refund now (≥ 0).
  */
 export function refundDue(job) {
   if (!job.charge) return 0;

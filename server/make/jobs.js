@@ -1,11 +1,13 @@
 // Make video jobs: take + set + look -> start image -> (you approve) -> videos -> scored -> best one.
+// With a set look (recipe v0.2, DECISIONS §58): take + set + look picture -> videos -> scored -> best one.
 // Each job is a folder under data/jobs/<id>/ with job.json and its files, so a server restart resumes it.
 // The steps run here, in the server process; the browser only uploads files and polls job.json.
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { fill, pick, judge, badness, matchPercent, pickQuality, pickVersions, videoCost, FREE_BELOW_MATCH } from './recipe.js';
+import { fill, pick, judge, badness, matchPercent, pickQuality, pickVersions, videoCost } from './recipe.js';
+import { brief } from './brief.js';
 
 export const UPLOADS = Object.freeze({ 'reference.mp4': 'video/mp4', 'measure.mp4': 'video/mp4', 'first-frame.png': 'image/png' });
 // Optional reference pictures, sent to the AI after the step's own pictures (DECISIONS §47, §50). Only on jobs made with
@@ -27,7 +29,7 @@ export function refsNote(names, productNote) {
 export function withRefs(input, refUrls, note = refsNote(['ref-subject.jpg'])) {
   if (!refUrls?.length) return input;
   const out = { ...input, image_urls: [...(input.image_urls || []), ...refUrls] };
-  if (typeof out.prompt === 'string') out.prompt = `${out.prompt}\n\n${note}`;
+  if (note && typeof out.prompt === 'string') out.prompt = `${out.prompt}\n\n${note}`;
   return out;
 }
 const TERMINAL = new Set(['completed', 'failed', 'nsfw', 'canceled']);
@@ -152,7 +154,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     return withRefs(input, names.map((n) => job.urls[n]), refsNote(names, recipe.refsNote));
   }
   function vars(job, extra = {}) {
-    return { look: job.look, aspect: job.aspect, durationS: job.durationS, resolution: job.resolution ?? '480p', demo: job.demo, firstFrameUrl: job.urls['first-frame.png'], referenceUrl: job.urls['reference.mp4'], ...extra };
+    return { look: job.look.replace(/[.\s]+$/, ''), aspect: job.aspect, durationS: job.durationS, resolution: job.resolution ?? '480p', demo: job.demo, firstFrameUrl: job.urls['first-frame.png'], referenceUrl: job.urls['reference.mp4'], ...extra };
   }
 
   async function makeStartImage(job, recipe, provider) {
@@ -178,13 +180,35 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     await save(job);
   }
 
+  /**
+   * Recipe v0.2 (DECISIONS §58): a set with a look needs no first frame. The look leads, so the first frame and its OK
+   * are skipped and the videos are made straight away.
+   */
+  function skipsFirstFrame(job) {
+    const recipe = recipes[job.recipeId];
+    return Boolean(recipe?.lookLeads && job.refs && existsSync(path(job.id, 'ref-look.jpg')));
+  }
+
+  /** The video step's input: the opening frame (if there is one), then the reference pictures, and the shot brief. */
+  async function videoInput(job, recipe) {
+    const start = job.startImages.find((s) => s.n === job.approvedStart && s.url);
+    const names = job.refs ? Object.keys(REF_UPLOADS).filter((n) => job.urls[n]) : [];
+    if (!recipe.video.brief) return refd(job, recipe, fill(recipe.video.input, vars(job, { startImageUrl: start?.url ?? null })));
+    const read = (f) => readFile(path(job.id, f), 'utf8').then(JSON.parse).catch(() => null);
+    const [take, scene] = await Promise.all([read('take.json'), read('scene.json')]);
+    const b = brief({ scene, take, look: job.look, names: [...(start ? ['start'] : []), ...names], words: recipe.video.brief });
+    const input = fill(recipe.video.input, vars(job, { startImageUrl: start?.url ?? null, pictures: b.pictures, set: b.set, move: b.move }));
+    input.image_urls = (input.image_urls || []).filter(Boolean);
+    return withRefs(input, names.map((n) => job.urls[n]), '');
+  }
+
   async function makeCandidate(job, recipe, provider) {
     const n = job.candidates.length + 1;
     const c = { n, status: 'running', requestId: null, file: null, score: null, verdict: null, match: null };
     job.candidates.push(c);
     await save(job);
-    const start = job.startImages.find((s) => s.n === job.approvedStart);
-    const input = refd(job, recipe, fill(recipe.video.input, vars(job, { startImageUrl: start.url })));
+    const input = await videoInput(job, recipe);
+    c.prompt = input.prompt; // what this version was asked, kept for the recipe's record (never sent to the browser)
     const { requestId } = await provider.submit(recipe.video.endpoint, input, `${job.id}-video-${n}`);
     c.requestId = requestId;
     await save(job);
@@ -226,23 +250,17 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   }
 
   /**
-   * Who pays for what. A version under FREE_BELOW_MATCH% move match is free: the customer is not charged for it
-   * (an unchecked version is charged: we can't show it failed). Not on the free trial (job.watermark: paid with trial
-   * videos): there every version made counts, so the two free videos are two tries, not tries until one fits
-   * (DECISIONS §49). apiUsd is what the provider charged us for everything.
+   * Who pays for what: every version made is charged, whatever its move match (the score picks the best one and says
+   * why a version missed; it doesn't decide the price, DECISIONS §56). A version that fails to generate is not made, so
+   * it comes back. apiUsd is what the provider charged us for everything.
    */
   function bill(job, recipe) {
     const made = job.candidates.filter((c) => c.file);
-    for (const c of made) c.free = !job.watermark && c.match != null && c.match < FREE_BELOW_MATCH;
     const per = videoCost(recipe, job.resolution, job.durationS);
-    const best = made.find((c) => c.n === job.best);
     job.billing = {
       videos: made.length,
-      charged: made.filter((c) => !c.free).length,
-      free: made.filter((c) => c.free).length,
+      charged: made.length,
       apiUsd: +(job.startImages.filter((x) => x.file).length * (recipe.cost?.startImage ?? 0) + made.length * per).toFixed(2),
-      freeBelow: FREE_BELOW_MATCH,
-      tryAgain: Boolean(best?.free), // the kept one didn't follow: offer to make another
     };
   }
 
@@ -266,7 +284,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     }
     if (job.best == null) throw new Error(job.candidates.map((c) => c.error).filter(Boolean)[0] || 'no video was made');
     job.status = 'done';
-    say(job, job.billing?.tryAgain ? `Done: under ${FREE_BELOW_MATCH}% move match, not charged` : job.outcome === 'passed' ? 'Done: follows your move' : job.outcome === 'unchecked' ? 'Done (not checked)' : 'Done: closest version kept');
+    say(job, job.outcome === 'passed' ? 'Done: follows your move' : job.outcome === 'unchecked' ? 'Done (not checked)' : 'Done: closest version kept');
     await save(job);
     await settle(job);
   }
@@ -319,7 +337,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   }
 
   return {
-    create, load, save, look,
+    create, load, save, look, skipsFirstFrame,
     path: (id, f) => path(id, f), quiet,
     /** A job on this disk only (not the archive), for housekeeping. */
     async local(id) { try { return JSON.parse(await readFile(path(id, 'job.json'), 'utf8')); } catch { return null; } },
@@ -340,9 +358,13 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       const job = await load(id);
       if (!job) return null;
       if (job.status !== 'uploading') return job;
+      if (skipsFirstFrame(job)) { job.noFirstFrame = true; say(job, 'The look of the set leads: no first frame'); await save(job); }
       begin(id, async () => {
         const { recipe, provider } = ctx(job);
-        try { job.status = 'preparing'; await save(job); await upload(job); await save(job); await makeStartImage(job, recipe, provider); }
+        try {
+          job.status = 'preparing'; await save(job); await upload(job); await save(job);
+          if (job.noFirstFrame) await makeVideos(job, recipe, provider); else await makeStartImage(job, recipe, provider);
+        }
         catch (e) { await fail(job, e); }
       });
       return job;

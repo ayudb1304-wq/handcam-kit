@@ -1,6 +1,11 @@
 # CineHand recipe book (private)
 
-## Current best: v0.1 (2026-11-04, 1 test, synthetic move)
+## Current best: v0.2 (2026-11-11, built, not yet run on real generations)
+With a set look: **no first frame.** Seedance 2.5 reference-to-video gets the look, the product photo and the logo as reference pictures, each named in the prompt for what it is, and the grey move as the video reference. The prompt is a **shot brief** written from the set and the take (`server/make/brief.js`, wording in `recipes/seedance-2.5.json` → `video.brief`):
+"Handheld phone footage, one continuous shot with no cuts. [what each picture is] The reference video is a grey 3D blockout of this exact set… Do not copy its grey look… [the set at real size: near things with heights, far things by name] Look: [look words]. Camera: [the move in stages, with times and distances] [travel the full distance — when it travels] [don't turn back to the subject — when the take ends away from it] Keep following the reference to the very last frame. Follow the camera movement of the reference video exactly… Do not add any camera movement, zoom or cut that is not in the reference."
+Without a look: v0.1 below. Test plan: the same take on v0.1 and v0.2, 480p, 2 versions each.
+
+## Previous: v0.1 (2026-11-04, 1 test, synthetic move)
 **Model:** Seedance 2.5, mode `omni_reference`, 480p for tests.
 **Inputs:** start image = photoreal picture made from the export's first-frame PNG; video reference = CineHand "Export video" MP4 as is (phone look, 24 fps).
 **Prompt B1:** "Handheld phone footage at night. The start image sets the look of the scene. The reference video shows only the camera movement: follow the camera movement of the reference video exactly, including its timing, small shakes and corrections. Do not copy the grey look of the reference video; keep the scene photoreal like the start image. The man stands still and keeps looking at the camera. Do not add any camera movement that is not in the reference."
@@ -27,8 +32,11 @@
     - **A face printed on the product is not rejected** (P1d, an invented face), but it turns into a different person within a second. Not tested with a real or famous face. Small label text is garbled at 480p in every run; the brand name held.
     - The start picture came from GPT Image 2.6 here (the connector has no Qwen edit): it kept the place and product but **not the blockout's framing** (bottle smaller and off centre). The app's Qwen edit step was not part of this test.
 12. **Real product photo (2026-11-10, P2a/P2b, the founder's Toit glass, strip in `lab/results/P2/`).** The photo was cropped to the glass before upload (people in the pub left out). First frame + master look + the photo as references (P2a) gave the best result so far: right set, glass and beer held, logo readable while close. The reverse route (P2b) was worse here: the boulder smeared mid-move and the close-up logo was garbled, so **reverse is not a safe default**; forward with the master look as a reference is. A transparent product shows whatever was behind it in the photo: the first-frame prompt had to say "ignore what is seen through the glass".
+13. **Mug pull-back (2026-11-10, app, live, 480p, 10 s, with set look + product photo).** Opens 26 cm from the mug, pulls back ~2.8 m, holds ~4 s, moves back in ~2.6 m, turns right. Seedance followed all of it by eye (strip: macro mug → wide on the rock with the Alps → back near the rock); timing −0.13 s, turn_corr 0.94. Scored 56% only because walk_ratio was read off the last frame (0.03); fitted over the whole move it is **0.70** (74%). Seedance walked ~70% of the distance: the under-walk of rule 6, a bit stronger. The tea tag's text came out readable ("GREEN TEA") from the product photo.
+14. **Measuring walking on near parts only** (a distance map rendered from the set) barely changes it here (curve match 0.86 → 0.89): the measuring twin has the same far backdrop as the real video, so both are diluted alike. Not used.
 
 ## Not yet known
 - Hand-shot shots 2 (walk past), 3 (half circle), 5 (crouch/lower).
-- Grey look vs lighter / grid floor reference.
+- Grey look vs lighter / grid floor reference (could help the under-walk of rules 6 and 13).
+- v0.2 against v0.1 on real generations.
 - Kling / Genjutsu.
