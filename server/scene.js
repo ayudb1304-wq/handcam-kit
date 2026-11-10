@@ -45,6 +45,7 @@ export async function loadTemplate(name) {
 
 // ---- Claude ----------------------------------------------------------------
 let cachedPrompt, cachedSchema;
+const MIN_SIZE = 0.01; // metres: the smallest side validate-scene.js accepts
 
 /** The shared schema can't say "height/pose only on stick figures", so Claude sometimes adds them elsewhere.
  *  Drop fields that don't apply to the object's type; they carry no meaning, so nothing is lost. */
@@ -53,6 +54,9 @@ export function tidy(scene) {
     if (!o || typeof o !== 'object') continue;
     if (o.type === 'stickfigure') delete o.size;
     else { delete o.height; delete o.pose; }
+    // A paper tag or a sheet comes back thinner than the 1 cm the set allows: make it 1 cm instead of throwing the
+    // whole set away for it (a product photo with one thin part used to end as the parking lot template).
+    if (Array.isArray(o.size)) o.size = o.size.map((v) => (typeof v === 'number' && v >= 0 && v < MIN_SIZE ? MIN_SIZE : v));
   }
   return scene;
 }

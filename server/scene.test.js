@@ -104,6 +104,14 @@ test('JSON wrapped in a code fence is still accepted', async () => {
   assert.equal(r.source, 'llm');
 });
 
+test('a part thinner than 1 cm is made 1 cm, not a reason to throw the set away', async () => {
+  const s = minimal();
+  s.objects.push({ id: 'tea-tag', type: 'box', p: [0, 0.5, 0], size: [0.03, 0.002, 0.04] });
+  const r = await buildScene('a tea bag', { env: { ANTHROPIC_API_KEY: 'k' }, fetchImpl: llmReply(s), log: quiet });
+  assert.equal(r.source, 'llm');
+  assert.deepEqual(r.scene.objects.at(-1).size, [0.03, 0.01, 0.04]);
+});
+
 test('ANTHROPIC_MODEL overrides the model', async () => {
   let model;
   const fetchImpl = async (url, init) => { model = JSON.parse(init.body).model; return llmReply(minimal())(); };

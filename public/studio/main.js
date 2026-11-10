@@ -207,6 +207,7 @@ async function build(prompt) {
     srcEl.textContent = source === 'llm' ? 'AI blockout' : 'Template';
     srcEl.className = `badge ${source === 'llm' ? 'accent' : ''}`;
     srcEl.title = note || '';
+    if (pic && source !== 'llm') toast('That photo couldn’t be turned into a set, so this is a template. Try Build again, or describe the set in words.');
   } catch (e) {
     toast(e?.message && e.message !== 'no set' ? e.message : 'Could not build the set. Try again.');
   } finally { buildBtn.disabled = false; $('veil').hidden = true; }
