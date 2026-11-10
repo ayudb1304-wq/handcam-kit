@@ -19,6 +19,15 @@
 9. **Hand shake survives** (H4): take wobble 0.32 deg, results 0.38–0.39 deg.
 10. **Scorer false fail on walk-only takes** (H1): with almost no turning (~10 deg drift), turn_corr is noise and the timing search pins at its ±1.5 s limit, so `judge` fails good videos and Make video spends an extra try (≈18 credits). **Fixed 2026-11-05:** a take "turns" only with ≥15° total yaw or ≥30°/s; otherwise turn_corr is null and timing comes from the walking (or up/down) speed curve (`timing_from` in score.py output). Re-scored H1: 58/58/89 → 83/79/81 (all above the 70% free line); timing −0.17 to −0.33 s, so Seedance starts walking slightly early (the speckled twin scored against itself gives 0.00 s, so it's not a bias). H4 whip unchanged (97/98).
 
+11. **Product pull-out (2026-11-10, P1a to P1g, synthetic move, `lab/testpacks/bottle-pullout`, strip in `lab/results/P1/`).** 7 runs, 480p, 18 credits each, judged by eye (no speckled twin was rendered, so no move-match numbers).
+    - Seedance 2.5 `omni_reference` **accepts `start_image` + `end_image` + a video reference together** (P1b). The end frame steers the reveal; it is not hit pixel for pixel.
+    - **A first frame that shows no background makes the model invent the place** (P1f: asked for a Himalayan valley, got rock spires and a glacier lake). With the **master look** (one wide picture of the whole set) as an image reference, the reveal matches the set (P1g, P1c). Giving it as `end_image` (P1b) or as a reference (P1c) looked the same.
+    - With image references next to it, `start_image` is **not a locked first frame**: P1g opened on a wider, recomposed frame, not the macro picture.
+    - **Reverse trick works** (P1e): start on the wide master look, reverse the move into a push-in, play the result backwards. The world is exact because it is the first frame. Moving water would run backwards.
+    - **A face printed on the product is not rejected** (P1d, an invented face), but it turns into a different person within a second. Not tested with a real or famous face. Small label text is garbled at 480p in every run; the brand name held.
+    - The start picture came from GPT Image 2.6 here (the connector has no Qwen edit): it kept the place and product but **not the blockout's framing** (bottle smaller and off centre). The app's Qwen edit step was not part of this test.
+12. **Real product photo (2026-11-10, P2a/P2b, the founder's Toit glass, strip in `lab/results/P2/`).** The photo was cropped to the glass before upload (people in the pub left out). First frame + master look + the photo as references (P2a) gave the best result so far: right set, glass and beer held, logo readable while close. The reverse route (P2b) was worse here: the boulder smeared mid-move and the close-up logo was garbled, so **reverse is not a safe default**; forward with the master look as a reference is. A transparent product shows whatever was behind it in the photo: the first-frame prompt had to say "ignore what is seen through the glass".
+
 ## Not yet known
 - Hand-shot shots 2 (walk past), 3 (half circle), 5 (crouch/lower).
 - Grey look vs lighter / grid floor reference.
