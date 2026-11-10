@@ -394,3 +394,16 @@ test('the look of a set: sent first among the references, with its own note; mad
     assert.deepEqual(sent.at(-1).input.image_urls.map((u) => u.split(/[\\/]/).pop()), ['first-frame.png', 'ref-look.jpg', 'ref-subject.jpg'], 'Practice’s first frame is the grey one; the look and product follow it');
   } finally { server.close(); await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });
+
+test('cancel: only while the first frame waits for an OK; nothing is taken, and a cancelled video can’t be approved', async () => {
+  const { dir, jobs, job } = await practiceJob({ scores: [good, good], versions: 2 });
+  try {
+    assert.equal((await jobs.cancel(job.id)).status, 'uploading', 'not before there is a first frame');
+    await jobs.start(job.id);
+    await until(jobs, job.id, 'needs_approval');
+    assert.equal((await jobs.cancel(job.id)).status, 'canceled');
+    assert.equal((await jobs.approve(job.id, 1)).status, 'canceled', 'approve does nothing now');
+    assert.equal((await jobs.load(job.id)).candidates.length, 0, 'no video was made');
+    assert.equal((await jobs.cancel(job.id)).status, 'canceled');
+  } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
+});

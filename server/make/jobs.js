@@ -336,6 +336,17 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       begin(id, async () => { try { await makeVideos(job, ...Object.values(ctx(job))); } catch (e) { await fail(job, e); } });
       return job;
     },
+    /**
+     * Stop a video while its first frame waits for an OK. Nothing has been taken from the account yet (videos are
+     * reserved on approve), so there is nothing to give back. Once the versions are being made there is no cancel.
+     */
+    async cancel(id) {
+      const job = await load(id);
+      if (!job || job.status !== 'needs_approval') return job;
+      job.status = 'canceled';
+      say(job, 'Cancelled before the video was made');
+      return save(job);
+    },
     /** "Try again" after done: one more version, then pick the best of all. */
     async more(id) {
       const job = await load(id);

@@ -100,7 +100,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   r.get('/config', (req, res) => {
     const w = req.who;
     res.json({
-      freeBelowMatch: FREE_BELOW_MATCH, maxVersions: MAX_VERSIONS, admin: w.admin, signedIn: !!(w.user || w.local), refs: w.admin || refsForCustomers,
+      freeBelowMatch: FREE_BELOW_MATCH, maxVersions: MAX_VERSIONS, maxStarts: limits.startsPerJob, admin: w.admin, signedIn: !!(w.user || w.local), refs: w.admin || refsForCustomers,
       account: accounts?.pub(w.user) || null,
       ent: w.ent,
       pricing: pricing && { qualityUnits: pricing.qualityUnits, longTakeSeconds: pricing.longTakeSeconds, currency: pricing.currency, trial: pricing.trial || null },
@@ -241,6 +241,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     }
     return jobs.redoStart(req.job.id, req.body?.look);
   }));
+  r.post('/:id/cancel', step((req) => jobs.cancel(req.job.id))); // only while the first frame waits for an OK
   r.post('/:id/approve', step(async (req, res) => {
     if (req.job.status !== 'needs_approval') return req.job;
     const ask = Number(req.body?.versions);
