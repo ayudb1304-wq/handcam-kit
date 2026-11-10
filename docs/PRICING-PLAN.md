@@ -84,7 +84,7 @@ Blender export needs the importer script from the server, so it is enforced ther
 
 | Event | What the customer gets | How |
 |---|---|---|
-| **Sign up** | Free plan, 2 trial videos | `accounts.signup` |
+| **Sign up** (Google only) | Free plan, 2 trial videos, once per device and network | `accounts.fromAuth` (DECISIONS §49) |
 | **Subscribe** (Free → any plan, monthly or yearly) | The plan at once; this month's videos start at the full amount; the month starts today | Dodo checkout → return page and/or `subscription.active` → `accounts.syncSubscription` |
 | **Monthly reset** | Plan videos go back to the full amount on the same day each month; unused ones don't roll over. Yearly plans reset monthly too | worked out on each request from the start date (`plans.cycleStart`), no timer |
 | **Renewal** | Nothing changes for the customer; the paid-through date moves on | `subscription.renewed` → sync |
@@ -109,8 +109,10 @@ seats/teams, coupons (Dodo discount codes can be added later without code), and 
 
 ## Risks and what handles them
 
-- **Trial farming** (many emails, 2 free videos each): watermark + 480p make them poor value; sign-ups are rate
-  limited per IP; `REAL_AI` stays the kill switch. If abused: require email verification before trial videos.
+- **Trial farming** (many accounts, 2 free videos each): it happened on 10 Nov 2026 with throwaway emails. Now
+  sign-in is Google only, the trial is given once per device and network, every trial version counts (no free retries
+  under 70% on the trial), and first frames and versions on our key are capped per account per day (DECISIONS §49).
+  Watermark + 480p still make trial videos poor value; `REAL_AI` stays the kill switch.
 - **Heavy users at full use**: worst case (8 s takes, 60% pass, ~$2.23 a video) Studio's margin drops to ~27%. Watch `apiUsd`
   per account; the answer is a new plan id with fewer videos, not editing an existing one.
 - **Model price changes**: the unit is ours (videos), so a price change is a config change for new plans.

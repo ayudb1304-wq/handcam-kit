@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -7,7 +8,7 @@ import { makeSupabase } from './supa.js';
 import { makeAccounts } from './accounts.js';
 import { loadPricing } from './billing.js';
 
-const pricing = loadPricing(new URL('../config/pricing.json', import.meta.url).pathname);
+const pricing = loadPricing(fileURLToPath(new URL('../config/pricing.json', import.meta.url)));
 
 /** A fake Supabase: REST tables in memory, and /auth/v1/user for two tokens. */
 const table_ok = (u) => ['handcam_accounts', 'handcam_payments'].includes(u.pathname.split('/').pop());
@@ -20,7 +21,8 @@ function fakeSupabase() {
     if (method === 'POST' && u.pathname.startsWith('/rest/') && !table_ok(u)) throw new Error('unknown table');
     if (u.pathname === '/auth/v1/user') {
       const t = init.headers.Authorization;
-      if (t === 'Bearer good') return ok({ id: '11111111-1111-1111-1111-111111111111', email: 'Pat@Example.com', email_confirmed_at: '2026-11-09', user_metadata: { full_name: 'Pat' } });
+      if (t === 'Bearer good') return ok({ id: '11111111-1111-1111-1111-111111111111', email: 'Pat@Example.com', email_confirmed_at: '2026-11-09', user_metadata: { full_name: 'Pat' }, app_metadata: { provider: 'google', providers: ['google'] } });
+      if (t === 'Bearer password') return ok({ id: '55555555-5555-5555-5555-555555555555', email: 'temp@mail.test', email_confirmed_at: '2026-11-09', user_metadata: {}, app_metadata: { provider: 'email', providers: ['email'] }, identities: [{ provider: 'email' }] });
       if (t === 'Bearer unconfirmed') return ok({ id: '22222222-2222-2222-2222-222222222222', email: 'new@example.com', user_metadata: {} });
       return { ok: false, status: 401, json: async () => ({}), text: async () => 'no' };
     }
@@ -33,9 +35,10 @@ function fakeSupabase() {
   return { tables, calls, supa: makeSupabase({ url: 'https://x.supabase.co/', publishableKey: 'sb_publishable_x', secretKey: 'sb_secret_y', fetchImpl }) };
 }
 
-test('tokens: Supabase vouches → user with verified flag; a bad token → null; secret key only on the apikey header', async () => {
+test('tokens: Supabase vouches → user with verified and google flags; a bad token → null; secret key only on the apikey header', async () => {
   const { supa, calls } = fakeSupabase();
-  assert.deepEqual(await supa.userFromToken('good'), { id: '11111111-1111-1111-1111-111111111111', email: 'Pat@Example.com', name: 'Pat', verified: true });
+  assert.deepEqual(await supa.userFromToken('good'), { id: '11111111-1111-1111-1111-111111111111', email: 'Pat@Example.com', name: 'Pat', verified: true, google: true });
+  assert.equal((await supa.userFromToken('password')).google, false, 'an email + password user has no Google identity: index.js refuses it');
   assert.equal((await supa.userFromToken('unconfirmed')).verified, false);
   assert.equal(await supa.userFromToken('bad'), null);
   assert.deepEqual(supa.publicConfig(), { url: 'https://x.supabase.co', publishableKey: 'sb_publishable_x' });
@@ -49,14 +52,14 @@ test('accounts on Supabase: file accounts move over once; only changed rows are 
   const dir = await mkdtemp(join(tmpdir(), 'supa-'));
   try {
     // an account made before Supabase, in the file
-    const old = await makeAccounts({ dir, pricing });
-    const legacy = await old.signup({ email: 'pat@example.com', password: 'longenough' });
-    await old.flush();
+    const legacy = { id: 'legacy01', email: 'pat@example.com', hash: 'aa', salt: 'bb', created: '2026-11-01T00:00:00.000Z', trial: 2, topup: 0, ledger: [] };
+    await writeFile(join(dir, 'accounts.json'), JSON.stringify({ users: { [legacy.id]: legacy }, payments: {} }));
     const { supa, tables, calls } = fakeSupabase();
     const warnings = [], quiet = { log() {}, warn: (...a) => warnings.push(a.join(' ')) };
     const a = await makeAccounts({ dir, pricing, store: supa.store, log: quiet });
     assert.equal(tables.handcam_accounts.size, 1, 'moved to the database on first start');
-    // Google / confirmed email for the same address: the same account, now linked
+    assert.equal(tables.handcam_accounts.get(legacy.id).data.hash, undefined, 'old password hashes are dropped');
+    // Google for the same address: the same account, now linked
     const { user, created } = await a.fromAuth({ authId: '11111111-1111-1111-1111-111111111111', email: 'Pat@Example.com', name: 'Pat' });
     assert.equal(created, false);
     assert.equal(user.id, legacy.id);
@@ -77,7 +80,38 @@ test('accounts on Supabase: file accounts move over once; only changed rows are 
     // every save went through (a save that fails is only logged, so check the log)
     await again.flush();
     assert.deepEqual(warnings, []);
-    // password login on an account that never had a password says how to sign in
-    await assert.rejects(again.login({ email: 'sam@example.com', password: 'whatever1' }), /Google/);
+  } finally { await rm(dir, { recursive: true }); }
+});
+
+test('one free trial per device and per network: a second Google account there starts with no free videos', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'trial-'));
+  try {
+    const clock = { t: new Date('2026-11-10T12:00:00Z') };
+    const a = await makeAccounts({ dir, pricing, now: () => clock.t, adminEmails: ['boss@x.com'] });
+    const first = await a.fromAuth({ authId: 'g1', email: 'one@gmail.com', device: 'devA', network: '203.0.113.7' });
+    assert.deepEqual([first.trial, first.user.trial], [true, 2]);
+    assert.notEqual(first.user.origin.net, '203.0.113.7', 'the address is kept only as a keyed hash');
+    const sameDevice = await a.fromAuth({ authId: 'g2', email: 'two@gmail.com', device: 'devA', network: '198.51.100.9' });
+    assert.deepEqual([sameDevice.created, sameDevice.trial, sameDevice.user.trial], [true, false, 0], 'same browser, another network');
+    const sameNetwork = await a.fromAuth({ authId: 'g3', email: 'three@gmail.com', device: 'devB', network: '203.0.113.7' });
+    assert.equal(sameNetwork.user.trial, 0, 'cookies cleared, same network');
+    const elsewhere = await a.fromAuth({ authId: 'g4', email: 'four@gmail.com', device: 'devC', network: '192.0.2.44' });
+    assert.equal(elsewhere.user.trial, 2, 'someone else, somewhere else');
+    assert.equal((await a.fromAuth({ authId: 'g1', email: 'one@gmail.com', device: 'devZ', network: '192.0.2.99' })).user.trial, 2, 'signing in again changes nothing');
+    assert.equal((await a.fromAuth({ authId: 'g5', email: 'boss@x.com', device: 'devA', network: '203.0.113.7' })).user.trial, 2, 'the founder can always test');
+    clock.t = new Date('2026-12-20T12:00:00Z');
+    assert.equal((await a.fromAuth({ authId: 'g6', email: 'six@gmail.com', device: 'devD', network: '203.0.113.7' })).user.trial, 2, 'the network rule lapses after 30 days (addresses get reused)');
+    assert.equal((await a.fromAuth({ authId: 'g7', email: 'seven@gmail.com', device: 'devA', network: '192.0.2.200' })).user.trial, 0, 'the device rule does not');
+    // the device cookie is signed
+    const dev = a.newDevice(), cookie = a.deviceCookie(dev, { secure: true }).split(';')[0];
+    assert.equal(a.deviceFrom({ headers: { cookie } }), dev);
+    assert.equal(a.deviceFrom({ headers: { cookie: `hc_dev=${dev}.forged` } }), null);
+    // an account from before origins were kept counts from its next sign-in
+    const b = await makeAccounts({ dir: join(dir, 'b'), pricing });
+    const { user: old } = await b.fromAuth({ authId: 'o1', email: 'old@gmail.com' });
+    assert.equal(old.origin.device, null);
+    delete old.origin;
+    await b.fromAuth({ authId: 'o1', email: 'old@gmail.com', device: 'devQ', network: '203.0.113.50' });
+    assert.equal((await b.fromAuth({ authId: 'o2', email: 'new@gmail.com', device: 'devQ', network: '192.0.2.1' })).user.trial, 0);
   } finally { await rm(dir, { recursive: true }); }
 });

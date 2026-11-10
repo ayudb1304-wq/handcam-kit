@@ -4,21 +4,24 @@
 //  - a signed-in account: their own jobs only; pays in videos from its plan, top-ups or trial (docs/PRICING-PLAN.md);
 //    never sees our AI cost; real AI only when the server allows it for customers (REAL_AI=on), else Practice;
 //    or, on a paid plan, on their own Higgsfield key (byok), which uses no videos and spends none of our money.
-// Trial videos are watermarked; free (under the move-match line) versions are previews. Everyone else signs in.
+// Trial videos are watermarked; a free (under the move-match line) version plays as a watermarked copy, with no clean
+// file and no download. Everyone else signs in. What one account may ask of our AI key in a day is capped (MAKE_LIMITS).
 import express from 'express';
 import { existsSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+import { writeFile, rename } from 'node:fs/promises';
 import { checkLabTake, isLocal } from '../lab.js';
 import { UPLOADS, REF_UPLOADS } from './jobs.js';
 import { FREE_BELOW_MATCH, MAX_VERSIONS } from './recipe.js';
 import { unitsPerVersion } from '../billing.js';
 import { isPng, cleanQuad } from './logolock.js';
+import { rateLimit } from '../limits.js';
 
-const MEDIA = /^(ref-subject\.jpg|ref-logo\.png|start-\d+\.(png|jpg)|video-\d+\.mp4|wm-\d+\.mp4|reference\.mp4|first-frame\.png|preview-\d+\.jpg|lock-\d+\.mp4|lockwm-\d+\.mp4|frame-\d+\.jpg|logo\.png)$/;
+const MEDIA = /^(ref-subject\.jpg|ref-logo\.png|start-\d+\.(png|jpg)|video-\d+\.mp4|wm-\d+\.mp4|reference\.mp4|first-frame\.png|lock-\d+\.mp4|lockwm-\d+\.mp4|frame-\d+\.jpg|logo\.png)$/;
 
 /**
  * What the browser may see of a job: no provider URLs, no internal request ids; our AI cost only for the founder.
- * Customers get previews of free versions and the watermarked copy of trial videos; own-key jobs are theirs in full.
+ * Customers get the watermarked copy of free versions (to watch, not to keep) and of trial videos; own-key jobs are
+ * theirs in full.
  */
 export function publicJob(job, recipe, { admin = true } = {}) {
   const { urls, log, charge, ...rest } = job;
@@ -28,8 +31,8 @@ export function publicJob(job, recipe, { admin = true } = {}) {
     startImages: job.startImages.map(({ n, status, file }) => ({ n, status, file })),
     candidates: job.candidates.map(({ n, status, file, verdict, match, error, score, free }) => ({
       n, status, verdict, match, error, free,
-      // a free (under the line) version is a preview for customers: frames, not the video file
-      file: !file ? file : free && !full ? `preview-${n}.jpg` : job.watermark && !full ? `wm-${n}.mp4` : file,
+      // customers watch a free (under the line) version and a trial video as the watermarked copy, never the clean file
+      file: !file ? file : (free || job.watermark) && !full ? `wm-${n}.mp4` : file,
       preview: !!(file && free && !full),
       score: score && { timing_offset_s: score.timing_offset_s, turn_corr: score.turn_corr, walk_ratio: score.walk_ratio ?? null },
     })),
@@ -40,6 +43,13 @@ export function publicJob(job, recipe, { admin = true } = {}) {
   if (!admin && out.billing) { const { apiUsd, ...b } = out.billing; out.billing = b; }
   return out;
 }
+
+/**
+ * What one account may ask of OUR AI key (DECISIONS §49). Videos are already paid for in videos; these caps stop the
+ * parts that cost us money and the customer nothing: first frames (never charged) and versions that come back free
+ * (under the move-match line) or fail. `free` is an account with no plan; `paid` has a plan or Lifetime.
+ */
+export const MAKE_LIMITS = Object.freeze({ jobsPerHour: 30, startsPerJob: 4, startsPerDay: { free: 6, paid: 60 }, versionsPerDay: { free: 6, paid: 60 } });
 
 /** Logo locks as the browser may see them: a customer on a trial gets the watermarked copy. */
 export function publicLocks(locks, job, { full = true } = {}) {
@@ -52,8 +62,20 @@ export function publicLocks(locks, job, { full = true } = {}) {
   return out;
 }
 
-export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForCustomers = false, chargePractice = false, preview, watermark, logolock = null, refsForCustomers = false }) {
+export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForCustomers = false, chargePractice = false, watermark, logolock = null, refsForCustomers = false, limits = MAKE_LIMITS }) {
   const r = express.Router();
+  const DAY = 24 * 3600_000;
+  const jobLimit = rateLimit({ perHour: limits.jobsPerHour });
+  const dayLimit = (per) => ({ free: rateLimit({ max: per.free, windowMs: DAY }), paid: rateLimit({ max: per.paid, windowMs: DAY }) });
+  const startLimit = dayLimit(limits.startsPerDay), versionLimit = dayLimit(limits.versionsPerDay);
+  /** Is this step on our AI key for a customer? (not Practice, not their own key, not the founder) */
+  const onOurKey = (w, job) => !w.admin && !job.byok && job.provider !== 'mock';
+  /** Count `n` more against the account's day; answers 429 and → false when that's over the cap. */
+  function within(limit, w, job, n, res, what) {
+    if (!onOurKey(w, job) || limit[w.ent?.features.topups ? 'paid' : 'free'](job.userId, n)) return true;
+    res.status(429).json({ error: `That’s the most ${what} one account can make in a day. Try again tomorrow.`, code: 'limit' });
+    return false;
+  }
   const who = (req) => {
     const local = isLocal(req), user = accounts?.userFrom(req) || null;
     const admin = local || accounts?.isAdmin(user) || false;
@@ -106,6 +128,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     const errors = checkLabTake({ take: { ...take, label: undefined }, scene });
     if (errors.length) return res.status(400).json({ error: errors.slice(0, 2).join('; ') });
     const w = req.who, recipe = recipes[recipeId];
+    if (!w.admin && !jobLimit(w.user.id)) return res.status(429).json({ error: 'That’s a lot of videos for one hour. Try again a bit later.', code: 'limit' });
     // own key: when asked for, or when it's the only way this person can run this recipe
     const byok = !!recipe && ownKey(w, recipe) && (req.body?.byok === true || (req.body?.byok == null && !allowed(w, recipe)));
     if (req.body?.byok === true && recipe && !byok) return res.status(403).json(!w.ent?.features.byok ? { error: 'Using your own AI key comes with a paid plan.', code: 'plan' } : { error: 'Save your Higgsfield key in your account first.', code: 'byok' });
@@ -180,28 +203,45 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
       res.json({ job: await withLocks(job, req.who), account: accounts?.pub(req.who.user && accounts.get(req.who.user.id)) || null });
     } catch (e) { if (!res.headersSent) res.status(e.status || 500).json({ error: e.message }); }
   };
-  r.post('/:id/start', step((req) => jobs.start(req.job.id)));
-  r.post('/:id/redo-start', step((req) => jobs.redoStart(req.job.id, req.body?.look)));
+  // a first frame costs us money and the customer nothing: capped per job and per account per day
+  r.post('/:id/start', step((req, res) => {
+    if (req.job.status === 'uploading' && !within(startLimit, req.who, req.job, 1, res, 'first frames')) return null;
+    return jobs.start(req.job.id);
+  }));
+  r.post('/:id/redo-start', step((req, res) => {
+    if (req.job.status === 'needs_approval' && onOurKey(req.who, req.job)) {
+      if (req.job.startImages.length >= limits.startsPerJob) { res.status(429).json({ error: `That’s ${limits.startsPerJob} first frames for this video. Make the video from one of them, or start a new video.`, code: 'limit' }); return null; }
+      if (!within(startLimit, req.who, req.job, 1, res, 'first frames')) return null;
+    }
+    return jobs.redoStart(req.job.id, req.body?.look);
+  }));
   r.post('/:id/approve', step(async (req, res) => {
     if (req.job.status !== 'needs_approval') return req.job;
     const ask = Number(req.body?.versions);
     if (Number.isInteger(ask) && ask >= 1 && ask <= MAX_VERSIONS && ask !== req.job.versions) { req.job.versions = ask; await jobs.save(req.job); } // changed on the approval card
-    if (!(await reserve(req.job, req.job.versions ?? recipes[req.job.recipeId]?.candidates ?? 1, res))) return null;
+    const count = req.job.versions ?? recipes[req.job.recipeId]?.candidates ?? 1;
+    const no = canAfford(req.who, req.job, count); // before the day's cap counts anything
+    if (no) { res.status(402).json(no); return null; }
+    if (!within(versionLimit, req.who, req.job, count, res, 'videos')) return null;
+    if (!(await reserve(req.job, count, res))) return null;
     return jobs.approve(req.job.id, Number(req.body?.n));
   }));
   r.post('/:id/more', step(async (req, res) => {
     if (req.job.status !== 'done') return req.job;
+    const no = canAfford(req.who, req.job, 1);
+    if (no) { res.status(402).json(no); return null; }
+    if (!within(versionLimit, req.who, req.job, 1, res, 'videos')) return null;
     if (!(await reserve(req.job, 1, res))) return null;
     return jobs.more(req.job.id);
   }));
   r.get('/:id', step((req) => req.job));
 
   // ---- logo lock: the brand's exact logo on the product, in every frame (server/logolock.py) ----
-  /** The version to lock: it must have a video this person may have in full (not a free preview). */
+  /** The version to lock: it must have a video this person may keep (not a free, watch-only version). */
   const lockable = (req, res) => {
     const n = Number(req.body?.n), c = req.job.candidates.find((x) => x.n === n);
     if (!c?.file) { res.status(404).json({ error: 'That version isn’t ready.' }); return null; }
-    if (c.free && !(req.who.admin || req.job.byok)) { res.status(403).json({ error: 'This version was free (under the move-match line): preview only.' }); return null; }
+    if (c.free && !(req.who.admin || req.job.byok)) { res.status(403).json({ error: 'This version was free (under the move-match line): it’s to watch, not to keep.' }); return null; }
     return c;
   };
   r.put('/:id/logo', express.raw({ type: '*/*', limit: '12mb' }), async (req, res) => {
@@ -226,21 +266,31 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     return req.job;
   }));
 
+  /** The watermarked copy of a video, made once: two requests for it at the same time share one ffmpeg run. */
+  const marking = new Map();
+  function marked(src, out) {
+    if (existsSync(out)) return Promise.resolve(out);
+    if (!marking.has(out)) {
+      const tmp = out.replace(/\.mp4$/, '.part.mp4'); // a half-written file is never served
+      marking.set(out, watermark(src, tmp).then(() => rename(tmp, out)).then(() => out).finally(() => marking.delete(out)));
+    }
+    return marking.get(out);
+  }
+
   r.get('/:id/media/:file', async (req, res) => {
     const job = req.job, name = req.params.file;
     if (!MEDIA.test(name)) return res.status(404).end();
-    // a customer never gets the full file of a free version (only its preview frames), nor the clean file of a trial video
+    // a customer never gets the clean file of a free version or of a trial video: both play as the watermarked copy
     const full = req.who.admin || job.byok;
     const n = Number(name.match(/^video-(\d+)\.mp4$/)?.[1]);
-    if (n && !full && job.candidates.find((c) => c.n === n)?.free) return res.status(403).json({ error: 'This version was free (under the move-match line): preview only.' });
+    if (n && !full && job.candidates.find((c) => c.n === n)?.free) return res.status(403).json({ error: 'This version was free (under the move-match line): it’s to watch, not to keep.' });
     if (n && !full && job.watermark) return res.status(403).json({ error: 'Free trial videos come with a watermark.', code: 'plan' });
     const wn = Number(name.match(/^wm-(\d+)\.mp4$/)?.[1]);
     if (wn) {
       const c = job.candidates.find((x) => x.n === wn);
-      if (!c?.file || c.free || !watermark) return res.status(404).end();
-      const out = jobs.path(job.id, name);
-      if (!existsSync(out)) { try { await watermark(jobs.path(job.id, c.file), out); } catch (e) { console.warn(e.message); return res.status(503).json({ error: 'The video isn’t ready yet. Try again in a moment.' }); } }
-      return res.sendFile(out);
+      if (!c?.file || !watermark) return res.status(404).end();
+      try { return res.sendFile(await marked(jobs.path(job.id, c.file), jobs.path(job.id, name))); }
+      catch (e) { console.warn(e.message); return res.status(503).json({ error: 'The video isn’t ready yet. Try again in a moment.' }); }
     }
     // logo lock: the first frame (placing the logo), the locked video (trial: its watermarked copy), the logo itself
     const fr = Number(name.match(/^frame-(\d+)\.jpg$/)?.[1]);
@@ -255,16 +305,8 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
     if (lw) {
       const src = jobs.path(job.id, `lock-${lw}.mp4`), out = jobs.path(job.id, name);
       if (!existsSync(src) || !watermark) return res.status(404).end();
-      if (!existsSync(out)) { try { await watermark(src, out); } catch { return res.status(503).json({ error: 'The video isn’t ready yet. Try again in a moment.' }); } }
-      return res.sendFile(out);
-    }
-    const pn = Number(name.match(/^preview-(\d+)\.jpg$/)?.[1]);
-    if (pn) {
-      const c = job.candidates.find((x) => x.n === pn);
-      if (!c?.file || !preview) return res.status(404).end();
-      const out = jobs.path(job.id, name);
-      if (!existsSync(out)) { try { await preview(jobs.path(job.id, c.file), out); } catch { return res.status(500).end(); } }
-      return res.sendFile(out);
+      try { return res.sendFile(await marked(src, out)); }
+      catch (e) { console.warn(e.message); return res.status(503).json({ error: 'The video isn’t ready yet. Try again in a moment.' }); }
     }
     const file = jobs.path(job.id, name);
     if (!existsSync(file)) return res.status(404).end();

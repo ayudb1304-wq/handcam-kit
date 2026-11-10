@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
@@ -7,7 +8,7 @@ import { addMonths, cycleOf, entitlements, splitSpend, splitRefund, planDirectio
 import { loadPricing } from './billing.js';
 import { makeAccounts } from './accounts.js';
 
-const pricing = loadPricing(new URL('../config/pricing.json', import.meta.url).pathname);
+const pricing = loadPricing(fileURLToPath(new URL('../config/pricing.json', import.meta.url)));
 const day = (s) => new Date(`${s}T12:00:00Z`);
 const sub = (o = {}) => ({ id: 'sub_1', plan: 'creator', interval: 'month', status: 'active', anchor: '2026-11-05T12:00:00.000Z', paidThrough: '2026-12-05T12:00:00.000Z', cancelAtPeriodEnd: false, ...o });
 
@@ -106,19 +107,18 @@ async function withAccounts(fn, clock = { t: day('2026-11-05') }) {
 }
 
 test('accounts: trial videos are 480p only; spending uses plan videos first and refunds return them', () => withAccounts(async (a) => {
-  const u = await a.signup({ email: 'f@x.co', password: 'longenough' });
+  const { user: u } = await a.fromAuth({ authId: 'g-f', email: 'f@x.co' });
   assert.equal(a.pub(u).videos.trial, 2);
   await assert.rejects(a.spend(u.id, 2, { resolution: '720p' }), (e) => e.code === 'quality');
   await assert.rejects(a.spend(u.id, 3, { resolution: '480p' }), (e) => e.code === 'balance' && /Choose a plan/.test(e.message));
   const from = await a.spend(u.id, 2, { resolution: '480p' });
   assert.deepEqual([from.trial, a.get(u.id).trial], [2, 0]);
   await a.refund(u.id, from, 1);
-  assert.equal(a.get(u.id).trial, 1, 'a free version gives its trial video back');
-  assert.equal(a.pub(u).hash, undefined, 'never the password hash');
+  assert.equal(a.get(u.id).trial, 1, 'a failed version gives its trial video back');
 }));
 
 test('accounts: subscribe, use, upgrade keeps used videos and adds the difference, refund after the month becomes top-ups', () => withAccounts(async (a, dir, clock) => {
-  const u = await a.signup({ email: 'c@x.co', password: 'longenough' });
+  const { user: u } = await a.fromAuth({ authId: 'g-c', email: 'c@x.co' });
   await a.syncSubscription(u.id, { id: 'sub_9', customerId: 'cus_1', plan: 'creator', interval: 'month', status: 'active', paidThrough: '2026-12-05T12:00:00.000Z', startedAt: '2026-11-05T12:00:00.000Z' });
   assert.equal(a.pub(a.get(u.id)).videos.left, 15);
   const from = await a.spend(u.id, 4, { resolution: '1080p' });
@@ -135,7 +135,7 @@ test('accounts: subscribe, use, upgrade keeps used videos and adds the differenc
 }));
 
 test('accounts: payments count once, refunds take back only what is unspent, Lifetime can be refunded', () => withAccounts(async (a) => {
-  const u = await a.signup({ email: 'p@x.co', password: 'longenough' });
+  const { user: u } = await a.fromAuth({ authId: 'g-p', email: 'p@x.co' });
   assert.equal(await a.recordPayment('pay_1', { kind: 'topup', userId: u.id, videos: 5, itemId: 'topup5' }), true);
   assert.equal(await a.recordPayment('pay_1', { kind: 'topup', userId: u.id, videos: 5, itemId: 'topup5' }), false);
   assert.equal(a.get(u.id).topup, 5);
@@ -153,7 +153,7 @@ test('accounts: payments count once, refunds take back only what is unspent, Lif
 }));
 
 test('accounts: the own AI key is encrypted at rest and never in the browser copy', () => withAccounts(async (a, dir) => {
-  const u = await a.signup({ email: 'k@x.co', password: 'longenough' });
+  const { user: u } = await a.fromAuth({ authId: 'g-k', email: 'k@x.co' });
   await assert.rejects(a.setByok(u.id, { keyId: 'x', keySecret: '' }), /Higgsfield/);
   await a.setByok(u.id, { keyId: 'key-id-123', keySecret: 'super-secret-abcd' });
   assert.deepEqual(a.byokEnv(u.id), { HF_API_KEY_ID: 'key-id-123', HF_API_KEY_SECRET: 'super-secret-abcd' });
@@ -176,7 +176,7 @@ test('accounts from before plans keep their videos as top-ups', async () => {
 
 test('a founder account that subscribed still sees its plan and subscription, with founder access', async () => {
   const { loadPricing } = await import('./billing.js');
-  const pricing = loadPricing(new URL('../config/pricing.json', import.meta.url).pathname);
+  const pricing = loadPricing(fileURLToPath(new URL('../config/pricing.json', import.meta.url)));
   const now = new Date('2026-11-09T09:00:00Z');
   const user = { id: 'f', email: 'boss@x.com', trial: 0, topup: 0, sub: { id: 'sub_1', plan: 'creator', interval: 'month', status: 'active', anchor: '2026-11-09T08:30:00Z', paidThrough: '2026-12-09T08:30:00Z' }, allowance: null };
   const e = entitlements(user, pricing, { now, admin: true });

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -6,7 +7,7 @@ import { join } from 'node:path';
 import { loadPricing, unitsPerVersion, refundDue } from './billing.js';
 import { makeAccounts } from './accounts.js';
 
-const pricing = loadPricing(new URL('../config/pricing.json', import.meta.url).pathname);
+const pricing = loadPricing(fileURLToPath(new URL('../config/pricing.json', import.meta.url)));
 
 test('units: by quality, doubled for long takes, practice free unless asked', () => {
   assert.equal(unitsPerVersion(pricing, { provider: 'higgsfield', resolution: '480p', durationS: 6 }), 1);
@@ -24,17 +25,18 @@ test('refund: only versions at or above the line are paid; a failed job is fully
   assert.equal(refundDue({ status: 'done' }), 0);
 });
 
-test('accounts: login checks the password, sessions are signed and survive a restart', async () => {
+test('accounts: a Google sign-in makes the account, sessions are signed and survive a restart', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'acct-'));
   try {
     const a = await makeAccounts({ dir, pricing, adminEmails: ['boss@x.com'] });
-    const u = await a.signup({ email: ' Friend@Example.com ', password: 'longenough', name: 'Fr' });
+    const { user: u, created } = await a.fromAuth({ authId: 'g-1', email: ' Friend@Example.com ', name: 'Fr' });
+    assert.equal(created, true);
     assert.equal(u.email, 'friend@example.com');
     assert.equal(u.trial, pricing.trial.videos);
-    await assert.rejects(a.signup({ email: 'friend@example.com', password: 'longenough' }), /already/);
-    await assert.rejects(a.signup({ email: 'x@y.z', password: 'short' }), /8 characters/);
-    await assert.rejects(a.login({ email: 'friend@example.com', password: 'wrongwrong' }), /Wrong email or password/);
-    assert.equal((await a.login({ email: 'FRIEND@example.com', password: 'longenough' })).id, u.id);
+    assert.equal((await a.fromAuth({ authId: 'g-1', email: 'FRIEND@example.com' })).user.id, u.id, 'the same person signs in again');
+    await assert.rejects(a.fromAuth({ authId: 'g-1', email: 'not an email' }), /email/);
+    assert.equal(a.signup, undefined, 'no email + password accounts');
+    assert.equal(a.login, undefined);
     const cookie = a.cookieFor(u, { secure: false }).split(';')[0];
     assert.equal(a.userFrom({ headers: { cookie } }).id, u.id);
     assert.equal(a.userFrom({ headers: { cookie: cookie.slice(0, -2) + 'xx' } }), null, 'a tampered cookie is refused');

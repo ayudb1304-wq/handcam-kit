@@ -1,6 +1,6 @@
 // Sign in, plans, top-ups and the account panel (Phase 5, 5c: docs/PRICING-PLAN.md), for the studio.
-// One small modal at a time, no framework. The server keeps the account in an HttpOnly cookie; this page never sees a
-// password after it's sent, never sees what the AI costs us, and never sees a saved AI key (only its last 4 characters).
+// One small modal at a time, no framework. Sign-in is Google only. The server keeps the account in an HttpOnly cookie;
+// this page never sees what the AI costs us, and never sees a saved AI key (only its last 4 characters).
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const plural = (n, w = 'video') => `${n} ${w}${n === 1 ? '' : 's'}`;
 const money = (usd) => `$${Number(usd) % 1 ? Number(usd).toFixed(2) : Number(usd)}`;
@@ -33,7 +33,7 @@ function modal(html, cls = '') {
   return { el: m, close };
 }
 
-// ---- Supabase Auth (Phase 5d): Google and email sign-in, password reset. Loaded only when needed. ----
+// ---- Sign-in: Google only, through Supabase Auth (DECISIONS §49). Loaded only when needed. ----
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 let supaClient; // undefined: not checked yet · false: this server has no Supabase · a client
 export async function supabase() {
@@ -46,40 +46,28 @@ export async function supabase() {
   } catch { supaClient = false; }
   return supaClient;
 }
-/** The Supabase session (after Google, an email link or a password) becomes CineHand's own session cookie. */
-async function exchange(session) {
-  return (await postJson('/api/account/supabase', { access_token: session.access_token })).account;
-}
 /**
- * Call on page load: finishes a sign-in that came back from Google or from a confirmation / reset email link.
- * → { account, recovery } (recovery: the person came from "forgot password" and should choose a new one).
+ * Call on page load: finishes a sign-in that came back from Google. The Supabase session becomes CineHand's own
+ * session cookie. → { account, notice } (notice: something to tell the person, e.g. no free videos on this device),
+ * { error }, or {} when there was nothing to finish.
  */
 export async function finishSignIn() {
   const back = /[?&#](code|access_token|error_description)=/.test(location.search + location.hash);
   const sb = (back || (await getAccount()).account === null) ? await supabase() : false;
   if (!sb) return {};
-  let recovery = /type=recovery/.test(location.hash) || /[?&]reset=1/.test(location.search);
-  sb.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') recovery = true; });
-  const { data } = await sb.auth.getSession(); // also swaps a ?code= from Google / the email link for a session
+  const { data } = await sb.auth.getSession(); // also swaps a ?code= from Google for a session
   if (back) { // tidy the address bar
-    const q = new URLSearchParams(location.search); for (const k of ['code', 'error', 'error_code', 'error_description', 'reset']) q.delete(k);
+    const q = new URLSearchParams(location.search); for (const k of ['code', 'error', 'error_code', 'error_description']) q.delete(k);
     history.replaceState(null, '', `${location.pathname}${q.toString() ? `?${q}` : ''}`);
   }
   if (!data.session) return {};
-  try { return { account: await exchange(data.session), recovery }; } catch (x) { return { error: x.message }; }
-}
-/** Choose a new password after a reset link (Supabase). */
-export function newPassword() {
-  const { el, close } = modal(`
-    <span class="eyebrow">CineHand account</span><h3>Choose a new password</h3>
-    <form id="pwForm"><input class="field" name="password" type="password" autocomplete="new-password" placeholder="New password (8+ characters)" minlength="8" required>
-    <div class="acct-err" id="pwErr"></div><button class="btn primary" type="submit">Save password</button></form>`);
-  el.querySelector('#pwForm').onsubmit = async (e) => {
-    e.preventDefault();
-    const sb = await supabase();
-    const { error } = await sb.auth.updateUser({ password: e.target.password.value });
-    if (error) el.querySelector('#pwErr').textContent = error.message; else close();
-  };
+  try {
+    const out = await postJson('/api/account/supabase', { access_token: data.session.access_token });
+    return { account: out.account, notice: out.notice };
+  } catch (x) {
+    await sb.auth.signOut().catch(() => {}); // a session CineHand won't take (not Google): don't try it again on every page load
+    return back ? { error: x.message } : {};
+  }
 }
 /** Sign out of CineHand (and of Supabase, so the next person on this computer starts fresh). */
 export async function signOut() {
@@ -91,64 +79,27 @@ export async function signOut() {
 
 const GOOGLE_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>';
 
-/** Sign in or create an account. Resolves the account, or null if closed (or when leaving for Google). */
+/**
+ * Sign in or create an account: one button, Google. The browser leaves for Google and comes back to this page, where
+ * finishSignIn() carries on, so this resolves null (closed, or on the way to Google).
+ */
 export function signIn({ reason = '' } = {}) {
   return new Promise(async (resolve) => {
     const sb = await supabase();
-    let mode = 'signup';
     const { el, close } = modal(`
       <span class="eyebrow">CineHand account</span>
-      <h3 id="acctTitle">Create your account</h3>
+      <h3>Sign in to CineHand</h3>
       <p class="acct-why">${esc(reason || 'Your first two real videos are on us. Practice mode is always free.')}</p>
-      ${sb ? `<button class="btn google" id="acctGoogle" type="button">${GOOGLE_ICON}<span>Continue with Google</span></button><div class="or"><span>or with email</span></div>` : ''}
-      <form id="acctForm">
-        <input class="field" name="email" type="email" autocomplete="email" placeholder="Email" required>
-        <input class="field" name="password" type="password" autocomplete="new-password" placeholder="Password (8+ characters)" minlength="8" required>
-        <div class="acct-err" id="acctErr"></div>
-        <button class="btn primary" type="submit" id="acctGo">Create account</button>
-      </form>
-      <div class="row" style="justify-content:space-between"><button class="btn quiet sm" id="acctSwitch" type="button">I already have an account</button>${sb ? '<button class="btn quiet sm" id="acctForgot" type="button" hidden>Forgot password?</button>' : ''}</div>`);
-    const done = (acct) => { close(); resolve(acct); };
-    el.querySelector('.acct-x').onclick = () => done(null);
-    const form = el.querySelector('#acctForm'), err = el.querySelector('#acctErr'), say = (t, ok = false) => { err.textContent = t; err.style.color = ok ? 'var(--ok)' : ''; };
-    const here = () => `${location.origin}${location.pathname}${location.search}`;
-    el.querySelector('#acctGoogle')?.addEventListener('click', async () => {
-      const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: here() } });
-      if (error) say(error.message); // otherwise the browser is on its way to Google and back
+      ${sb ? `<button class="btn google" id="acctGoogle" type="button">${GOOGLE_ICON}<span>Continue with Google</span></button>
+      <p class="note">One Google account, one CineHand account. New here? The same button creates your account.</p>` : '<p class="warn-box">Sign-in isn’t set up on this server.</p>'}
+      <div class="acct-err" id="acctErr"></div>`);
+    el.querySelector('.acct-x').onclick = () => { close(); resolve(null); };
+    const go = el.querySelector('#acctGoogle');
+    go?.addEventListener('click', async () => {
+      go.disabled = true;
+      const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}${location.pathname}${location.search}` } });
+      if (error) { el.querySelector('#acctErr').textContent = error.message; go.disabled = false; } // otherwise the browser is on its way to Google and back
     });
-    el.querySelector('#acctSwitch').onclick = () => {
-      mode = mode === 'signup' ? 'login' : 'signup';
-      el.querySelector('#acctTitle').textContent = mode === 'signup' ? 'Create your account' : 'Sign in';
-      el.querySelector('#acctGo').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
-      el.querySelector('#acctSwitch').textContent = mode === 'signup' ? 'I already have an account' : 'Create a new account';
-      form.password.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
-      const f = el.querySelector('#acctForgot'); if (f) f.hidden = mode !== 'login';
-      say('');
-    };
-    el.querySelector('#acctForgot')?.addEventListener('click', async () => {
-      if (!form.email.value) return say('Type your email above first.');
-      const { error } = await sb.auth.resetPasswordForEmail(form.email.value, { redirectTo: `${location.origin}${location.pathname}?reset=1` });
-      say(error ? error.message : 'Check your email for a link to choose a new password.', !error);
-    });
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      say('');
-      const go = el.querySelector('#acctGo'); go.disabled = true;
-      try {
-        const email = form.email.value, password = form.password.value;
-        if (!sb) return done((await postJson(`/api/account/${mode}`, { email, password })).account); // no Supabase on this server
-        if (mode === 'signup') {
-          const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: here() } });
-          if (error) throw error;
-          if (!data.session) return say(`Almost there: we sent a link to ${email}. Open it to confirm, and you’re in.`, true);
-          return done(await exchange(data.session));
-        }
-        const { data, error } = await sb.auth.signInWithPassword({ email, password });
-        if (error) throw new Error(/confirm/i.test(error.message) ? 'Confirm your email first: open the link we sent you.' : error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message);
-        done(await exchange(data.session));
-      } catch (x) { say(x.message); } finally { go.disabled = false; }
-    };
-    setTimeout(() => form.email.focus(), 50);
   });
 }
 
@@ -209,7 +160,7 @@ export async function openPlans({ account = null, reason = '', from = 'desk', on
       </div>
       ${cat.lifetime && !account?.lifetime ? `<div class="life"><div><b>${esc(cat.lifetime.name)} · ${money(cat.lifetime.usd)} once</b><span class="muted small">${esc(cat.lifetime.tagline)}. JSON and Blender export, your own Higgsfield key for AI videos, top-ups. No monthly videos.</span></div>
         <button class="btn ghost" data-life ${cat.lifetime.soldOut ? 'disabled' : ''}>${cat.lifetime.soldOut ? 'Sold out' : 'Buy Lifetime'}</button></div>` : ''}
-      <p class="note">One video = one 480p version up to 8 s; 720p uses 2, 1080p uses 5. Versions under 70% move match use nothing. Plan videos reset monthly; top-ups never expire. ${live ? 'Upgrades start now and you pay the difference today; switching down happens when your paid period ends.' : 'Cancel any time: you keep the plan until the end of what you paid for.'}</p>
+      <p class="note">One video = one 480p version up to 8 s; 720p uses 2, 1080p uses 5. Versions under 70% move match use nothing (the 2 free trial videos are 2 versions, whatever their match). Plan videos reset monthly; top-ups never expire. ${live ? 'Upgrades start now and you pay the difference today; switching down happens when your paid period ends.' : 'Cancel any time: you keep the plan until the end of what you paid for.'}</p>
       <div class="acct-err" id="planErr">${esc(msg)}</div>`;
     for (const b of body.querySelectorAll('[data-iv]')) b.onclick = () => { interval = b.dataset.iv; store.set(interval); render(); };
     for (const b of body.querySelectorAll('[data-pick]')) b.onclick = () => pick(b.dataset.pick, b);

@@ -20,12 +20,11 @@ import { watermark } from './watermark.js';
 import { makeLogoLock } from './make/logolock.js';
 import { publicCatalogue } from './plans.js';
 import { runScore } from './make/score.js';
-import { spawn } from 'node:child_process';
 import { makeAccounts } from './accounts.js';
 import { makeSupabase } from './supa.js';
 import { loadPricing } from './billing.js';
 import { makeDodo, makePayRoutes, productIds } from './payments.js';
-import { rateLimit, clientIp } from './limits.js';
+import { rateLimit, clientIp, networkOf } from './limits.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Optional .env in the project root (gitignored) for ANTHROPIC_API_KEY etc. Needs Node ≥ 20.12; otherwise use `export`.
@@ -52,7 +51,7 @@ app.use((req, res, next) => {
 const pricing = loadPricing(join(ROOT_DIR, 'config', 'pricing.json'));
 // Supabase (Phase 5d): sign-in and the accounts database. Without its env vars CineHand keeps working on the file.
 const supa = makeSupabase({ url: process.env.SUPABASE_URL, publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY, secretKey: process.env.SUPABASE_SECRET_KEY });
-const accounts = await makeAccounts({ store: supa.store, dir: DATA_DIR, secret: process.env.SESSION_SECRET, pricing, adminEmails: (process.env.ADMIN_EMAILS || '').split(',') });
+const accounts = await makeAccounts({ store: supa.store, dir: DATA_DIR, secret: process.env.SESSION_SECRET, pricing, adminEmails: (process.env.ADMIN_EMAILS || '').split(','), trialPerNetwork: Number(process.env.TRIAL_PER_NETWORK || 1) });
 const dodoMode = process.env.DODO_MODE === 'live' ? 'live' : 'test';
 const dodo = makeDodo({ apiKey: process.env.DODO_PAYMENTS_API_KEY, mode: dodoMode });
 const products = await productIds(pricing, dodoMode, join(ROOT_DIR, 'config', `dodo-products.${dodoMode}.json`));
@@ -111,36 +110,22 @@ app.delete('/api/account/byok', async (req, res) => {
   await accounts.clearByok(user.id);
   res.json({ account: accounts.pub(accounts.get(user.id)) });
 });
-app.post('/api/account/signup', async (req, res) => {
-  if (!authLimit(clientIp(req)) || (!isLocal(req) && !signupLimit(clientIp(req)))) return res.status(429).json({ error: 'Too many tries. Wait a little and try again.' });
-  try {
-    const u = await accounts.signup(req.body || {});
-    res.setHeader('Set-Cookie', accounts.cookieFor(u, { secure: secure(req) }));
-    res.json({ account: accounts.pub(u) });
-  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
-});
-app.post('/api/account/login', async (req, res) => {
-  if (!authLimit(clientIp(req))) return res.status(429).json({ error: 'Too many tries. Wait a little and try again.' });
-  try {
-    const u = await accounts.login(req.body || {});
-    res.setHeader('Set-Cookie', accounts.cookieFor(u, { secure: secure(req) }));
-    res.json({ account: accounts.pub(u) });
-  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
-});
-// Sign-in through Supabase Auth (Google, email + password): the browser sends its access token once, we check it with
-// Supabase and hand out CineHand's own session cookie. Both config values are public (publishable key).
+// Sign-in is Google only, through Supabase Auth (DECISIONS §49): the browser sends its access token once, we check it
+// with Supabase and hand out CineHand's own session cookie. Both config values are public (publishable key).
+// A new account gets the free videos once per device (a signed cookie) and per network: see accounts.fromAuth.
 app.get('/api/auth/config', (req, res) => res.json({ supabase: supa.publicConfig() }));
 app.post('/api/account/supabase', async (req, res) => {
   if (!authLimit(clientIp(req))) return res.status(429).json({ error: 'Too many tries. Wait a little and try again.' });
   try {
     const who = await supa.userFromToken(String(req.body?.access_token || ''));
     if (!who) return res.status(401).json({ error: 'That sign-in didn’t work. Try again.' });
-    if (!who.verified) return res.status(403).json({ error: 'Confirm your email first: open the link Supabase sent you.', code: 'confirm' });
+    if (!who.google || !who.verified) return res.status(403).json({ error: 'CineHand signs in with Google only. Use "Continue with Google" with the same email address.', code: 'google' });
     const known = accounts.byEmail(who.email);
     if (!known && !isLocal(req) && !signupLimit(clientIp(req))) return res.status(429).json({ error: 'Too many new accounts from here. Try again later.' });
-    const { user, created } = await accounts.fromAuth({ authId: who.id, email: who.email, name: who.name });
-    res.setHeader('Set-Cookie', accounts.cookieFor(user, { secure: secure(req) }));
-    res.json({ account: accounts.pub(user), created });
+    const device = accounts.deviceFrom(req) || accounts.newDevice();
+    const { user, created, trial } = await accounts.fromAuth({ authId: who.id, email: who.email, name: who.name, device, network: isLocal(req) ? null : networkOf(clientIp(req)) });
+    res.setHeader('Set-Cookie', [accounts.cookieFor(user, { secure: secure(req) }), accounts.deviceCookie(device, { secure: secure(req) })]);
+    res.json({ account: accounts.pub(user), created, ...(created && !trial && { notice: 'The free videos were already used on this device or network, so this account starts without them. Practice mode is free; a plan adds real AI videos.' }) });
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 app.post('/api/account/logout', (req, res) => { res.setHeader('Set-Cookie', accounts.clearCookie({ secure: secure(req) })); res.json({ ok: true }); });
@@ -202,11 +187,7 @@ const jobs = makeJobs({
     }
   },
 });
-const preview = (src, out) => new Promise((resolve, reject) => {
-  const p = spawn(process.env.HANDCAM_PYTHON || 'python3', [join(__dirname, 'preview.py'), src, out], { stdio: 'ignore' });
-  p.on('error', reject); p.on('close', (c) => (c === 0 ? resolve() : reject(new Error(`preview exit ${c}`))));
-});
-app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, preview, watermark, logolock: makeLogoLock({ jobs }), refsForCustomers: flag(process.env.REFS_FOR_CUSTOMERS), realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
+app.use('/api/make', makeRoutes({ jobs, recipes, ready: providerReady, accounts, pricing, watermark, logolock: makeLogoLock({ jobs }), refsForCustomers: flag(process.env.REFS_FOR_CUSTOMERS), realAiForCustomers: flag(process.env.REAL_AI), chargePractice: flag(process.env.PRACTICE_CHARGES) }));
 jobs.resume().catch((e) => console.warn('could not resume make jobs:', e.message));
 
 // ---- WebSocket relay -------------------------------------------------------
@@ -258,7 +239,7 @@ server.listen(PORT, () => {
   console.log(`CineHand relay  →  http://localhost:${PORT}/desk   (LAN: http://${lanIp()}:${PORT})`);
   console.log(process.env.ANTHROPIC_API_KEY ? `scenes: Claude (${process.env.ANTHROPIC_MODEL || DEFAULT_MODEL})` : 'scenes: templates only (set ANTHROPIC_API_KEY for AI blockouts)');
   console.log(`make video: ${Object.values(recipes).map((r) => `${r.label}${providerReady(r.provider) ? '' : ' (needs HF_API_KEY_ID/SECRET)'}`).join(', ')}`);
-  console.log(`sign-in: ${supa.authReady ? 'Supabase (Google, email)' : 'built-in email + password'}   database: ${supa.dbReady ? 'Supabase' : 'file only'}`);
+  console.log(`sign-in: ${supa.authReady ? 'Google (Supabase)' : 'off (set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY)'}   database: ${supa.dbReady ? 'Supabase' : 'file only'}`);
   console.log(`accounts: ${DATA_DIR}   payments: ${dodo.ready ? `Dodo ${dodoMode}${Object.values(products).every(Boolean) ? '' : ' (plans not set up: npm run dodo:setup)'}` : 'off (set DODO_PAYMENTS_API_KEY)'}   real AI for customers: ${flag(process.env.REAL_AI) ? 'on' : 'off'}`);
   console.log(`room ${DEFAULT_ROOM}${PUBLIC_URL ? `   public: ${PUBLIC_URL}` : '   (set PUBLIC_URL to your https tunnel for phone testing)'}`);
 });

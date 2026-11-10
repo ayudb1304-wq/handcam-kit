@@ -44,7 +44,7 @@
   <h2>What we collect and why</h2>
   <table>
     <tr><th>What</th><th>Why</th></tr>
-    <tr><td><b>Account:</b> email address, and your name if you sign in with Google</td><td>To sign you in and keep your plan, videos and purchases with you.</td></tr>
+    <tr><td><b>Account:</b> your Google account's email address and name (sign-in is with Google only)</td><td>To sign you in and keep your plan, videos and purchases with you.</td></tr>
     <tr><td><b>Plan and usage:</b> your plan, videos used and left, top-ups, a history of video charges and refunds, and the AI videos you made</td><td>To provide the service, apply your plan and settle what you were charged.</td></tr>
     <tr><td><b>Payments:</b> what you bought and when, its payment id and status</td><td>To give you what you paid for. We never see or store your card number: Dodo Payments handles that.</td></tr>
     <tr><td><b>Your own AI key</b> (only if you add one)</td><td>To make AI videos on your own Higgsfield account. Stored encrypted; we show back only its last 4 characters.</td></tr>
@@ -60,7 +60,7 @@
     <tr><th>Service</th><th>What it does for us</th><th>What it receives</th></tr>
     <tr><td>Render (USA)</td><td>Hosts the website and server</td><td>Requests, logs, Make video files</td></tr>
     <tr><td>Supabase (USA)</td><td>Sign-in and the accounts database</td><td>Email, name, account and plan data</td></tr>
-    <tr><td>Google</td><td>"Continue with Google" sign-in (if you use it)</td><td>Your sign-in with Google, per Google's own policy</td></tr>
+    <tr><td>Google</td><td>"Continue with Google" sign-in</td><td>Your sign-in with Google, per Google's own policy</td></tr>
     <tr><td>Dodo Payments</td><td>Merchant of record: checkout, billing, tax, receipts</td><td>Your email, billing details and payment</td></tr>
     <tr><td>Higgsfield (and the AI model it runs)</td><td>Generates AI videos</td><td>Make video inputs listed above</td></tr>
     <tr><td>Anthropic</td><td>Builds sets from your description</td><td>The words you typed</td></tr>
@@ -68,7 +68,7 @@
   <p>These services process data on our behalf, some outside your country. We don't share your data with anyone else, except if the law requires it.</p>
 
   <h2>Cookies and storage</h2>
-  <p>One sign-in cookie (<code>hc_session</code>) keeps you signed in for up to 30 days. Supabase keeps your sign-in session in your browser's storage. We also remember small preferences (like the frame you shoot in) on your device. No advertising or tracking cookies.</p>
+  <p>One sign-in cookie (<code>hc_session</code>) keeps you signed in for up to 30 days. One device cookie (<code>hc_dev</code>, a random number, up to 2 years) and a scrambled form of your network address are kept with your account, only so the free trial videos are given once per device and network. Supabase keeps your sign-in session in your browser's storage. We also remember small preferences (like the frame you shoot in) on your device. No advertising or tracking cookies.</p>
 
   <h2>How long we keep things</h2>
   <p>Your account and purchase history: while you have an account, and afterwards as long as tax and accounting rules require. AI videos and their inputs: while your account exists, or until you ask us to delete them. Takes in your browser: until you delete them or clear your browser's data.</p>
@@ -80,7 +80,7 @@
   <p>CineHand isn't for children under 13 (or under 16 where the law requires). We don't knowingly collect their data.</p>
 
   <h2>Security</h2>
-  <p>Data is sent over HTTPS. Passwords are handled by Supabase and never stored in plain text; your own AI key is encrypted. The accounts database only accepts our server's secret key. No system is perfectly secure; if something goes wrong that affects you, we'll tell you.</p>
+  <p>Data is sent over HTTPS. We never see or store a password: you sign in with Google. Your own AI key is encrypted. The accounts database only accepts our server's secret key. No system is perfectly secure; if something goes wrong that affects you, we'll tell you.</p>
 
   <h2>Changes</h2>
   <p>If we change this policy in a way that matters, we'll update the date above and tell signed-in users in the app.</p>

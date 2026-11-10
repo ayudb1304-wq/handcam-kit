@@ -158,5 +158,3 @@ select { appearance: none; padding-right: 32px; background-image: linear-gradien
 /* Phase 5d: Continue with Google */
 .btn.google { display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff; color: #1f1f1f; border: 1px solid #dadce0; font-weight: 600; }
 .btn.google:hover { background: #f7f8f8; }
-.or { display: flex; align-items: center; gap: 10px; color: var(--mute); font-size: 12px; }
-.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line-2); }

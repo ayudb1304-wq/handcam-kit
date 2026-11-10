@@ -32,7 +32,7 @@ services:
         sync: false
       - key: HF_API_KEY_SECRET
         sync: false
-      - key: SUPABASE_URL        # sign-in (Google, email) and the accounts database: public value
+      - key: SUPABASE_URL        # sign-in (Google only) and the accounts database: public value
         value: https://tjzwtucxjnhdyvkifnso.supabase.co
       - key: SUPABASE_PUBLISHABLE_KEY   # public by design (sent to browsers)
         value: sb_publishable_jVtfzkBQ1PeoCfSPn__Zyg_O0ytPc77

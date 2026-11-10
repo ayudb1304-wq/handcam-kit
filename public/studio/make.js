@@ -70,7 +70,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
       const v = cfg.ent?.videos, need = n * unit;
       const trialOnly = v && unit && v.left + v.topup < need; // the free trial videos would pay: 480p and watermarked
       $('costText').innerHTML = free ? 'Practice · free · no AI'
-        : `Uses up to <b>${need}</b> video${need === 1 ? '' : 's'}${v ? ` · you have ${v.total} · <a href="#" id="buyLink">${cfg.ent.features.topups ? 'Buy more' : 'See plans'}</a>` : ''}${trialOnly && v.total >= need ? ` · <span title="Your free videos are ${cfg.ent.trialQuality} with a small CineHand label">free trial: ${cfg.ent.trialQuality}, watermarked</span>` : ''}`;
+        : `Uses up to <b>${need}</b> video${need === 1 ? '' : 's'}${v ? ` · you have ${v.total} · <a href="#" id="buyLink">${cfg.ent.features.topups ? 'Buy more' : 'See plans'}</a>` : ''}${trialOnly && v.total >= need ? ` · <span title="Your free videos are ${cfg.ent.trialQuality} with a small CineHand label. Each version made uses one, whatever its move match.">free trial: ${cfg.ent.trialQuality}, watermarked, every version counts</span>` : ''}`;
       $('buyLink')?.addEventListener('click', (e) => { e.preventDefault(); topUp(); });
     }
     $('recipeStatus').hidden = r.status === 'final';
@@ -225,7 +225,7 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
         ? `<div class="warn-box" style="margin:12px 0 0"><b>It didn’t follow your move closely enough.</b> Under ${b.freeBelow}% move match, so it isn’t charged. Make another version?
             <div style="margin-top:8px"><button class="btn primary sm" data-act="again">Try again</button></div></div>` : '';
       html += `<div class="result-card" style="margin-top:12px">
-        ${best.preview ? `<img src="/api/make/${j.id}/media/${best.file}" alt="Preview frames (not charged)" style="width:100%;border-radius:10px">` : `<video src="/api/make/${j.id}/media/${best.file}" muted loop playsinline autoplay></video>`}
+        <video src="/api/make/${j.id}/media/${best.file}" muted loop playsinline autoplay></video>
         <div style="display:flex;flex-direction:column;gap:8px">${ring}<span class="note">${esc(verdictText(j, best))}</span></div></div>
         ${retry}<div class="actions" style="margin-top:12px"><button class="btn ${b?.tryAgain ? 'ghost' : 'primary'}" data-act="open">Open result</button><button class="btn ghost" data-act="new">New video</button></div>${billLine}`;
     }
@@ -256,19 +256,19 @@ export function setupMake({ getTake, takeScene, toast, onDone, onJobs = () => {}
         <button class="btn quiet icon" data-act="close" aria-label="Close">✕</button></div>
       <div class="compare">
         <figure><video id="rv0" src="/api/make/${j.id}/media/reference.mp4" muted loop playsinline></video><figcaption><span class="eyebrow">Your move</span><span class="badge">grey reference</span></figcaption></figure>
-        <figure>${c.preview ? `<img id="rv1img" src="/api/make/${j.id}/media/${c.file}" alt="Preview frames (not charged)" style="width:100%">` : `<video id="rv1" src="/api/make/${j.id}/media/${c.file}" muted loop playsinline></video>`}<figcaption><span class="eyebrow">AI video</span><span class="badge accent">${j.demo && j.provider === 'mock' ? 'Example result · Seedance 2.5' : esc(j.recipe?.label || '')}${j.resolution ? ` · ${esc(j.resolution)}` : ''}</span></figcaption></figure>
+        <figure><video id="rv1" src="/api/make/${j.id}/media/${c.file}" muted loop playsinline></video><figcaption><span class="eyebrow">AI video</span><span class="badge accent">${j.demo && j.provider === 'mock' ? 'Example result · Seedance 2.5' : esc(j.recipe?.label || '')}${j.resolution ? ` · ${esc(j.resolution)}` : ''}</span></figcaption></figure>
       </div>
       <div class="row wrap"><button class="btn light" data-act="play">▶ Play both</button><span class="muted small grow">Both play in sync, so you can see the camera do what your hand did.</span></div>
       ${c.score ? `<div class="why"><div><b>${c.score.timing_offset_s == null ? '—' : `${c.score.timing_offset_s > 0 ? '+' : ''}${c.score.timing_offset_s.toFixed(2)} s`}</b><span>Timing vs your take</span></div>
         <div><b>${pct(c.score.turn_corr)}</b><span>Turns that match yours</span></div><div><b>${pct(c.score.walk_ratio)}</b><span>Of your walking distance</span></div></div>` : ''}
       <div class="row wrap"><div class="versions grow">${j.candidates.filter((x) => x.file).map((x) => `<button class="version${x.n === c.n ? ' sel' : ''}" data-v="${x.n}">${x.verdict?.pass ? '✓' : x.verdict?.pass === false ? '⚠' : '·'} V${x.n}${x.match != null ? ` · ${x.match}%` : ''}${x.free ? ' · free' : ''}</button>`).join('')}</div>
         <button class="btn ghost" data-act="more">Make another version</button>
-        ${c.preview ? '<span class="note">Preview only: this version was free.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="cinehand-${j.id}-v${c.n}.mp4">Download</a>`}</div>
+        ${c.preview ? '<span class="note">This version was free (not charged): it’s here to watch, not to download.</span>' : `<a class="btn primary" href="/api/make/${j.id}/media/${c.file}" download="cinehand-${j.id}-v${c.n}.mp4">Download</a>`}</div>
       ${c.preview ? '' : lockBoxHtml(j, c)}
       <p class="note">Move match compares the camera’s turns, timing and walking in the AI video with your take. It’s measured, not guessed: the score is the same every time for the same video.</p>
     </div>`;
     m.hidden = false;
-    const [a, b] = [m.querySelector('#rv0'), m.querySelector('#rv1') || { currentTime: 0, play() {}, pause() {} }];
+    const [a, b] = [m.querySelector('#rv0'), m.querySelector('#rv1')];
     let raf = 0;
     const sync = () => { if (Math.abs(b.currentTime - a.currentTime) > 0.06) b.currentTime = a.currentTime; raf = requestAnimationFrame(sync); };
     const close = () => { cancelAnimationFrame(raf); m.hidden = true; m.innerHTML = ''; };

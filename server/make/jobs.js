@@ -22,6 +22,12 @@ export function withRefs(input, refUrls, note = REFS_NOTE) {
 }
 const TERMINAL = new Set(['completed', 'failed', 'nsfw', 'canceled']);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** rename, tried again a few times: on Windows it fails (EPERM) while a read still has the target open. */
+async function swap(tmp, dest) {
+  for (let i = 0; ; i++) {
+    try { return await rename(tmp, dest); } catch (e) { if (i >= 6 || !['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e; await sleep(10 * (i + 1)); }
+  }
+}
 
 /**
  * providerFor(job): the provider a job runs on (default: providers[job.provider]); index.js uses it to run a job on the
@@ -41,7 +47,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
       job.updatedAt = new Date().toISOString();
       const tmp = path(job.id, 'job.json.tmp');
       await writeFile(tmp, JSON.stringify(job, null, 2));
-      await rename(tmp, path(job.id, 'job.json')); // atomic: a crash never leaves half a job.json
+      await swap(tmp, path(job.id, 'job.json')); // atomic: a crash never leaves half a job.json
     });
     writes.set(job.id, next.catch(() => {}));
     return next.then(() => job);
@@ -189,11 +195,13 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
 
   /**
    * Who pays for what. A version under FREE_BELOW_MATCH% move match is free: the customer is not charged for it
-   * (an unchecked version is charged: we can't show it failed). apiUsd is what the provider charged us for everything.
+   * (an unchecked version is charged: we can't show it failed). Not on the free trial (job.watermark: paid with trial
+   * videos): there every version made counts, so the two free videos are two tries, not tries until one fits
+   * (DECISIONS §49). apiUsd is what the provider charged us for everything.
    */
   function bill(job, recipe) {
     const made = job.candidates.filter((c) => c.file);
-    for (const c of made) c.free = c.match != null && c.match < FREE_BELOW_MATCH;
+    for (const c of made) c.free = !job.watermark && c.match != null && c.match < FREE_BELOW_MATCH;
     const per = videoCost(recipe, job.resolution, job.durationS);
     const best = made.find((c) => c.n === job.best);
     job.billing = {

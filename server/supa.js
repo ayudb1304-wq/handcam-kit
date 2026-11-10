@@ -1,4 +1,4 @@
-// Supabase (Phase 5d): sign-in (Google, email + password, password reset) and the accounts database. Plain fetch,
+// Supabase (Phase 5d): sign-in (Google only: DECISIONS §49) and the accounts database. Plain fetch,
 // no SDK on the server, no new dependency.
 //  - Who someone is: the browser signs in with Supabase Auth and sends its access token once; we ask Supabase
 //    (GET /auth/v1/user) whether it's real, then give them CineHand's own session cookie (accounts.js).
@@ -34,14 +34,16 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
     /** What the browser needs to sign in: both values are public by design. */
     publicConfig: () => (authReady ? { url: base, publishableKey } : null),
 
-    /** The Supabase user behind an access token, or null. → { id, email, name, verified } */
+    /** The Supabase user behind an access token, or null. → { id, email, name, verified, google } */
     async userFromToken(token) {
       if (!authReady || !token) return null;
       const r = await fetchImpl(`${base}/auth/v1/user`, { headers: { apikey: publishableKey, Authorization: `Bearer ${token}` } });
       if (!r.ok) return null;
       const u = await r.json();
       const meta = u.user_metadata || {};
-      return { id: u.id, email: u.email, name: meta.full_name || meta.name || '', verified: !!(u.email_confirmed_at || u.confirmed_at) };
+      // google: this person has a Google identity. An email + password user made straight against Supabase's API has none.
+      const providers = [u.app_metadata?.provider, ...(u.app_metadata?.providers || []), ...(u.identities || []).map((i) => i.provider)];
+      return { id: u.id, email: u.email, name: meta.full_name || meta.name || '', verified: !!(u.email_confirmed_at || u.confirmed_at), google: providers.includes('google') };
     },
 
     /** The accounts store for accounts.js: load everything once, then write only what changed. */

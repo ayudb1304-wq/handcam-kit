@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
@@ -9,7 +10,7 @@ import { verifyWebhook, makeDodo, makePayRoutes, catalogueItems, normaliseSubscr
 import { makeAccounts } from './accounts.js';
 import { loadPricing } from './billing.js';
 
-const pricing = loadPricing(new URL('../config/pricing.json', import.meta.url).pathname);
+const pricing = loadPricing(fileURLToPath(new URL('../config/pricing.json', import.meta.url)));
 const secret = 'whsec_' + Buffer.from('a-very-secret-key-1234').toString('base64');
 const sign = (id, ts, body) => `v1,${createHmac('sha256', Buffer.from(secret.slice(6), 'base64')).update(`${id}.${ts}.${body}`).digest('base64')}`;
 
@@ -73,7 +74,7 @@ async function harness(fn) {
   app.use('/api/pay', pay.api); app.use(pay.pages);
   const server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
-  const u = await accounts.signup({ email: 'c@x.co', password: 'longenough' });
+  const { user: u } = await accounts.fromAuth({ authId: 'g-c', email: 'c@x.co' });
   const cookie = accounts.cookieFor(u, { secure: false }).split(';')[0];
   const post = async (path, body) => { const r = await fetch(`${base}${path}`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(body || {}) }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
   const hook = async (event) => {
