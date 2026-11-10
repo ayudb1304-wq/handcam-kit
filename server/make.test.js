@@ -502,3 +502,38 @@ test('keeping videos: trial videos go after 14 days, a paid account’s 30 days 
     assert.deepEqual([table.size, bucket.size, existsSync(join(dir, paid.id))], [0, 0, false]);
   } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });
+
+import { makeLibrary, fileLibrary } from './library.js';
+test('sets and takes saved to the account: paid plans only, each account its own, and a delete leaves a marker for other computers', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lib-'));
+  let clock = 1000;
+  const lib = makeLibrary({ store: fileLibrary(dir), may: (req) => (req.headers['x-acct'] ? { id: req.headers['x-acct'] } : null), now: () => clock++, limits: { items: { takes: 2, scenes: 2 }, bytes: 2000, writesPerHour: 100 } });
+  const app = express();
+  app.use(express.json({ limit: '5mb' }));
+  app.use('/api/library', lib.routes);
+  const server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
+  const base = `http://127.0.0.1:${server.address().port}/api/library`;
+  const call = async (acct, method, path, body) => { const r = await fetch(`${base}${path}`, { method, headers: { 'content-type': 'application/json', ...(acct && { 'x-acct': acct }) }, body: body && JSON.stringify(body) }); return { status: r.status, body: await r.json().catch(() => null) }; };
+  try {
+    assert.equal((await call(null, 'GET', '')).status, 403, 'a free account keeps its work in the browser');
+    assert.equal((await call('a', 'PUT', '/takes/t1', { id: 't1', samples: [1, 2] })).status, 200);
+    assert.equal((await call('a', 'PUT', '/takes/t1', { id: 'other' })).status, 400);
+    assert.equal((await call('a', 'PUT', '/scenes/s1', { id: 's1', objects: [] })).status, 200);
+    assert.equal((await call('a', 'PUT', '/takes/big', { id: 'big', pad: 'x'.repeat(3000) })).status, 413);
+    const mine = (await call('a', 'GET', '')).body;
+    assert.deepEqual([mine.takes.map((x) => x.id), mine.scenes.map((x) => x.id), mine.gone], [['t1'], ['s1'], { takes: [], scenes: [] }]);
+    assert.deepEqual((await call('a', 'GET', '/takes/t1')).body, { id: 't1', samples: [1, 2] });
+    assert.deepEqual((await call('b', 'GET', '')).body.takes, [], 'another account sees none of it');
+    assert.equal((await call('b', 'GET', '/takes/t1')).status, 404);
+    assert.equal((await call('a', 'PUT', '/takes/t2', { id: 't2' })).status, 200);
+    assert.deepEqual([(await call('a', 'PUT', '/takes/t3', { id: 't3' })).status, (await call('a', 'PUT', '/takes/t2', { id: 't2', star: true })).status], [409, 200], 'full for new ones; a change to one it has still saves');
+    await call('a', 'DELETE', '/takes/t1');
+    const after = (await call('a', 'GET', '')).body;
+    assert.deepEqual([after.takes.map((x) => x.id), after.gone.takes], [['t2'], ['t1']]);
+    assert.equal((await call('a', 'GET', '/takes/t1')).status, 404);
+    assert.deepEqual(await lib.count('a'), { takes: 1, sets: 1 });
+    await lib.clear('a');
+    assert.deepEqual((await call('a', 'GET', '')).body.takes, []);
+    assert.equal((await call('a', 'GET', '/nope/x')).status, 404);
+  } finally { server.close(); await rm(dir, { recursive: true, force: true }); }
+});

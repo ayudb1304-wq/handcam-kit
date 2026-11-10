@@ -57,6 +57,13 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
       return { id: u.id, email: u.email, name: meta.full_name || meta.name || '', verified: !!(u.email_confirmed_at || u.confirmed_at), google: providers.includes('google') };
     },
 
+    /** Remove someone's sign-in from Supabase Auth (when they delete their account). Needs the secret key. */
+    async deleteAuthUser(authId) {
+      if (!dbReady || !authId) return;
+      const r = await fetchImpl(`${base}/auth/v1/admin/users/${encodeURIComponent(authId)}`, { method: 'DELETE', headers: { apikey: secretKey } });
+      if (!r.ok && r.status !== 404) throw new Error(`Supabase auth delete ${r.status}`);
+    },
+
     /** The accounts store for accounts.js: load everything once, then write only what changed. */
     store: dbReady ? {
       async load() {
@@ -73,6 +80,28 @@ export function makeSupabase({ url, publishableKey, secretKey, fetchImpl = fetch
         if (!users.length) return;
         await rest('POST', 'handcam_accounts?on_conflict=id', users.map((u) => ({ id: u.id, auth_id: u.authId || null, email: u.email, data: u, updated_at: new Date().toISOString() })), 'resolution=merge-duplicates,return=minimal');
       },
+      /** Sets and takes saved to the account (server/library.js). `deleted` rows are markers, with no data. */
+      library: {
+        async list(acct) {
+          const rows = [];
+          for (let from = 0; ; from += 1000) {
+            const page = await rest('GET', `handcam_library?select=kind,id,v,deleted&account_id=eq.${encodeURIComponent(acct)}&order=id&offset=${from}&limit=1000`);
+            rows.push(...page);
+            if (page.length < 1000) break;
+          }
+          return rows.map((x) => ({ kind: x.kind, id: x.id, v: Number(x.v), gone: !!x.deleted }));
+        },
+        async get(acct, kind, id) {
+          const rows = await rest('GET', `handcam_library?select=data&account_id=eq.${encodeURIComponent(acct)}&kind=eq.${kind}&id=eq.${encodeURIComponent(id)}&deleted=is.false`);
+          return rows[0]?.data || null;
+        },
+        async put(acct, kind, id, data, v) {
+          await rest('POST', 'handcam_library?on_conflict=account_id,kind,id', [{ account_id: acct, kind, id, v, deleted: data == null, data }], 'resolution=merge-duplicates,return=minimal');
+        },
+        async clear(acct) { await rest('DELETE', `handcam_library?account_id=eq.${encodeURIComponent(acct)}`, null, 'return=minimal'); },
+      },
+      async removeUser(id) { await rest('DELETE', `handcam_accounts?id=eq.${encodeURIComponent(id)}`, null, 'return=minimal'); },
+      async removeGenerations(accountId) { await rest('DELETE', `handcam_generations?account_id=eq.${encodeURIComponent(accountId)}`, null, 'return=minimal'); },
       /** A customer's videos (server/make/keep.js): the job's record, and its files in the private bucket. */
       async saveVideo(row) {
         await rest('POST', 'handcam_videos?on_conflict=id', [{ ...row, updated_at: new Date().toISOString() }], 'resolution=merge-duplicates,return=minimal');

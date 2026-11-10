@@ -268,6 +268,9 @@ export async function openAccount({ account, from = 'desk', onChange = () => {} 
       <p class="note">Make videos on your own Higgsfield account (console.higgsfield.ai → API keys): they use none of your CineHand videos, every quality, no watermark. Stored encrypted; we never show it again.</p>
       <form id="byokForm"><input class="field" name="keyId" placeholder="API key ID" autocomplete="off" required><input class="field" name="keySecret" type="password" placeholder="API key secret" autocomplete="off" required>
       <div class="row"><button class="btn ghost sm" type="submit">Save key</button>${account.byok?.set ? '<button class="btn quiet sm" type="button" data-unkey>Remove key</button>' : ''}</div></form></details>` : ''}
+    <details class="byok"><summary>Your data</summary>
+      <p class="note">Your videos are private to this account and are never used to train AI. <a href="/privacy" target="_blank" rel="noopener">How we keep your data</a></p>
+      <div class="row wrap"><a class="btn ghost sm" href="/api/account/export" download>Download my data</a><button class="btn quiet sm" type="button" data-wipe>Delete all my videos</button><button class="btn quiet sm" type="button" data-close>Delete my account</button></div></details>
     <div class="acct-err" id="acctErr2"></div>
     <div class="row"><span class="grow"></span><button class="btn quiet sm" data-out>Sign out</button></div>`);
   const err = (x) => { el.querySelector('#acctErr2').textContent = x.message; };
@@ -279,10 +282,36 @@ export async function openAccount({ account, from = 'desk', onChange = () => {} 
   act('[data-keep]', async () => { await postJson('/api/pay/keep'); close(); onChange(); });
   act('[data-unkey]', async () => { const r = await fetch('/api/account/byok', { method: 'DELETE' }); if (!r.ok) throw new Error('Could not remove the key.'); close(); onChange(); });
   act('[data-out]', signOut);
+  el.querySelector('[data-wipe]').onclick = () => { close(); deleteData({ what: 'videos', onChange }); };
+  el.querySelector('[data-close]').onclick = () => { close(); deleteData({ what: 'account', account, onChange }); };
   el.querySelector('#byokForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try { await postJson('/api/account/byok', { keyId: e.target.keyId.value, keySecret: e.target.keySecret.value }); close(); onChange(); } catch (x) { err(x); }
   });
+}
+
+/** Delete all your videos, or your whole account, after saying exactly what goes. Nothing happens until the red button. */
+export function deleteData({ what, account = null, onChange = () => {} }) {
+  const all = what === 'account';
+  const { el, close } = modal(`
+    <span class="eyebrow">Your data</span>
+    <h3>${all ? 'Delete your account?' : 'Delete all your videos?'}</h3>
+    <p class="acct-why">${all
+      ? `This deletes <b>${esc(account?.email || 'your account')}</b> for good: every video, your plan and any videos left on it, your saved AI key, and your sign-in. Records of what you paid are kept as tax law requires. Sets and takes saved in this browser stay until you clear them.`
+      : 'Every AI video you have made is deleted for good, with its first frames and logo work. Your account, plan and videos left stay as they are.'} <b>This can’t be undone.</b></p>
+    <div class="acct-err" id="delErr"></div>
+    <div class="row"><button class="btn ghost grow" data-keep>Keep everything</button><button class="btn danger grow" data-go>${all ? 'Delete my account' : 'Delete my videos'}</button></div>`);
+  el.querySelector('[data-keep]').onclick = close;
+  el.querySelector('[data-go]').onclick = async (e) => {
+    e.target.disabled = true;
+    try {
+      const r = await fetch(all ? '/api/account' : '/api/account/delete-videos', { method: all ? 'DELETE' : 'POST' });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(out.error || 'That didn’t work. Try again in a minute.');
+      if (all) { const sb = await supabase(); if (sb) await sb.auth.signOut().catch(() => {}); location.href = '/'; return; }
+      close(); onChange();
+    } catch (x) { el.querySelector('#delErr').textContent = x.message; e.target.disabled = false; }
+  };
 }
 
 /** A paid feature was asked for: sign in, or show the plans with the reason. → true if something was shown. */

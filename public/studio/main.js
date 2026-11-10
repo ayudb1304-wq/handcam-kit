@@ -4,7 +4,7 @@ import { OrbitControls } from '../shared/three.js';
 import { MSG, SHOTS, connectRelay } from '../shared/protocol.js';
 import { renderScene, addDefaultLights, animateScene, povStage } from '../shared/scene-render.js';
 import { OneEuroQuat } from '../shared/one-euro.js';
-import { putTake, allTakes, deleteTake, putScene, getScene } from '../shared/store.js';
+import { putTake, allTakes, deleteTake, putScene, getScene, syncLibrary } from '../shared/store.js';
 import { sampleAt, takeOutput } from '../shared/frames.js';
 import { setupMake } from './make.js';
 import { setupTabs, showPane } from './tabs.js';
@@ -611,6 +611,8 @@ $('settingsBtn').onclick = (e) => { e.stopPropagation(); $('settings').hidden = 
 document.addEventListener('click', (e) => { if (!e.target.closest('#settings')) $('settings').hidden = true; });
 
 // --- start ---------------------------------------------------------------------------
+// Paid plans: sets and takes are also saved to the account, so they follow you to another computer (DECISIONS §55).
+try { if ((await getAccount()).account?.features?.exportData) await syncLibrary(); } catch { /* the browser's own copy is enough to start */ }
 for (const take of await allTakes().catch(() => [])) takes.set(take.id, take);
 renderList();
 const params = new URLSearchParams(location.search);

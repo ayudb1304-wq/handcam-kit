@@ -232,6 +232,21 @@ export async function makeAccounts({ dir, secret, pricing, adminEmails = [], now
       return true;
     },
     payment: (id) => db.payments[id] || null,
+    /** What this account bought, for its data export: [{ id, kind, itemId, amount, currency, at }]. */
+    paymentsOf: (userId) => Object.entries(db.payments).filter(([, p]) => p.userId === userId).map(([id, p]) => ({ id, kind: p.kind, item: p.itemId, amount: p.amount, currency: p.currency, at: p.credited })),
+    /**
+     * Delete an account: its row here and in the database. Payment records stay (tax and accounting rules need them);
+     * they hold no more than the account's id, what was bought and when.
+     */
+    async remove(userId) {
+      const u = db.users[userId];
+      if (!u) return false;
+      delete db.users[userId];
+      sent.delete(`u:${userId}`);
+      if (store) await store.removeUser(userId);
+      await save();
+      return true;
+    },
 
     /** A refund or a lost chargeback: take back the unspent part of what that payment gave. Once per refund id. */
     async reversePayment(paymentId, { refundId, fraction = 1 }) {

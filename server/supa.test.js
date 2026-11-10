@@ -115,3 +115,22 @@ test('one free trial per device and per network: a second Google account there s
     assert.equal((await b.fromAuth({ authId: 'o2', email: 'new@gmail.com', device: 'devQ', network: '192.0.2.1' })).user.trial, 0);
   } finally { await rm(dir, { recursive: true }); }
 });
+
+test('deleting an account removes its row from memory, the file and the database; what it paid stays', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'del-'));
+  try {
+    const { supa, tables } = fakeSupabase();
+    const removed = [];
+    const store = { ...supa.store, removeUser: async (id) => { removed.push(id); tables.handcam_accounts.delete(id); } };
+    const a = await makeAccounts({ dir, pricing, store, log: { log() {}, warn() {} } });
+    const { user } = await a.fromAuth({ authId: 'g-del', email: 'gone@example.com' });
+    await a.recordPayment('pay_1', { kind: 'topup', userId: user.id, videos: 5, itemId: 'topup5', amount: 1500, currency: 'USD' });
+    assert.deepEqual(a.paymentsOf(user.id).map((p) => [p.id, p.item]), [['pay_1', 'topup5']]);
+    assert.equal(await a.remove(user.id), true);
+    assert.deepEqual([a.get(user.id), a.byEmail('gone@example.com'), removed, tables.handcam_accounts.has(user.id)], [null, null, [user.id], false]);
+    assert.ok(a.payment('pay_1'), 'the record of the payment is kept');
+    const again = await makeAccounts({ dir, pricing, store, log: { log() {}, warn() {} } });
+    assert.equal(again.byEmail('gone@example.com'), null, 'and it stays gone after a restart');
+    assert.equal(await a.remove('nobody'), false);
+  } finally { await rm(dir, { recursive: true }); }
+});

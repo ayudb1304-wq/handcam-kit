@@ -27,6 +27,7 @@ import { makeDodo, makePayRoutes, productIds } from './payments.js';
 import { rateLimit, clientIp, networkOf } from './limits.js';
 import { makeLearn } from './learn.js';
 import { makeKeep } from './make/keep.js';
+import { makeLibrary, fileLibrary } from './library.js';
 import { readFile } from 'node:fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -209,6 +210,55 @@ const jobs = makeJobs({
     await learn.record(job);
     await keep.archive(job);
   },
+});
+// Sets and takes saved to the account, for paid plans (the same plans that have JSON and Blender export): DECISIONS §55.
+const library = makeLibrary({
+  store: supa.store?.library || fileLibrary(join(DATA_DIR, 'library')),
+  may: (req) => { const u = accounts.userFrom(req); return u && accounts.ent(u).features.exportData ? u : null; },
+});
+app.use('/api/library', library.routes);
+
+// ---- your data (DECISIONS §55): download it, delete your videos, delete your account ----
+const BUSY = ['preparing', 'start_image', 'making', 'checking'];
+const videosOf = (userId) => jobs.list({ owners: [userId], limit: Infinity });
+async function deleteVideos(userId) {
+  const list = await videosOf(userId);
+  if (list.some((j) => BUSY.includes(j.status))) throw Object.assign(new Error('A video is still being made. Try again when it’s finished.'), { status: 409 });
+  for (const j of list) { await keep.remove(j); jobs.forget(j.id); }
+  return list.length;
+}
+app.get('/api/account/export', async (req, res) => {
+  const user = accounts.userFrom(req);
+  if (!user) return res.status(401).json({ error: 'Sign in first.', code: 'signin' });
+  const { id, isAdmin, byok, ...account } = accounts.pub(user);
+  res.setHeader('Content-Disposition', 'attachment; filename="cinehand-my-data.json"');
+  res.json({
+    exportedAt: new Date().toISOString(), note: 'Everything CineHand keeps about your account. Sets and takes themselves are exported from the studio (JSON).',
+    account: { ...account, created: user.created, ownAiKeySaved: !!user.byok },
+    savedToYourAccount: await library.count(user.id),
+    history: user.ledger || [], purchases: accounts.paymentsOf(user.id),
+    videos: (await videosOf(user.id)).map((j) => ({ id: j.id, made: j.createdAt, look: j.look, model: recipes[j.recipeId]?.label || j.recipeId, quality: j.resolution, status: j.status, moveMatch: j.candidates?.find((c) => c.n === j.best)?.match ?? null, deletedOn: keep.expiry(j) })),
+  });
+});
+app.post('/api/account/delete-videos', async (req, res) => {
+  const user = accounts.userFrom(req);
+  if (!user) return res.status(401).json({ error: 'Sign in first.', code: 'signin' });
+  try { res.json({ deleted: await deleteVideos(user.id) }); } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+app.delete('/api/account', async (req, res) => {
+  const user = accounts.userFrom(req);
+  if (!user) return res.status(401).json({ error: 'Sign in first.', code: 'signin' });
+  const status = accounts.ent(user).status;
+  if (status === 'active' || status === 'on_hold') return res.status(409).json({ error: 'Cancel your plan first (Account → Change plan → Cancel plan), so you aren’t billed again. Then delete your account.', code: 'plan' });
+  try {
+    await deleteVideos(user.id);
+    await library.clear(user.id);
+    await learn.forget(user.id);
+    await accounts.remove(user.id);
+    await supa.deleteAuthUser(user.authId).catch((e) => console.warn('delete sign-in:', e.message));
+    res.setHeader('Set-Cookie', accounts.clearCookie({ secure: secure(req) }));
+    res.json({ ok: true });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 // The founder's view of that record: pass rates and reasons per recipe wording, per kind of move, with and without the look.
 app.get('/api/learn', async (req, res) => {

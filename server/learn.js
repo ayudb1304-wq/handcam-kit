@@ -4,7 +4,7 @@
 // recipe gets a new hash by itself, so two wordings can be compared on real videos instead of by feel.
 // Rows go to Supabase when it is set up (handcam_generations) and always to DATA_DIR/generations.jsonl.
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, readFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { measureMove } from '../public/shared/describe.js';
 
@@ -108,5 +108,14 @@ export function makeLearn({ dir, store = null, recipes, readTake, log = console 
       return fromFile();
     },
     async summary() { return summarise(await this.rows()); },
+    /** An account was deleted: its rows go too (they carry the words the person typed for the look). */
+    async forget(accountId) {
+      try {
+        const keepRows = (await fromFile()).filter((r) => r.account_id !== accountId);
+        await mkdir(dir, { recursive: true });
+        await writeFile(file, keepRows.map((r) => JSON.stringify(r)).join('\n') + (keepRows.length ? '\n' : ''));
+        if (store) await store.removeGenerations(accountId);
+      } catch (e) { log.warn(`learn forget ${accountId}:`, e.message); }
+    },
   };
 }

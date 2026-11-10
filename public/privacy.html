@@ -27,14 +27,15 @@
   <nav><a href="/privacy" aria-current="page">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a></nav></header>
 <main>
   <h1>Privacy policy</h1>
-  <p class="updated">Last updated 9 November 2026</p>
+  <p class="updated">Last updated 10 November 2026</p>
 
   <div class="summary"><b>The short version</b>
     <ul>
-      <li>Your sets and takes stay in your own browser unless you choose to make an AI video from one.</li>
-      <li>We keep your account (email, name, plan, videos left) so you can sign in and use what you paid for.</li>
-      <li>We never sell your data and never show you ads.</li>
-      <li>A few services help us run CineHand; each only gets what it needs (listed below).</li>
+      <li>Your videos, photos, logos, sets and takes are yours, and private to your account.</li>
+      <li>We don't use them to train AI models, and we never show them publicly without your written OK.</li>
+      <li>Free trial videos are deleted 14 days after they're made. On a paid plan your videos are kept while you have the plan, and for 30 days after it ends.</li>
+      <li>You can download your data, delete any video, delete all your videos or delete your account yourself, in Account → Your data.</li>
+      <li>We never sell your data and never show you ads. A few services help us run CineHand; each only gets what it needs (listed below).</li>
     </ul>
   </div>
 
@@ -45,25 +46,38 @@
   <table>
     <tr><th>What</th><th>Why</th></tr>
     <tr><td><b>Account:</b> your Google account's email address and name (sign-in is with Google only)</td><td>To sign you in and keep your plan, videos and purchases with you.</td></tr>
-    <tr><td><b>Plan and usage:</b> your plan, videos used and left, top-ups, a history of video charges and refunds, and the AI videos you made</td><td>To provide the service, apply your plan and settle what you were charged.</td></tr>
+    <tr><td><b>Plan and usage:</b> your plan, videos used and left, top-ups, and a history of video charges and refunds</td><td>To provide the service, apply your plan and settle what you were charged.</td></tr>
     <tr><td><b>Payments:</b> what you bought and when, its payment id and status</td><td>To give you what you paid for. We never see or store your card number: Dodo Payments handles that.</td></tr>
-    <tr><td><b>Your own AI key</b> (only if you add one)</td><td>To make AI videos on your own Higgsfield account. Stored encrypted; we show back only its last 4 characters.</td></tr>
+    <tr><td><b>Your AI videos:</b> each video you make, the grey video of your camera move it is compared with, its first frame, and the look you described</td><td>So you can watch, check, download and delete them. Kept in your account, private to you.</td></tr>
+    <tr><td><b>Make video inputs:</b> the grey video of your move, its first frame, the look you describe, and (if you choose them) your product photo, your logo and the look of your set</td><td>Sent to Higgsfield only when you press Make video, to generate the video.</td></tr>
+    <tr><td><b>Your logo</b> (only if you add one to a video)</td><td>Kept with that video, to put it on your product in every frame (logo lock). Not sent to anyone.</td></tr>
+    <tr><td><b>Sets and takes</b> (paid plans)</td><td>Saved to your account so they follow you to another computer. On the Free plan they stay in your browser only.</td></tr>
     <tr><td><b>Set descriptions</b> you type, and <b>photos</b> you build a set from</td><td>Sent to Anthropic (Claude) to build the grey 3D set. Not used for anything else.</td></tr>
-    <tr><td><b>Your logo</b> (only if you add one to a video)</td><td>Kept on our server with that video, to put it on your product in every frame (logo lock). Not sent to anyone.</td></tr>
-    <tr><td><b>Make video inputs:</b> the grey reference video of your camera move, its first frame, your take's motion data and the look you describe</td><td>Only when you press Make video (with your product photo and logo, if you choose to keep your product exact): sent to Higgsfield to generate the video, and kept on our server with the result so you can see, check and download it.</td></tr>
+    <tr><td><b>How each video did:</b> the model and settings used, the kind of camera move, how closely the video followed it (numbers), whether it failed and why, and the look you described</td><td>To find where our video recipe fails and improve it. These are measurements about the video, not the video itself. Deleted when you delete your account.</td></tr>
+    <tr><td><b>Your own AI key</b> (only if you add one)</td><td>To make AI videos on your own Higgsfield account. Stored encrypted; we show back only its last 4 characters.</td></tr>
     <tr><td><b>Technical data:</b> IP address and basic request logs</td><td>To keep the service secure and working (for example, limiting how many accounts or sets one address makes per hour). Logs are kept for a short time by our host.</td></tr>
   </table>
-  <p><b>What stays on your device:</b> your sets, takes, sequences and exports are saved in your browser (IndexedDB) and are not uploaded unless you make an AI video from them. The phone's motion sensors are only used to move the virtual camera; the iPhone AR app uses the camera only to track movement, and the image is never shown, saved or sent.</p>
+  <p><b>What stays on your device:</b> on the Free plan your sets, takes, sequences and exports are saved in your browser (IndexedDB) and are not uploaded unless you make an AI video from them. Product photos, your logo and the look of a set are kept in your browser on every plan, and uploaded only with a video that uses them. The phone's motion sensors are only used to move the virtual camera; the iPhone AR app uses the camera only to track movement, and the image is never shown, saved or sent.</p>
+
+  <h2>Your content is yours</h2>
+  <ul>
+    <li><b>Private.</b> Your videos and everything they were made from can be opened only from your account. The app gives nobody else, us included, a way to browse another account's videos.</li>
+    <li><b>Not used for training.</b> We don't use your videos, photos, logos, sets or takes to train AI models, and we don't sell or share them for that.</li>
+    <li><b>Never shown publicly without you.</b> Examples on our site are our own, or shown with the maker's written permission.</li>
+    <li><b>When we would look.</b> We open a customer's content only to fix a problem that customer has asked us about, or when the law requires it.</li>
+    <li><b>The AI services.</b> Higgsfield (and the video model it runs) and Anthropic receive only what is listed above, and handle it under their own terms.</li>
+    <li><b>People in your pictures.</b> Only upload photos you have the right to use. If a product photo has people in it, crop them out first.</li>
+  </ul>
 
   <h2>Who helps us run CineHand</h2>
   <table>
     <tr><th>Service</th><th>What it does for us</th><th>What it receives</th></tr>
-    <tr><td>Render (USA)</td><td>Hosts the website and server</td><td>Requests, logs, Make video files</td></tr>
-    <tr><td>Supabase (USA)</td><td>Sign-in and the accounts database</td><td>Email, name, account and plan data</td></tr>
+    <tr><td>Render (USA)</td><td>Hosts the website and server</td><td>Requests, logs, and a video's files while it is being made (up to a week)</td></tr>
+    <tr><td>Supabase (USA)</td><td>Sign-in, the database and file storage</td><td>Email, name, account and plan data, your videos and their files, sets and takes on paid plans</td></tr>
     <tr><td>Google</td><td>"Continue with Google" sign-in</td><td>Your sign-in with Google, per Google's own policy</td></tr>
     <tr><td>Dodo Payments</td><td>Merchant of record: checkout, billing, tax, receipts</td><td>Your email, billing details and payment</td></tr>
-    <tr><td>Higgsfield (and the AI model it runs)</td><td>Generates AI videos</td><td>Make video inputs listed above</td></tr>
-    <tr><td>Anthropic</td><td>Builds sets from your description</td><td>The words you typed</td></tr>
+    <tr><td>Higgsfield (and the AI model it runs)</td><td>Generates AI videos and their first frames</td><td>Make video inputs listed above</td></tr>
+    <tr><td>Anthropic</td><td>Builds sets from your description or photo</td><td>The words you typed and the photo you chose</td></tr>
   </table>
   <p>These services process data on our behalf, some outside your country. We don't share your data with anyone else, except if the law requires it.</p>
 
@@ -71,16 +85,34 @@
   <p>One sign-in cookie (<code>hc_session</code>) keeps you signed in for up to 30 days. One device cookie (<code>hc_dev</code>, a random number, up to 2 years) and a scrambled form of your network address are kept with your account, only so the free trial videos are given once per device and network. Supabase keeps your sign-in session in your browser's storage. We also remember small preferences (like the frame you shoot in) on your device. No advertising or tracking cookies.</p>
 
   <h2>How long we keep things</h2>
-  <p>Your account and purchase history: while you have an account, and afterwards as long as tax and accounting rules require. AI videos and their inputs: while your account exists, or until you ask us to delete them. Takes in your browser: until you delete them or clear your browser's data.</p>
+  <table>
+    <tr><th>What</th><th>How long</th></tr>
+    <tr><td>Free trial videos</td><td>Deleted 14 days after they're made. If you choose a plan before then, they're kept like any other video. The studio shows the date on each video.</td></tr>
+    <tr><td>Videos on a paid plan or Lifetime</td><td>Kept while you have the plan. If the plan ends, they're deleted 30 days later.</td></tr>
+    <tr><td>Working files of a video (the measuring copy of your move, unused first frames)</td><td>One week. After that the video stays, but "another version" of it can no longer be made.</td></tr>
+    <tr><td>Sets and takes saved to your account (paid plans)</td><td>Until you delete them or your account.</td></tr>
+    <tr><td>Sets and takes in your browser</td><td>Until you delete them or clear your browser's data.</td></tr>
+    <tr><td>How each video did (measurements)</td><td>Until you delete your account.</td></tr>
+    <tr><td>Your account</td><td>Until you delete it.</td></tr>
+    <tr><td>Records of what you paid</td><td>As long as tax and accounting rules require, even after the account is deleted.</td></tr>
+  </table>
+  <p>Deleted means deleted: the files are removed from our storage and can't be brought back.</p>
 
   <h2>Your choices and rights</h2>
-  <p>You can ask us to show you, correct, export or delete your data, or to close your account, by emailing <a href="mailto:sushi@cinehand.com">sushi@cinehand.com</a>. We'll answer within 30 days. Deleting your account doesn't cancel a plan on its own: cancel it first (Account → Cancel plan) so you aren't billed again. Payment records may need to be kept for tax law.</p>
+  <p>In the studio, under <b>Account → Your data</b>, you can do these yourself, at once:</p>
+  <ul>
+    <li><b>Download my data:</b> a file with your account, plan, history of charges, purchases and the list of your videos.</li>
+    <li><b>Delete a video:</b> the ✕ next to it in Videos.</li>
+    <li><b>Delete all my videos.</b></li>
+    <li><b>Delete my account:</b> your videos, your saved sets and takes, your plan and videos left, your saved AI key and your sign-in. Cancel a running plan first (Account → Change plan → Cancel plan) so you aren't billed again.</li>
+  </ul>
+  <p>You can also ask us to show you, correct or delete anything by emailing <a href="mailto:sushi@cinehand.com">sushi@cinehand.com</a>. We'll answer within 30 days. Depending on where you live, you may have further rights under your local privacy law (for example the GDPR in Europe or the DPDP Act in India), including the right to complain to your data protection authority.</p>
 
   <h2>Children</h2>
   <p>CineHand isn't for children under 13 (or under 16 where the law requires). We don't knowingly collect their data.</p>
 
   <h2>Security</h2>
-  <p>Data is sent over HTTPS. We never see or store a password: you sign in with Google. Your own AI key is encrypted. The accounts database only accepts our server's secret key. No system is perfectly secure; if something goes wrong that affects you, we'll tell you.</p>
+  <p>Data is sent over HTTPS. We never see or store a password: you sign in with Google. Your own AI key is encrypted. The database and the file storage only accept our server's secret key: no browser can read them directly. Every video is checked against the account asking for it. No system is perfectly secure; if something goes wrong that affects you, we'll tell you.</p>
 
   <h2>Changes</h2>
   <p>If we change this policy in a way that matters, we'll update the date above and tell signed-in users in the app.</p>
