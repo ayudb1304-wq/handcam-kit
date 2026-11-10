@@ -134,7 +134,8 @@
     <div class="tabs" role="tablist" aria-label="Takes, export and make video">
       <button class="tab on" role="tab" data-tab="takes" aria-selected="true">Takes <span class="count" id="takeCount">0</span></button>
       <button class="tab" role="tab" data-tab="export" aria-selected="false">Export</button>
-      <button class="tab" role="tab" data-tab="make" aria-selected="false">Make video <span class="count accent" id="recipeStatus" hidden></span></button>
+      <button class="tab" role="tab" data-tab="make" aria-selected="false">Make <span class="count accent" id="recipeStatus" hidden></span></button>
+      <button class="tab" role="tab" data-tab="videos" aria-selected="false">Videos <span class="count" id="videoCount" hidden></span></button>
     </div>
 
     <section class="pane" data-pane="takes" data-tour="takes">
@@ -180,6 +181,11 @@
         <button class="btn primary lg" id="makeBtn" disabled>Make video</button>
       </div>
       <div id="makeJob" hidden></div>
+    </section>
+
+    <section class="pane" data-pane="videos" hidden>
+      <p class="hint" id="noVideos">Videos you make show up here.</p>
+      <ul class="videos" id="videos"></ul>
     </section>
   </aside>
 </main>

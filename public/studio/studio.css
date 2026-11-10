@@ -98,6 +98,18 @@ body { background: radial-gradient(1100px 520px at 50% -260px, #17130f 0%, #0909
 .take svg { grid-row: 1 / span 2; grid-column: 2; width: 92px; height: 34px; }
 .empty { flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
 .takes:empty { display: none; }
+/* Videos: everything this account has made, newest first */
+.videos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.videos:empty { display: none; }
+.vid { flex: none; display: grid; grid-template-columns: 54px 1fr auto; gap: 10px; align-items: center; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.015); cursor: pointer; transition: border-color .15s, background .15s; }
+.vid:hover { border-color: var(--line-2); background: rgba(255,255,255,.035); }
+.vid img, .vid .ph { width: 54px; height: 54px; border-radius: 8px; object-fit: cover; background: #000; display: block; }
+.vid b { display: block; font: 600 13px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vid span { display: block; font: 11.5px var(--mono); color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vid .state { font: 600 12px var(--mono); color: var(--fg-2); }
+.vid .state.ok { color: var(--ok); } .vid .state.warn { color: var(--warn); } .vid .state.bad { color: var(--rec); }
+/* a tab that wants attention: a video needs an OK, or has just finished */
+.tab.alert::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .take-bar { flex: none; display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
 .take-bar .note:empty { display: none; }
 .empty img { width: 92px; height: 92px; object-fit: contain; filter: drop-shadow(0 14px 20px rgba(0,0,0,.5)); animation: float 6s ease-in-out infinite; }

@@ -62,6 +62,13 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     writes.set(job.id, next.catch(() => {}));
     return next.then(() => job);
   }
+  let index = null; // job id → { userId (null: the founder's laptop), at: when it was made }; filled on first use
+  async function owners() {
+    if (index) return index;
+    const m = new Map();
+    for (const id of await readdir(dir).catch(() => [])) { const j = await load(id); if (j) m.set(id, { userId: j.userId ?? null, at: j.createdAt || '' }); }
+    return (index ??= m);
+  }
   /** Run one version's work when the queue lets it (higher plans first when busy). Own-key jobs don't wait for our slots. */
   function lane(job, fn) {
     if (!queue || job.byok) return fn();
@@ -94,6 +101,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     if (unit > 0) job.charge = { unit, reserved: 0, refunded: 0 };
     check(job);
     await mkdir(path(id), { recursive: true });
+    index?.set(id, { userId, at: job.createdAt });
     await writeFile(path(id, 'take.json'), JSON.stringify(take));
     await writeFile(path(id, 'scene.json'), JSON.stringify(scene));
     say(job, 'Job created');
@@ -303,8 +311,13 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
   return {
     create, load, save, look,
     path: (id, f) => path(id, f),
-    async list() {
-      const ids = (await readdir(dir).catch(() => [])).sort().reverse().slice(0, 50);
+    /**
+     * Jobs, newest first. `owner`: only that account's (undefined: everyone's, for the founder). Who owns which job is
+     * read once and remembered, so one account's list never depends on how many videos other people have made.
+     */
+    async list({ owner, limit = 60 } = {}) {
+      const all = await owners();
+      const ids = [...all.entries()].filter(([, o]) => owner === undefined || o.userId === owner).sort((a, b) => (a[1].at < b[1].at ? 1 : -1)).slice(0, limit).map(([id]) => id);
       return (await Promise.all(ids.map(load))).filter(Boolean);
     },
     /** All files are in: upload to the provider and make the start image. */
@@ -364,7 +377,7 @@ export function makeJobs({ dir, recipes, providers, score, pollMs = [2000, 10000
     },
     /** After a restart: carry on any job that was mid-way. Practice jobs can't resume (their fake requests are gone). */
     async resume() {
-      for (const job of await this.list()) {
+      for (const job of await this.list({ limit: Infinity })) {
         if (!['preparing', 'start_image', 'making', 'checking'].includes(job.status)) continue;
         const { recipe, provider } = ctx(job);
         if (!recipe || !provider || provider.name === 'mock') { await fail(job, new Error('interrupted by a restart')); continue; }

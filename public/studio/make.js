@@ -19,7 +19,63 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
   const latestFor = (takeId) => jobs.find((j) => j.take?.id === takeId && j.status !== 'canceled');
   async function loadJobs() {
     try { jobs = (await (await fetch('/api/make')).json()).jobs || []; } catch { jobs = []; }
-    onJobs();
+    onJobs(); renderVideos();
+  }
+
+  // ---- Videos: everything this account has made, newest first ----
+  const when = (iso) => { const d = new Date(iso), now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString([], { day: 'numeric', month: 'short' }); };
+  function renderVideos() {
+    const list = jobs.filter((j) => j.status !== 'canceled' && j.status !== 'uploading');
+    $('noVideos').hidden = list.length > 0;
+    $('videoCount').hidden = !list.length; $('videoCount').textContent = list.length;
+    $('videos').innerHTML = list.map((j) => {
+      const pic = j.startImages?.filter((x) => x.file).at(-1)?.file, best = j.candidates?.find((c) => c.n === j.best);
+      const [state, cls] = j.status === 'done' ? [best?.match != null ? `${best.match}%` : 'Ready', best?.verdict?.pass === false ? 'warn' : 'ok'] : j.status === 'failed' ? ['Failed', 'bad'] : j.status === 'needs_approval' ? ['Your OK', 'warn'] : ['Making…', ''];
+      return `<li class="vid" data-id="${j.id}" title="${esc(j.look)}">${pic ? `<img src="/api/make/${j.id}/media/${pic}" alt="" loading="lazy">` : '<span class="ph"></span>'}
+        <div class="grow"><b>${esc(j.look)}</b><span>${esc(j.recipe?.label || '')}${j.resolution ? ` · ${esc(j.resolution)}` : ''} · ${when(j.createdAt)}</span></div><span class="state ${cls}">${state}</span></li>`;
+    }).join('');
+    for (const li of $('videos').children) li.onclick = () => {
+      const j = jobs.find((x) => x.id === li.dataset.id);
+      if (!j) return;
+      if (j.status === 'done') openResult(j); else { show(j); showPane('make'); }
+    };
+  }
+
+  // ---- a sign that a video wants you: a dot on the Make tab, and the browser tab's title while you're elsewhere ----
+  const TITLE = document.title;
+  function attention(text) {
+    document.querySelector('[data-tab=make]')?.classList.toggle('alert', !!text && document.querySelector('[data-pane=make]')?.hidden !== false);
+    document.title = text && document.hidden ? `${text} · CineHand` : TITLE;
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) document.title = TITLE; });
+  document.querySelector('[data-tab=make]')?.addEventListener('click', () => attention(''));
+
+  /** Roughly how long the step a video is on still takes, from when that step began (the job's own log). */
+  function etaText(j) {
+    const total = { preparing: 20, start_image: 40, making: j.provider === 'mock' ? 10 : j.resolution === '1080p' ? 480 : 240, checking: 45 }[j.status];
+    const began = j.log?.findLast((l) => /^(Job created|Making start image|Making \d+ version|Making one more|Checking)/.test(l.msg))?.t;
+    if (!total || !began) return '';
+    const left = total - (Date.now() - new Date(began).getTime()) / 1000;
+    return left > 75 ? `about ${Math.round(left / 60)} min left` : left > 15 ? 'under a minute left' : 'almost there';
+  }
+  /** A failure in plain words: what happened and what to try. The founder also sees the raw error. */
+  function failText(j) {
+    const e = String(j.error || '');
+    const say = /content filter|nsfw|blocked/i.test(e) ? 'The AI’s content filter blocked it. Try other words for the look.'
+      : /restart/i.test(e) ? 'We restarted while this was being made. Start it again.'
+      : /key|40[13]|credential/i.test(e) ? (j.byok ? 'Your Higgsfield key was refused. Check it in your account, then try again.' : 'The AI service isn’t available right now. Try again in a few minutes.')
+      : /429|rate|busy|timeout|5\d\d/i.test(e) ? 'The AI service is busy. Try again in a few minutes.'
+      : /not uploaded|upload/i.test(e) ? 'Your move didn’t finish uploading. Check your connection and try again.'
+      : 'The AI couldn’t make this one. Try again; other words for the look can help.';
+    return `${esc(say)}${j.charge ? ' <b>Nothing was used.</b>' : ''}${cfg.admin && e ? `<br><span class="muted small">${esc(e)}</span>` : ''}`;
+  }
+  /** What a finished video used and what is left, in one line (never our AI cost, except for the founder). */
+  function billText(j) {
+    const b = j.billing;
+    if (!b || (j.provider === 'mock' && !j.charge)) return '';
+    const paid = j.charge ? b.charged * j.charge.unit : null, v = cfg.ent?.videos;
+    return `${j.byok ? 'Made on your own Higgsfield key' : paid != null ? `Used ${plural(paid)}${j.watermark ? ' (free trial: watermarked)' : ''}` : `Charged for ${b.charged} of ${plural(b.videos, 'version')}`}`
+      + `${b.free ? ` · ${plural(b.free, 'version')} free (under ${b.freeBelow}%)` : ''}${paid != null && v && !v.unlimited ? ` · ${v.total} left` : ''}${b.apiUsd != null ? ` · AI cost ≈ ${usd(b.apiUsd)}` : ''}`;
   }
   function showForm() { clearTimeout(timer); job = null; box.hidden = true; form.hidden = false; costLine(); }
 
@@ -267,6 +323,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     const take = getTake();
     const last = take ? latestFor(take.id) : jobs[0]; // carry on after a page reload
     if (last && (take || ACTIVE.has(last.status) || last.status === 'needs_approval')) show(last);
+    if (last && (ACTIVE.has(last.status) || last.status === 'needs_approval')) showPane('make');
   }).catch(() => { blocked = 'Make video is unavailable'; costLine(); });
   /** Sign in (or top up) and carry on: used when the server says 401 / 402. */
   async function needAccount(out) {
@@ -393,7 +450,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     let html = `<h3 style="margin:0 0 10px">${j.status === 'failed' ? 'Something went wrong' : j.status === 'done' ? 'Your video is ready' : j.status === 'needs_approval' ? 'First frame ready' : 'Making your video'}</h3><ul class="timeline-steps">`;
     STEPS.forEach(([label], i) => {
       const cls = j.status === 'failed' ? (i < at ? 'done' : '') : i < at || j.status === 'done' ? 'done' : i === at ? 'now' : '';
-      const extra = i === 3 && (j.status === 'making' || made) ? `${made}/${Math.max(j.candidates.length, 1)}` : '';
+      const extra = cls !== 'now' ? '' : [i === 3 && j.candidates.length > 1 ? `${made}/${j.candidates.length}` : '', etaText(j)].filter(Boolean).join(' · ');
       html += `<li class="${cls}"><span class="ic">${cls === 'now' ? '<span class="spinner"></span>' : ''}</span>${label}<span class="when">${extra}</span></li>`;
     });
     html += '</ul>';
@@ -410,9 +467,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
       const best = j.candidates.find((c) => c.n === j.best);
       const ring = ringHtml(j, best);
       const b = j.billing;
-      const paidUnits = j.charge ? b?.charged * j.charge.unit : null;
-      const billLine = b && (j.provider !== 'mock' || j.charge)
-        ? `<p class="note" style="margin:10px 0 0">${j.byok ? 'Made on your own Higgsfield key' : paidUnits != null ? `Used ${paidUnits} video${paidUnits === 1 ? '' : 's'}${j.watermark ? ' (free trial: watermarked)' : ''}` : `Charged for ${b.charged} of ${b.videos} version${b.videos > 1 ? 's' : ''}`}${b.free ? ` · ${b.free} version${b.free > 1 ? 's' : ''} free (under ${b.freeBelow}% move match)` : ''}${b.apiUsd != null ? ` · AI cost ≈ ${usd(b.apiUsd)}` : ''}</p>` : '';
+      const billLine = billText(j) ? `<p class="note" style="margin:10px 0 0">${billText(j)}</p>` : '';
       const retry = b?.tryAgain
         ? `<div class="warn-box" style="margin:12px 0 0"><b>It didn’t follow your move</b> (under ${b.freeBelow}%), so it isn’t charged.
             <div style="margin-top:8px"><button class="btn primary sm" data-act="again">Try again</button></div></div>` : '';
@@ -422,7 +477,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
         ${retry}<div class="actions" style="margin-top:12px"><button class="btn ${b?.tryAgain ? 'ghost' : 'primary'}" data-act="open">Open result</button><button class="btn ghost" data-act="new">New video</button></div>${billLine}`;
     }
     if (j.status === 'failed') {
-      html += `<p class="warn-box" style="margin:10px 0 0">${esc(j.error)}</p><button class="btn ghost" data-act="new" style="margin-top:10px">Start over</button>`;
+      html += `<p class="warn-box" style="margin:10px 0 0">${failText(j)}</p><button class="btn primary" data-act="new" style="margin-top:10px">Try again</button>`;
     }
     box.innerHTML = html;
     box.querySelector('[data-act=approve]')?.addEventListener('click', (e) => approve(j, Number(e.target.dataset.n), Number($('approveVersions')?.value)));
@@ -436,7 +491,9 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     if (i >= 0) jobs[i] = j; else { jobs.unshift(j); onJobs(); }
     if (j.status === 'done' && was && was !== 'done') { onDone(); onJobs(); openResult(j); }
     if (j.status === 'needs_approval' && was && was !== 'needs_approval') openFrame(j); // the first frame is in: show it large
+    renderVideos();
     if (was && j.status !== was && ['needs_approval', 'done', 'failed'].includes(j.status)) showPane('make'); // it needs you, or it's finished
+    if (was && j.status !== was) attention(j.status === 'needs_approval' ? 'Your OK needed' : j.status === 'done' ? 'Video ready' : j.status === 'failed' ? 'Video failed' : '');
     poll();
   }
 
@@ -447,7 +504,7 @@ export function setupMake({ getTake, takeScene, toast, getView = () => null, onD
     const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
     m.innerHTML = `<div class="card modal-card">
       <div class="modal-head">${ringHtml(j, c, 76)}<div class="grow"><span class="eyebrow">Version ${c.n} of ${j.candidates.filter((x) => x.file).length}${n === j.best ? ' · kept' : ''}</span>
-        <h2 id="resultTitle">${esc(titleText(j, c))}</h2><p class="muted" style="margin:6px 0 0">${esc(verdictText(j, c))}</p></div>
+        <h2 id="resultTitle">${esc(titleText(j, c))}</h2><p class="muted" style="margin:6px 0 0">${esc(verdictText(j, c))}</p>${billText(j) ? `<p class="note" style="margin:4px 0 0">${billText(j)}</p>` : ''}</div>
         <button class="btn quiet icon" data-act="close" aria-label="Close">✕</button></div>
       <div class="compare">
         <figure><video id="rv0" src="/api/make/${j.id}/media/reference.mp4" muted loop playsinline></video><figcaption><span class="eyebrow">Your move</span><span class="badge">grey reference</span></figcaption></figure>

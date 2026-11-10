@@ -144,7 +144,7 @@ export function makeRoutes({ jobs, recipes, ready, accounts, pricing, realAiForC
   });
 
   r.get('/', async (req, res) => {
-    const list = (await jobs.list()).filter((j) => owns(req.who, j));
+    const list = (await jobs.list({ owner: req.who.admin ? undefined : req.who.user.id })).filter((j) => owns(req.who, j) && j.status !== 'canceled');
     res.json({ jobs: await Promise.all(list.map((j) => withLocks(j, req.who))) });
   });
 

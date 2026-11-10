@@ -407,3 +407,16 @@ test('cancel: only while the first frame waits for an OK; nothing is taken, and 
     assert.equal((await jobs.cancel(job.id)).status, 'canceled');
   } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });
+
+test('a person’s videos are theirs however many others have made: the list is by owner, not the newest 50 of everyone', async () => {
+  const { dir, jobs } = await practiceJob({ scores: [good], versions: 1 });
+  try {
+    const scene = await loadTemplate('parking-lot');
+    const mine = await jobs.create({ take, scene, look: 'my old video', recipeId: 'practice', userId: 'me' });
+    for (let i = 0; i < 4; i++) await jobs.create({ take, scene, look: `someone else ${i}`, recipeId: 'practice', userId: 'them' });
+    assert.deepEqual((await jobs.list({ owner: 'me' })).map((j) => j.id), [mine.id]);
+    assert.equal((await jobs.list({ owner: 'them', limit: 2 })).length, 2);
+    assert.equal((await jobs.list()).length, 6, 'the founder sees everything (5 here + the helper’s own)');
+    assert.equal((await jobs.list({ owner: 'nobody' })).length, 0);
+  } finally { await rm(dir, { recursive: true, force: true, maxRetries: 5 }); }
+});
